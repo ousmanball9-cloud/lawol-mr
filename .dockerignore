@@ -1,0 +1,16 @@
+# Ne pas copier dans l'image Docker
+node_modules/
+.next/
+.venv/
+__pycache__/
+*.pyc
+.git/
+.tools/
+apps/web/
+docs/
+infra/
+*.log
+.env
+.env.example
+cloudflared*.log
+ngrok*.log
