@@ -1,0 +1,28 @@
+# Secrets — jamais commités
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+pip-audit-*
+
+# Divers
+.DS_Store
+Thumbs.db
+*.log
+
+# Outils locaux (non commités)
+tools/
+apps/api/_tmp_beta.py
+cloudflared*.log
+ngrok*.log
