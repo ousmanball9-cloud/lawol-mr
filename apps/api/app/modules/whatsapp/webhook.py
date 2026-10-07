@@ -9,6 +9,9 @@ from apps.api.app.modules.whatsapp.security import verifier_signature
 
 router = APIRouter()
 
+# Stockage en mémoire des derniers messages reçus (debug)
+_derniers_messages: list[dict] = []
+
 
 @router.get("/api/v1/whatsapp/webhook")
 async def verifier_webhook(
@@ -36,7 +39,16 @@ async def recevoir_message(request: Request):
         raise HTTPException(403, "Signature invalide")
 
     data = await request.json()
-    # TODO : parser le message, détecter si c'est une offre (entreprise) ou une demande (étudiant)
-    # Pour l'instant : log uniquement
+    # Stocker pour debug (max 10)
+    _derniers_messages.append({"data": data, "signature": signature})
+    if len(_derniers_messages) > 10:
+        _derniers_messages.pop(0)
+
     print(f"📩 Message reçu : {str(data)[:200]}")
     return {"status": "ok"}
+
+
+@router.get("/api/v1/whatsapp/messages")
+async def lister_messages():
+    """Debug : liste les derniers messages reçus par le webhook."""
+    return {"total": len(_derniers_messages), "messages": _derniers_messages}
