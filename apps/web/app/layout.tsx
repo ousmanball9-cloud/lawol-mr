@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { themeColor: [{ media: "(prefers-color-scheme: light)", color: "white" }, { media: "(prefers-color-scheme: dark)", color: "#0f172a" }], width: "device-width", initialScale: 1, maximumScale: 5 }
 
 // Facebook SDK — App ID à remplacer par celui de ton app Meta
-const FACEBOOK_APP_ID = "TON_APP_ID_META";
+const FACEBOOK_APP_ID =1353421643376980;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
