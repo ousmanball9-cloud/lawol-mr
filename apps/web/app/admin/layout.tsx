@@ -5,8 +5,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const cookieStore = await cookies();
   const auth = cookieStore.get("lawol_admin");
 
-  if (!auth || auth.value !== "authenticated") {
-    redirect("/admin/login");
+  // Éviter la boucle de redirection sur la page login elle-même
+  if ((!auth || auth.value !== "authenticated") && !children?.toString().includes("AdminLoginPage")) {
+    redirect("/admin-login");
   }
 
   return (
