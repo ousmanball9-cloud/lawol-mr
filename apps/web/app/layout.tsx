@@ -12,6 +12,38 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: "LAWOL.mr — Ton stage, sans le stress", description: "Reçois uniquement les offres qui matchent ton profil, directement sur WhatsApp." },
 }
 export const viewport: Viewport = { themeColor: [{ media: "(prefers-color-scheme: light)", color: "white" }, { media: "(prefers-color-scheme: dark)", color: "#0f172a" }], width: "device-width", initialScale: 1, maximumScale: 5 }
+
+// Facebook SDK — App ID à remplacer par celui de ton app Meta
+const FACEBOOK_APP_ID = "TON_APP_ID_META";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="fr" suppressHydrationWarning><body className={`${inter.variable} font-sans antialiased`}>{children}</body></html>
+  return (
+    <html lang="fr" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.fbAsyncInit = function() {
+                FB.init({
+                  appId      : '${FACEBOOK_APP_ID}',
+                  cookie     : true,
+                  xfbml      : true,
+                  version    : 'v21.0'
+                });
+                FB.AppEvents.logPageView();
+              };
+              (function(d, s, id){
+                var js, fjs = d.getElementsByTagName(s)[0];
+                if (d.getElementById(id)) {return;}
+                js = d.createElement(s); js.id = id;
+                js.src = "https://connect.facebook.net/en_US/sdk.js";
+                fjs.parentNode.insertBefore(js, fjs);
+              }(document, 'script', 'facebook-jssdk'));
+            `,
+          }}
+        />
+      </head>
+      <body className={`${inter.variable} font-sans antialiased`}>{children}</body>
+    </html>
+  );
 }
