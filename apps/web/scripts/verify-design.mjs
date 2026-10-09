@@ -7,11 +7,13 @@
  *          4) matrice de rendu réel (navigateur headless via CDP, sans dépendance)
  *          5) synthèse + code retour (0 = tout vert).
  *
- * Matrice : 8 pages × 3 viewports (mobile 375 / tablette 768 / desktop 1440) = 24 cas.
+ * Matrice : 10 pages × 3 viewports (mobile 375 / tablette 768 / desktop 1440) = 30 cas.
  * Par cas : débordement horizontal, erreur console, probe de contenu, capture PNG
  * dans apps/web/.verify/ pour contrôle visuel.
  * Les pages /profil utilisent l'interception CDP : le VRAI chemin (fetch de la page)
- * avec backend simulé, pour couvrir l'état « profil chargé » sans toucher au code applicatif.
+ * avec backend simulé (profils, matches, dashboard, historique, PATCH favori 503 +
+ * PATCH statut 200 pour éprouver la dégradation propre P5), pour couvrir l'état
+ * « profil chargé » sans toucher au code applicatif.
  */
 import { spawn, spawnSync } from "node:child_process";
 import { mkdir, writeFile, rm } from "node:fs/promises";
@@ -61,6 +63,22 @@ const PROFILE = {
   niveau: "M2",
   ville: "nouakchott",
   types_recherches: ["stage_pfe", "emploi_junior", "bourse"],
+  // P5 : préférences avancées (le backend les expose « si présent » —
+  // le mock simule le cas préchargé pour éprouver le remplissage Paramètres)
+  metadata: {
+    prefs_avancees: { villes_exclues: ["rosso"], types_masques: ["bourse"], seuil_pertinence: 60 },
+  },
+};
+
+/** GET /api/v1/dashboard/{tel} (P5) : résumé hebdo + marché des postes + score. */
+const DASHBOARD_MOCK = {
+  profil: { id: "p1", nom: "Ould Ahmed", prenom: "Fatimetou", score_profil: 62 },
+  resume: { offres_dispo: 12, nouvelles_7j: 4, postules_total: 3, en_cours: 1 },
+  postes_annee: [
+    { poste: "développeur", count: 14 },
+    { poste: "data analyst", count: 9 },
+    { poste: "community manager", count: 5 },
+  ],
 };
 
 /** Champs enrichis du backend (vue détail) : un cas par canal de candidature + un sans canal. */
@@ -97,6 +115,19 @@ const OFFRES_MOCK = [
       "Mission encadrée en entreprise, missions concrètes dès la première semaine et possibilité d'embauche à l'issue du stage.",
   },
 })).map((m) => ({ ...m, offre: { ...m.offre, ...(OFFRES_EXTRAS[m.id] ?? {}) } }));
+
+/** P5 : enrichissements match (favori/statut/date_match — champs de /historique). */
+const MATCH_ENRICHIS = {
+  m1: { favori: true, statut_candidature: null, date_match: "2026-10-05" },
+  m2: { favori: false, statut_candidature: "entretien", date_match: "2026-10-02" },
+  m3: { favori: false, statut_candidature: null, date_match: "2026-09-28" },
+  m4: { favori: true, statut_candidature: null, date_match: "2026-09-21" },
+  m5: { favori: false, statut_candidature: null, date_match: "2026-09-14" },
+};
+const OFFRES_ENRICHIES = OFFRES_MOCK.map((m) => ({
+  ...m,
+  ...(MATCH_ENRICHIS[m.id] ?? {}),
+}));
 
 const PAGES = [
   {
@@ -225,6 +256,96 @@ const PAGES = [
       titre: document.querySelector("h1")?.textContent ?? "",
     })`,
     expect: (r) => r.champTel && r.blocGerant && r.lienInscription && r.titre.includes("Connexion"),
+  },
+  {
+    // P5 : accueil enrichi (bandeau hebdo + marché des postes + score + ★ + statut).
+    // L'action éprouve le DEUX cas critiques : PATCH statut 200 (optimiste tenu)
+    // puis PATCH favori 503 (révert propre + alerte 3 s, jamais de crash).
+    id: "accueil",
+    route: "/profil/2221234567",
+    mock: true,
+    // Le 503 du PATCH favori EST le scénario (migration 002_p5 non appliquée) :
+    // son journal réseau n'est pas une régression — le probe vérifie la rétrograde.
+    ignoreConsole: [/Failed to load resource.*status of 503.*\/favori/],
+    action: `(() => {
+      const sel = document.querySelector('[data-probe="statut"]');
+      if (sel) {
+        sel.value = "entretien";
+        sel.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      return new Promise((resolve) =>
+        setTimeout(() => {
+          document.querySelector('[data-probe="favori"]')?.click();
+          setTimeout(resolve, 300);
+        }, 400)
+      );
+    })()`,
+    probe: `({
+      bandeau: document.querySelectorAll('[data-probe="resume-carte"]').length,
+      resumeTexte: document.querySelector('[data-probe="bandeau"]')?.textContent ?? "",
+      postes: document.querySelectorAll('[data-probe="poste"]').length,
+      postesTexte: [...document.querySelectorAll('[data-probe="poste"]')].map((n) => n.textContent.trim()).join(" | "),
+      score: document.querySelector('[data-probe="score-valeur"]')?.textContent?.trim() ?? "",
+      scoreLien: !!document.querySelector('[data-probe="score-lien"]'),
+      etoiles: document.querySelectorAll('[data-probe="favori"]').length,
+      etoileActive: document.querySelector('[data-probe="favori"][data-actif="true"]') !== null,
+      statut: document.querySelector('[data-probe="statut"]')?.value ?? "",
+      onglets: document.querySelectorAll('[data-probe="onglet"]').length,
+      alerte: document.querySelector('[data-probe="alerte"]')?.textContent?.trim() ?? "",
+      parametres: !!document.querySelector('a[href="/profil/2221234567/parametres"]'),
+      cartes: document.querySelectorAll(".group").length,
+    })`,
+    expect: (r) =>
+      r.bandeau === 3 &&
+      r.resumeTexte.includes("À postuler") &&
+      r.resumeTexte.includes("12") &&
+      r.resumeTexte.includes("Nouvelles (7 jours)") &&
+      r.postes === 3 &&
+      r.postesTexte.includes("développeur — 14 offres") &&
+      r.score === "62 %" &&
+      r.scoreLien &&
+      r.etoiles === 5 &&
+      r.etoileActive && // 503 favori : retour à l'état initial (true) — pas de crash
+      r.statut === "entretien" && // PATCH statut 200 : état optimiste conservé
+      r.onglets === 2 &&
+      r.alerte.includes("Favoris en cours d") &&
+      r.parametres &&
+      r.cartes === 5,
+  },
+  {
+    // P5 : page Paramètres (préférences préchargées + parrainage + désinscription)
+    id: "parametres",
+    route: "/profil/2221234567/parametres",
+    mock: true,
+    probe: `({
+      titre: document.querySelector("h1")?.textContent?.trim() ?? "",
+      edit: !!document.querySelector('a[href="/profil/2221234567/edit"]'),
+      form: !!document.querySelector('[data-probe="prefs-form"]'),
+      villes: document.querySelectorAll('[data-probe="pref-ville"]').length,
+      types: document.querySelectorAll('[data-probe="pref-type"]').length,
+      seuil: document.querySelector('[data-probe="pref-seuil"]')?.value ?? "",
+      villePreferee: document.querySelector('[data-probe="pref-ville"][data-cle="rosso"]')?.checked ?? false,
+      typePrefere: document.querySelector('[data-probe="pref-type"][data-cle="bourse"]')?.checked ?? false,
+      parrainage: !!document.querySelector('a[href*="wa.me"]'),
+      copier: !!document.querySelector('[data-probe="copier-lien"]'),
+      liens: ["conditions", "confidentialite", "mentions", "contact"].every((p) =>
+        document.querySelector(\`a[href^="/\${p}"]\`)
+      ),
+      desinscription: document.querySelector('[data-probe="desinscription"]')?.textContent?.includes("Se désinscrire") ?? false,
+    })`,
+    expect: (r) =>
+      r.titre.includes("Paramètres") &&
+      r.edit &&
+      r.form &&
+      r.villes === 6 &&
+      r.types === 5 &&
+      r.seuil === "60" &&
+      r.villePreferee &&
+      r.typePrefere &&
+      r.parrainage &&
+      r.copier &&
+      r.liens &&
+      r.desinscription,
   },
 ];
 
@@ -465,7 +586,22 @@ async function runMatrix() {
             return;
           }
           const url = request.url;
-          if (request.method === "GET" && url.includes("/api/v1/profils/")) {
+          if (request.method === "GET" && url.includes("/api/v1/dashboard/")) {
+            await cdp.send("Fetch.fulfillRequest", {
+              requestId,
+              responseCode: 200,
+              responseHeaders: [{ name: "Content-Type", value: "application/json" }],
+              body: Buffer.from(JSON.stringify(DASHBOARD_MOCK)).toString("base64"),
+            });
+          } else if (request.method === "GET" && url.includes("/historique")) {
+            // Avant le test /profils/ : l'historique EST une URL /profils/...
+            await cdp.send("Fetch.fulfillRequest", {
+              requestId,
+              responseCode: 200,
+              responseHeaders: [{ name: "Content-Type", value: "application/json" }],
+              body: Buffer.from(JSON.stringify(OFFRES_ENRICHIES)).toString("base64"),
+            });
+          } else if (request.method === "GET" && url.includes("/api/v1/profils/")) {
             await cdp.send("Fetch.fulfillRequest", {
               requestId,
               responseCode: 200,
@@ -477,7 +613,25 @@ async function runMatrix() {
               requestId,
               responseCode: 200,
               responseHeaders: [{ name: "Content-Type", value: "application/json" }],
-              body: Buffer.from(JSON.stringify(OFFRES_MOCK)).toString("base64"),
+              body: Buffer.from(JSON.stringify(OFFRES_ENRICHIES)).toString("base64"),
+            });
+          } else if (request.method === "PATCH" && url.includes("/favori")) {
+            // Migration 002_p5.sql non appliquée : 503 attendu, la page doit
+            // rétrograder proprement (aucun crash, état initial restauré).
+            await cdp.send("Fetch.fulfillRequest", {
+              requestId,
+              responseCode: 503,
+              responseHeaders: [{ name: "Content-Type", value: "application/json" }],
+              body: Buffer.from(
+                JSON.stringify({ detail: "Favoris en cours d'activation, réessaie plus tard" })
+              ).toString("base64"),
+            });
+          } else if (request.method === "PATCH" && url.includes("/statut")) {
+            await cdp.send("Fetch.fulfillRequest", {
+              requestId,
+              responseCode: 200,
+              responseHeaders: [{ name: "Content-Type", value: "application/json" }],
+              body: Buffer.from(JSON.stringify({ ok: true })).toString("base64"),
             });
           } else {
             await cdp.send("Fetch.continueRequest", { requestId });

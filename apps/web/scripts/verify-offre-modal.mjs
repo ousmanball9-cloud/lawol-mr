@@ -51,6 +51,13 @@ const PROFILE = {
   types_recherches: ["stage_pfe"],
 };
 
+/** Bandeau P5 minimal (mock local : la page profil le fetch aussi). */
+const DASHBOARD_MOCK = {
+  profil: { id: "p1", nom: "Ould Ahmed", prenom: "Fatimetou", score_profil: 80 },
+  resume: { offres_dispo: 2, nouvelles_7j: 1, postules_total: 1, en_cours: 1 },
+  postes_annee: [{ poste: "développeur", count: 3 }],
+};
+
 const DESCRIPTION_LONGUE =
   "Mission encadrée en entreprise sur la durée du semestre. Vous participerez à " +
   "l'analyse du trafic réseau, à la production de tableaux de bord et à la " +
@@ -369,7 +376,20 @@ async function main() {
       const { requestId, request } = msg.params;
       (async () => {
         const url = request.url;
-        if (request.method === "GET" && url.includes("/api/v1/profils/")) {
+        if (request.method === "GET" && url.includes("/api/v1/dashboard/")) {
+          // P5 : la page profil charge aussi le bandeau → mock local, 0 réseau
+          await cdp.send("Fetch.fulfillRequest", {
+            requestId, responseCode: 200,
+            responseHeaders: [{ name: "Content-Type", value: "application/json" }],
+            body: Buffer.from(JSON.stringify(DASHBOARD_MOCK)).toString("base64"),
+          });
+        } else if (request.method === "GET" && url.includes("/historique")) {
+          await cdp.send("Fetch.fulfillRequest", {
+            requestId, responseCode: 200,
+            responseHeaders: [{ name: "Content-Type", value: "application/json" }],
+            body: Buffer.from(JSON.stringify(OFFRES_MOCK)).toString("base64"),
+          });
+        } else if (request.method === "GET" && url.includes("/api/v1/profils/")) {
           await cdp.send("Fetch.fulfillRequest", {
             requestId, responseCode: 200,
             responseHeaders: [{ name: "Content-Type", value: "application/json" }],

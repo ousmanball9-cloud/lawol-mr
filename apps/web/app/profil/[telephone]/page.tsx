@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import {
   Pencil,
   UserMinus,
   Share2,
+  Settings,
+  Star,
 } from "lucide-react";
 import {
   OffreDetailModal,
@@ -38,6 +40,27 @@ type Match = {
   id: string;
   postule: boolean;
   offre: Offre;
+  // P5 : enrichissements (depuis /profils/{tel}/historique, silence si 503)
+  favori?: boolean;
+  statut_candidature?: string | null;
+  date_match?: string;
+};
+
+/** GET /api/v1/dashboard/{tel} (P5) — bandeau résumé + marché des postes + score. */
+type Dashboard = {
+  profil: { id: string; nom: string; prenom: string; score_profil: number };
+  resume: { offres_dispo: number; nouvelles_7j: number; postules_total: number; en_cours?: number };
+  postes_annee: { poste: string; count: number }[];
+};
+
+/** Libellés des statuts de candidature (valeurs enum backend StatutCandidature). */
+const STATUTS: Record<string, string> = {
+  postule: "Postulé",
+  en_cours: "En cours",
+  reponse_recue: "Réponse reçue",
+  entretien: "Entretien",
+  accepte: "Accepté",
+  refuse: "Refusé",
 };
 
 export default function ProfilPage() {
@@ -56,6 +79,24 @@ export default function ProfilPage() {
   const [desinscrit, setDesinscrit] = useState(false);
   // Id du match ouvert dans la modale détail (null = fermée)
   const [offreOuverte, setOffreOuverte] = useState<string | null>(null);
+  // P5 : tableau de bord client (null = bandeau masqué silencieusement)
+  const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  // P5 : historique enrichi (favori/statut/date_match) — sert aussi d'onglet
+  const [historique, setHistorique] = useState<Match[]>([]);
+  const [onglet, setOnglet] = useState<"offres" | "historique">("offres");
+  // Alerte éphémère 3 s (503 favoris/statut : dégradation propre, jamais de crash)
+  const [alerte, setAlerte] = useState("");
+  const minuterieAlerte = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const afficherAlerte = useCallback((texte: string) => {
+    setAlerte(texte);
+    if (minuterieAlerte.current) clearTimeout(minuterieAlerte.current);
+    minuterieAlerte.current = setTimeout(() => setAlerte(""), 3000);
+  }, []);
+
+  useEffect(() => () => {
+    if (minuterieAlerte.current) clearTimeout(minuterieAlerte.current);
+  }, []);
 
   const charger = useCallback(async () => {
     try {
@@ -66,10 +107,11 @@ export default function ProfilPage() {
       setProfil(p);
 
       // Charger les offres matchées
+      let liste: Match[] = [];
       const resOffres = await fetch(`/api/v1/matches?profil_id=${p.id}`);
       if (resOffres.ok) {
         const data = await resOffres.json();
-        const liste: Match[] = data
+        liste = data
           .filter((m: { offre?: Offre }) => m.offre)
           .map((m: { id: string; postule?: boolean; offre: Offre }) => ({
             id: m.id,
@@ -77,6 +119,47 @@ export default function ProfilPage() {
             offre: m.offre,
           }));
         setMatches(liste);
+      }
+
+      // P5 (silencieux) : historique enrichi → fusionne favori/statut/date_match
+      // par id de match. Échec = liste inchangée, la page reste utilisable.
+      try {
+        const resHist = await fetch(`/api/v1/profils/${telephone}/historique`);
+        if (resHist.ok) {
+          const rows: Match[] = await resHist.json();
+          const parId = new Map(
+            rows.filter((m) => m.offre).map((m) => [m.id, m])
+          );
+          setHistorique(rows.filter((m) => m.offre));
+          if (liste.length > 0) {
+            setMatches(
+              liste.map((m) => {
+                const enrichi = parId.get(m.id);
+                return enrichi
+                  ? {
+                      ...m,
+                      favori: !!enrichi.favori,
+                      statut_candidature: enrichi.statut_candidature ?? null,
+                      date_match: enrichi.date_match,
+                    }
+                  : m;
+              })
+            );
+          }
+        }
+      } catch {
+        /* favoris/statuts indisponibles : on continue sans eux */
+      }
+
+      // P5 (silencieux) : bandeau résumé hebdo + score de profil
+      try {
+        const resDash = await fetch(`/api/v1/dashboard/${telephone}`);
+        if (resDash.ok) {
+          const d: Dashboard = await resDash.json();
+          setDashboard(d);
+        }
+      } catch {
+        /* bandeau masqué silencieusement */
       }
     } catch {
       setError("Erreur de chargement du profil");
@@ -131,6 +214,49 @@ export default function ProfilPage() {
   function handlePartager(offre: Offre) {
     const texte = `Offre repérée sur LAWOL.mr : ${offre.titre} — ${offre.entreprise} (${offre.ville}), candidature avant le ${offre.date_limite}.`;
     window.open(`https://wa.me/?text=${encodeURIComponent(texte)}`, "_blank", "noopener,noreferrer");
+  }
+
+  // P5 : favori (☆) — état optimiste, retour arrière propre sur 503/erreur
+  async function handleFavori(match: Match) {
+    const avant = !!match.favori;
+    setMatches((prev) =>
+      prev.map((m) => (m.id === match.id ? { ...m, favori: !avant } : m))
+    );
+    try {
+      const res = await fetch(`/api/v1/matches/${match.id}/favori`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ favori: !avant }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setMatches((prev) =>
+        prev.map((m) => (m.id === match.id ? { ...m, favori: avant } : m))
+      );
+      afficherAlerte("Favoris en cours d'activation — réessaie plus tard.");
+    }
+  }
+
+  // P5 : statut de candidature (offres postulées) — même garde 503
+  async function handleStatut(match: Match, statut: string) {
+    const avant = match.statut_candidature ?? null;
+    const valeur = statut || null;
+    setMatches((prev) =>
+      prev.map((m) => (m.id === match.id ? { ...m, statut_candidature: valeur } : m))
+    );
+    try {
+      const res = await fetch(`/api/v1/matches/${match.id}/statut`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statut: valeur }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setMatches((prev) =>
+        prev.map((m) => (m.id === match.id ? { ...m, statut_candidature: avant } : m))
+      );
+      afficherAlerte("Statut en cours d'activation — réessaie plus tard.");
+    }
   }
 
   async function handleActualiser() {
@@ -251,6 +377,12 @@ export default function ProfilPage() {
                 Modifier mon profil
               </Button>
             </Link>
+            <Link href={`/profil/${telephone}/parametres`}>
+              <Button variant="outline" size="sm" className="rounded-lg border-border transition-colors duration-150 hover:border-signature hover:text-signature">
+                <Settings className="h-4 w-4 mr-2" />
+                Paramètres
+              </Button>
+            </Link>
             <Button
               variant="outline"
               size="sm"
@@ -276,15 +408,165 @@ export default function ProfilPage() {
           )}
         </div>
 
+        {/* Alerte éphémère 3 s (503 favoris/statut) : dégradation propre, jamais de crash */}
+        {alerte && (
+          <div
+            data-probe="alerte"
+            role="status"
+            className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900"
+          >
+            {alerte}
+          </div>
+        )}
+
+        {/* P5 : résumé hebdo + score de profil + marché des postes.
+            En cas d'erreur API : section masquée silencieusement, la page reste utilisable. */}
+        {dashboard && (
+          <div className="mb-6 space-y-4">
+            {/* Résumé de la semaine : 3 cartes */}
+            <div data-probe="bandeau" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {[
+                { cle: "dispo", libelle: "À postuler", valeur: dashboard.resume.offres_dispo },
+                { cle: "nouvelles", libelle: "Nouvelles (7 jours)", valeur: dashboard.resume.nouvelles_7j },
+                { cle: "postules", libelle: "Postulées", valeur: dashboard.resume.postules_total },
+              ].map((carte) => (
+                <div
+                  key={carte.cle}
+                  data-probe="resume-carte"
+                  className="rounded-lg border border-border bg-card px-4 py-3 shadow-[0_1px_3px_rgba(10,10,10,0.04)]"
+                >
+                  <span className="block text-xs text-muted-foreground">{carte.libelle}</span>
+                  <span className="font-display text-2xl font-bold tracking-[-0.02em] text-foreground">
+                    {carte.valeur}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Score de profil : jauge horizontale */}
+            <div className="rounded-lg border border-border bg-card p-4 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span className="font-medium text-foreground">
+                  Profil complété à{" "}
+                  <span data-probe="score-valeur">{dashboard.profil.score_profil} %</span>
+                </span>
+                {dashboard.profil.score_profil < 100 && (
+                  <Link
+                    data-probe="score-lien"
+                    href={`/profil/${telephone}/edit`}
+                    className="font-medium text-signature transition-colors duration-150 hover:text-signature-deep"
+                  >
+                    Compléter mon profil
+                  </Link>
+                )}
+              </div>
+              <div
+                role="progressbar"
+                aria-valuenow={dashboard.profil.score_profil}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Profil complété"
+                className="h-2 w-full overflow-hidden rounded-full bg-muted"
+              >
+                <div
+                  className="h-full rounded-full bg-signature transition-all duration-500"
+                  style={{ width: `${dashboard.profil.score_profil}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Marché des postes — cette année (bloc vidé si tableau vide) */}
+            {dashboard.postes_annee.length > 0 && (
+              <div className="rounded-lg border border-border bg-card p-4 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+                <h2 className="mb-2 text-sm font-semibold text-foreground">
+                  Marché des postes — cette année
+                </h2>
+                <ul className="flex flex-wrap gap-2">
+                  {dashboard.postes_annee.map((p) => (
+                    <li
+                      key={p.poste}
+                      data-probe="poste"
+                      className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium capitalize text-muted-foreground"
+                    >
+                      {p.poste} — {p.count} offre{p.count > 1 ? "s" : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Onglets discrets : Offres / Historique */}
+        <div className="mb-4 flex gap-1 border-b border-border">
+          {(["offres", "historique"] as const).map((cle) => (
+            <button
+              key={cle}
+              type="button"
+              data-probe="onglet"
+              data-cle={cle}
+              onClick={() => setOnglet(cle)}
+              aria-current={onglet === cle ? "page" : undefined}
+              className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors duration-150 ${
+                onglet === cle
+                  ? "border-signature text-signature"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {cle === "offres" ? "Offres" : "Historique"}
+            </button>
+          ))}
+        </div>
+
         {/* Offres matchées */}
         <div className="rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
           <h2 className="mb-4 flex items-center gap-2 font-display text-xl font-bold tracking-[-0.01em] text-foreground">
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-signature">
               <Briefcase className="h-4 w-4" />
             </span>
-            Offres qui matchent ton profil ({offresFiltrees.length})
+            {onglet === "offres"
+              ? `Offres qui matchent ton profil (${offresFiltrees.length})`
+              : "Historique des candidatures"}
           </h2>
 
+          {onglet === "historique" ? (
+            /* Onglet historique : liste triée date de match desc (statut + date) */
+            <div data-probe="historique-liste">
+              {historique.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border bg-background px-4 py-10 text-center">
+                  <p className="text-muted-foreground">
+                    Aucune candidature dans ton historique pour le moment.
+                  </p>
+                </div>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {historique.map((match) => (
+                    <li
+                      key={match.id}
+                      className="flex flex-wrap items-center justify-between gap-2 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-foreground">{match.offre.titre}</p>
+                        <p className="truncate text-sm text-muted-foreground">
+                          {match.offre.entreprise} — {match.offre.ville}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-3 text-sm">
+                        {match.date_match && (
+                          <span className="text-muted-foreground">Matché le {match.date_match}</span>
+                        )}
+                        <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                          {STATUTS[match.statut_candidature ?? ""] ??
+                            (match.postule ? "Postulé" : "Matché")}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : (
+            <>
           {/* Filtres type / ville */}
           {matches.length > 0 && (
             <div className="mb-5 flex flex-wrap gap-3 border-b border-border pb-4">
@@ -370,7 +652,27 @@ export default function ProfilPage() {
                       {match.offre.description}
                     </p>
                   )}
-                  <div className="relative z-20 mt-4 flex flex-wrap gap-2 border-t border-border pt-3">
+                  <div className="relative z-20 mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleFavori(match)}
+                      aria-pressed={!!match.favori}
+                      aria-label={
+                        match.favori
+                          ? `Retirer ${match.offre.titre} des favoris`
+                          : `Ajouter ${match.offre.titre} aux favoris`
+                      }
+                      data-probe="favori"
+                      data-actif={match.favori ? "true" : "false"}
+                      className={`rounded-lg border-border px-3 transition-colors duration-150 ${
+                        match.favori
+                          ? "border-surlignage text-surlignage"
+                          : "hover:border-surlignage hover:text-surlignage"
+                      }`}
+                    >
+                      <Star className={`h-4 w-4 ${match.favori ? "fill-current" : ""}`} />
+                    </Button>
                     <Button
                       size="sm"
                       onClick={() => handlePostule(match.id)}
@@ -392,10 +694,28 @@ export default function ProfilPage() {
                       <Share2 className="mr-2 h-4 w-4" />
                       Partager
                     </Button>
+                    {/* P5 : suivi de candidature (offres postulées uniquement) */}
+                    {match.postule && (
+                      <select
+                        value={match.statut_candidature ?? "postule"}
+                        onChange={(e) => handleStatut(match, e.target.value)}
+                        aria-label={`Statut de candidature — ${match.offre.titre}`}
+                        data-probe="statut"
+                        className="rounded-lg border border-input bg-white px-3 py-2 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30"
+                      >
+                        {Object.entries(STATUTS).map(([valeur, libelle]) => (
+                          <option key={valeur} value={valeur}>
+                            {libelle}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
+          )}
+            </>
           )}
         </div>
 
