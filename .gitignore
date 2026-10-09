@@ -9,6 +9,7 @@ node_modules/
 out/
 build/
 *.tsbuildinfo
+apps/web/.verify/
 
 # Python
 .venv/

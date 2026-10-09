@@ -38,6 +38,11 @@ const TYPES_OFFRES = [
   { value: "bourse", label: "Bourse d'études" },
 ];
 
+const inputClass =
+  "w-full rounded-xl border border-input bg-background px-4 py-2.5 text-sm text-foreground transition-colors duration-150 placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/40";
+
+const selectClass = `${inputClass} bg-background`;
+
 export default function EditProfilPage() {
   const params = useParams();
   const router = useRouter();
@@ -154,20 +159,19 @@ export default function EditProfilPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-12">
       <div className="w-full max-w-lg">
-        <div className="bg-white rounded-lg shadow-md p-8">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
+        <div className="rounded-2xl border bg-card p-8 shadow-xl shadow-primary/5 sm:p-10">
+          <div className="mb-8 text-center">
+            <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-violet-500 text-primary-foreground shadow-lg shadow-primary/25">
               <GraduationCap className="h-8 w-8" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground mb-2">Modifier mon profil</h1>
-            <p className="text-muted-foreground text-sm">
+            <h1 className="mb-2 text-2xl font-bold text-foreground">Modifier mon profil</h1>
+            <p className="text-sm text-muted-foreground">
               Mets à jour tes informations pour recevoir des offres plus pertinentes
             </p>
-            <p className="text-sm text-foreground mt-2">
-              <span className="text-muted-foreground">Téléphone :</span>{" "}
-              <span className="font-medium">{telephone}</span>
+            <p className="mt-3 inline-block rounded-full border bg-muted px-4 py-1.5 text-xs text-muted-foreground">
+              Téléphone : <span className="font-semibold text-foreground">{telephone}</span>
             </p>
           </div>
 
@@ -177,8 +181,8 @@ export default function EditProfilPage() {
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Nom */}
               <div>
-                <label htmlFor="nom" className="block text-sm font-medium text-foreground mb-1">
-                  Nom <span className="text-red-500">*</span>
+                <label htmlFor="nom" className="mb-1.5 block text-sm font-medium text-foreground">
+                  Nom <span className="text-destructive">*</span>
                 </label>
                 <input
                   id="nom"
@@ -186,15 +190,15 @@ export default function EditProfilPage() {
                   value={form.nom}
                   onChange={(e) => update("nom", e.target.value)}
                   placeholder="Ton nom"
-                  className="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                  className={inputClass}
                   required
                 />
               </div>
 
               {/* Prénom */}
               <div>
-                <label htmlFor="prenom" className="block text-sm font-medium text-foreground mb-1">
-                  Prénom <span className="text-red-500">*</span>
+                <label htmlFor="prenom" className="mb-1.5 block text-sm font-medium text-foreground">
+                  Prénom <span className="text-destructive">*</span>
                 </label>
                 <input
                   id="prenom"
@@ -202,14 +206,14 @@ export default function EditProfilPage() {
                   value={form.prenom}
                   onChange={(e) => update("prenom", e.target.value)}
                   placeholder="Ton prénom"
-                  className="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                  className={inputClass}
                   required
                 />
               </div>
 
               {/* Email */}
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
+                <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-foreground">
                   E-mail
                 </label>
                 <input
@@ -218,14 +222,14 @@ export default function EditProfilPage() {
                   value={form.email}
                   onChange={(e) => update("email", e.target.value)}
                   placeholder="Ex : prenom.nom@exemple.com"
-                  className="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                  className={inputClass}
                 />
               </div>
 
               {/* Université */}
               <div>
-                <label htmlFor="universite" className="block text-sm font-medium text-foreground mb-1">
-                  Université <span className="text-red-500">*</span>
+                <label htmlFor="universite" className="mb-1.5 block text-sm font-medium text-foreground">
+                  Université <span className="text-destructive">*</span>
                 </label>
                 <input
                   id="universite"
@@ -233,21 +237,21 @@ export default function EditProfilPage() {
                   value={form.universite}
                   onChange={(e) => update("universite", e.target.value)}
                   placeholder="Ex: Université de Nouakchott"
-                  className="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                  className={inputClass}
                   required
                 />
               </div>
 
               {/* Filière */}
               <div>
-                <label htmlFor="filiere" className="block text-sm font-medium text-foreground mb-1">
-                  Filière <span className="text-red-500">*</span>
+                <label htmlFor="filiere" className="mb-1.5 block text-sm font-medium text-foreground">
+                  Filière <span className="text-destructive">*</span>
                 </label>
                 <select
                   id="filiere"
                   value={form.filiere}
                   onChange={(e) => update("filiere", e.target.value)}
-                  className="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                  className={selectClass}
                   required
                 >
                   <option value="">-- Sélectionne ta filière --</option>
@@ -261,14 +265,14 @@ export default function EditProfilPage() {
 
               {/* Niveau */}
               <div>
-                <label htmlFor="niveau" className="block text-sm font-medium text-foreground mb-1">
-                  Niveau <span className="text-red-500">*</span>
+                <label htmlFor="niveau" className="mb-1.5 block text-sm font-medium text-foreground">
+                  Niveau <span className="text-destructive">*</span>
                 </label>
                 <select
                   id="niveau"
                   value={form.niveau}
                   onChange={(e) => update("niveau", e.target.value)}
-                  className="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                  className={selectClass}
                   required
                 >
                   <option value="">-- Sélectionne ton niveau --</option>
@@ -282,14 +286,14 @@ export default function EditProfilPage() {
 
               {/* Ville */}
               <div>
-                <label htmlFor="ville" className="block text-sm font-medium text-foreground mb-1">
+                <label htmlFor="ville" className="mb-1.5 block text-sm font-medium text-foreground">
                   Ville
                 </label>
                 <select
                   id="ville"
                   value={form.ville}
                   onChange={(e) => update("ville", e.target.value)}
-                  className="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                  className={selectClass}
                 >
                   {VILLES.map((v) => (
                     <option key={v.value} value={v.value}>
@@ -301,14 +305,14 @@ export default function EditProfilPage() {
 
               {/* Types recherchés */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
+                <label className="mb-2 block text-sm font-medium text-foreground">
                   Types d&apos;offres recherchés
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {TYPES_OFFRES.map((t) => (
                     <label
                       key={t.value}
-                      className="flex items-center gap-2 border rounded px-3 py-2 cursor-pointer hover:bg-gray-50"
+                      className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-input bg-background px-3 py-2.5 text-sm transition-colors duration-150 hover:border-primary/40 hover:bg-primary/5"
                     >
                       <input
                         type="checkbox"
@@ -324,22 +328,29 @@ export default function EditProfilPage() {
 
               {/* Erreur */}
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 rounded px-4 py-3 text-sm">
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                   {error}
                 </div>
               )}
 
               {/* Submit */}
-              <Button type="submit" disabled={saving} className="w-full" size="lg">
+              <Button
+                type="submit"
+                disabled={saving}
+                className="w-full h-12 rounded-xl text-base shadow-lg shadow-primary/20 transition-all duration-200 hover:shadow-xl hover:shadow-primary/30"
+                size="lg"
+              >
                 {saving ? "Enregistrement..." : "Enregistrer"}
               </Button>
             </form>
           )}
         </div>
 
-        <div className="mt-4 text-center">
+        <div className="mt-5 text-center">
           <Link href={`/profil/${telephone}`}>
-            <Button variant="outline">Retour à mon profil</Button>
+            <Button variant="outline" className="rounded-xl transition-all duration-150 hover:border-primary/40 hover:text-primary">
+              Retour à mon profil
+            </Button>
           </Link>
         </div>
       </div>

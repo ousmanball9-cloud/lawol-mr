@@ -39,6 +39,11 @@ const TYPES_OFFRES = [
 
 const OPTIN_TEXTE = "J'accepte de recevoir les offres correspondant à mon profil sur WhatsApp";
 
+const inputClass =
+  "w-full rounded-xl border border-input bg-background px-4 py-2.5 text-sm text-foreground transition-colors duration-150 placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/40";
+
+const selectClass = `${inputClass} bg-background`;
+
 export default function InscriptionPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -136,15 +141,15 @@ export default function InscriptionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-12">
       <div className="w-full max-w-lg">
-        <div className="bg-white rounded-lg shadow-md p-8">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
+        <div className="rounded-2xl border bg-card p-8 shadow-xl shadow-primary/5 sm:p-10">
+          <div className="mb-8 text-center">
+            <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-violet-500 text-primary-foreground shadow-lg shadow-primary/25">
               <GraduationCap className="h-8 w-8" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground mb-2">Inscription LAWOL.mr</h1>
-            <p className="text-muted-foreground text-sm">
+            <h1 className="mb-2 text-2xl font-bold text-foreground">Inscription LAWOL.mr</h1>
+            <p className="text-sm text-muted-foreground">
               Reçois les offres de stage, PFE et emploi qui matchent ton profil sur WhatsApp
             </p>
           </div>
@@ -152,8 +157,8 @@ export default function InscriptionPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Téléphone */}
             <div>
-              <label htmlFor="telephone" className="block text-sm font-medium text-foreground mb-1">
-                Téléphone <span className="text-red-500">*</span>
+              <label htmlFor="telephone" className="mb-1.5 block text-sm font-medium text-foreground">
+                Téléphone <span className="text-destructive">*</span>
               </label>
               <input
                 id="telephone"
@@ -161,7 +166,7 @@ export default function InscriptionPage() {
                 value={form.telephone}
                 onChange={(e) => update("telephone", e.target.value)}
                 placeholder="+222 XXXXXXXXX"
-                className="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                className={inputClass}
                 required
               />
               <p className="text-xs text-muted-foreground mt-1">Format : +222 suivi de 8 chiffres</p>
@@ -169,8 +174,8 @@ export default function InscriptionPage() {
 
             {/* Nom */}
             <div>
-              <label htmlFor="nom" className="block text-sm font-medium text-foreground mb-1">
-                Nom <span className="text-red-500">*</span>
+              <label htmlFor="nom" className="mb-1.5 block text-sm font-medium text-foreground">
+                Nom <span className="text-destructive">*</span>
               </label>
               <input
                 id="nom"
@@ -178,15 +183,15 @@ export default function InscriptionPage() {
                 value={form.nom}
                 onChange={(e) => update("nom", e.target.value)}
                 placeholder="Ton nom"
-                className="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                className={inputClass}
                 required
               />
             </div>
 
             {/* Prénom */}
             <div>
-              <label htmlFor="prenom" className="block text-sm font-medium text-foreground mb-1">
-                Prénom <span className="text-red-500">*</span>
+              <label htmlFor="prenom" className="mb-1.5 block text-sm font-medium text-foreground">
+                Prénom <span className="text-destructive">*</span>
               </label>
               <input
                 id="prenom"
@@ -194,15 +199,15 @@ export default function InscriptionPage() {
                 value={form.prenom}
                 onChange={(e) => update("prenom", e.target.value)}
                 placeholder="Ton prénom"
-                className="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                className={inputClass}
                 required
               />
             </div>
 
             {/* Université */}
             <div>
-              <label htmlFor="universite" className="block text-sm font-medium text-foreground mb-1">
-                Université <span className="text-red-500">*</span>
+              <label htmlFor="universite" className="mb-1.5 block text-sm font-medium text-foreground">
+                Université <span className="text-destructive">*</span>
               </label>
               <input
                 id="universite"
@@ -210,21 +215,21 @@ export default function InscriptionPage() {
                 value={form.universite}
                 onChange={(e) => update("universite", e.target.value)}
                 placeholder="Ex: Université de Nouakchott"
-                className="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                className={inputClass}
                 required
               />
             </div>
 
             {/* Filière */}
             <div>
-              <label htmlFor="filiere" className="block text-sm font-medium text-foreground mb-1">
-                Filière <span className="text-red-500">*</span>
+              <label htmlFor="filiere" className="mb-1.5 block text-sm font-medium text-foreground">
+                Filière <span className="text-destructive">*</span>
               </label>
               <select
                 id="filiere"
                 value={form.filiere}
                 onChange={(e) => update("filiere", e.target.value)}
-                className="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                className={selectClass}
                 required
               >
                 <option value="">-- Sélectionne ta filière --</option>
@@ -236,14 +241,14 @@ export default function InscriptionPage() {
 
             {/* Niveau */}
             <div>
-              <label htmlFor="niveau" className="block text-sm font-medium text-foreground mb-1">
-                Niveau <span className="text-red-500">*</span>
+              <label htmlFor="niveau" className="mb-1.5 block text-sm font-medium text-foreground">
+                Niveau <span className="text-destructive">*</span>
               </label>
               <select
                 id="niveau"
                 value={form.niveau}
                 onChange={(e) => update("niveau", e.target.value)}
-                className="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                className={selectClass}
                 required
               >
                 <option value="">-- Sélectionne ton niveau --</option>
@@ -255,14 +260,14 @@ export default function InscriptionPage() {
 
             {/* Ville */}
             <div>
-              <label htmlFor="ville" className="block text-sm font-medium text-foreground mb-1">
+              <label htmlFor="ville" className="mb-1.5 block text-sm font-medium text-foreground">
                 Ville
               </label>
               <select
                 id="ville"
                 value={form.ville}
                 onChange={(e) => update("ville", e.target.value)}
-                className="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                className={selectClass}
               >
                 {VILLES.map((v) => (
                   <option key={v.value} value={v.value}>{v.label}</option>
@@ -279,7 +284,7 @@ export default function InscriptionPage() {
                 {TYPES_OFFRES.map((t) => (
                   <label
                     key={t.value}
-                    className="flex items-center gap-2 border rounded px-3 py-2 cursor-pointer hover:bg-gray-50"
+                    className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-input bg-background px-3 py-2.5 text-sm transition-colors duration-150 hover:border-primary/40 hover:bg-primary/5"
                   >
                     <input
                       type="checkbox"
@@ -294,25 +299,25 @@ export default function InscriptionPage() {
             </div>
 
             {/* Opt-in */}
-            <div className="border rounded p-4 bg-primary/5">
-              <label className="flex items-start gap-3 cursor-pointer">
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+              <label className="flex cursor-pointer items-start gap-3">
                 <input
                   type="checkbox"
                   checked={form.optin}
                   onChange={(e) => update("optin", e.target.checked)}
-                  className="rounded border-gray-300 text-primary focus:ring-primary mt-0.5"
+                  className="mt-1 rounded border-gray-300 text-primary focus:ring-primary"
                   required
                 />
                 <span className="text-sm text-foreground">
                   <MessageSquare className="inline h-4 w-4 mr-1 text-primary" />
-                  {OPTIN_TEXTE} <span className="text-red-500">*</span>
+                  {OPTIN_TEXTE} <span className="text-destructive">*</span>
                 </span>
               </label>
             </div>
 
             {/* Erreur */}
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 rounded px-4 py-3 text-sm">
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                 {error}
               </div>
             )}
@@ -321,7 +326,7 @@ export default function InscriptionPage() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full"
+              className="w-full h-12 rounded-xl text-base shadow-lg shadow-primary/20 transition-all duration-200 hover:shadow-xl hover:shadow-primary/30"
               size="lg"
             >
               {loading ? "Inscription en cours..." : "S'inscrire"}
