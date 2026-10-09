@@ -10,6 +10,7 @@ from datetime import date, timedelta
 from typing import Iterable
 from urllib.parse import urljoin
 
+import certifi
 import httpx
 from bs4 import BeautifulSoup
 
@@ -122,7 +123,7 @@ class EntrepriseScraper(BaseScraper):
                     headers=entetes,
                     timeout=self.timeout,
                     follow_redirects=True,
-                    verify=False,  # certificats locaux mauritaniens non fiables (GET public uniquement)
+                    verify=certifi.where(),  # validation SSL correcte (certifi)
                 )
                 resp.raise_for_status()
             except Exception as e:  # noqa: BLE001

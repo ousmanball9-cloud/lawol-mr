@@ -2,11 +2,13 @@
 
 Meta envoie un POST à chaque message reçu par le numéro WhatsApp Business.
 """
+import logging
 from fastapi import APIRouter, Request, HTTPException, Query
 
 from apps.api.app.core.config import settings
 from apps.api.app.modules.whatsapp.security import verifier_signature
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Stockage en mémoire des derniers messages reçus (debug)
@@ -44,8 +46,17 @@ async def recevoir_message(request: Request):
     if len(_derniers_messages) > 10:
         _derniers_messages.pop(0)
 
-    print(f"📩 Message reçu : {str(data)[:200]}")
+    # Log sanitisé : jamais de données sensibles (numéro, contenu message)
+    logger.info(f"Message WhatsApp reçu (id={_safe_id(data)})")
     return {"status": "ok"}
+
+
+def _safe_id(data: dict) -> str:
+    """Extrait un identifiant de message sans exposer le contenu."""
+    try:
+        return data["entry"][0]["changes"][0]["value"]["messages"][0]["id"]
+    except (KeyError, IndexError):
+        return "inconnu"
 
 
 @router.get("/api/v1/whatsapp/messages")
