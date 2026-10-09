@@ -9,10 +9,13 @@ Règle (v1) :
        OU profil.filieres_interet ∩ offre.filieres_cibles ≠ ∅
     5. ville : même ville OU profil.ville = AUTRE OU offre.ville = AUTRE
 """
-from datetime import date
+import logging
+from datetime import date, timedelta
 
 from apps.api.app.core.database import supabase
 from apps.api.app.modules.shared.models import Filiere, Ville
+
+logger = logging.getLogger(__name__)
 
 
 def match_regles(
@@ -82,10 +85,21 @@ def run_matching_job() -> dict:
             if (o["id"], p["id"]) in deja_matchees:
                 stats["ignores_deja"] += 1
                 continue
+            # Date par défaut si date_limite mal formée → ne pas faire planter le job
+            try:
+                date_limite = date.fromisoformat(o["date_limite"])
+            except (TypeError, ValueError) as e:
+                logger.warning(
+                    "Offre %s : date_limite illisible (%r) → date par défaut (+30j) : %s",
+                    o.get("id"),
+                    o.get("date_limite"),
+                    e,
+                )
+                date_limite = date.today() + timedelta(days=30)
             ok, raison = match_regles(
                 profil_actif=p.get("actif", True),
                 offre_active=o.get("active", True),
-                date_limite=date.fromisoformat(o["date_limite"]),
+                date_limite=date_limite,
                 type_offre=o["type_offre"],
                 types_recherches=p.get("types_recherches", []),
                 filiere_profil=p["filiere"],

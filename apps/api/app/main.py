@@ -119,8 +119,12 @@ async def get_profil(telephone: str):
 
 # ---------- Scraper ----------
 @app.post("/api/v1/scraper/run")
-async def trigger_scraper(source: str | None = None):
-    """Lance le scraping de toutes les sources (ou d'une seule via ?source=beta_mr)."""
+async def trigger_scraper(source: str | None = None, run_matching: bool = False):
+    """Lance le scraping de toutes les sources (ou d'une seule via ?source=beta_mr).
+
+    Si run_matching=True, le matching est recalculé juste après le scraping
+    et ses stats sont ajoutées à la réponse.
+    """
     from apps.api.app.modules.scraper.sources.catalogue import get_scrapers
 
     scrapers = get_scrapers()
@@ -132,11 +136,19 @@ async def trigger_scraper(source: str | None = None):
     resultats = [s.run() for s in scrapers]
 
     total = sum(r["inserrees"] for r in resultats)
-    return {
+    payload = {
         "sources_traitees": len(resultats),
         "offres_inserrees": total,
         "details": resultats,
     }
+    if run_matching:
+        stats = run_matching_job()
+        payload["matching"] = {
+            "paires_examinees": stats["examines"],
+            "matches_crees": stats["matches"],
+            "deja_matchees": stats["ignores_deja"],
+        }
+    return payload
 
 
 # ---------- Matching ----------

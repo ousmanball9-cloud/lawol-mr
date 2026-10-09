@@ -42,13 +42,32 @@ def _parse_date_fr(texte: str) -> date | None:
     if not m:
         return None
     jour, mois, annee = int(m.group(1)), m.group(2), int(m.group(3))
-    for nom, num in MOIS_FR.items():
-        if mois.startswith(nom[:4]):
-            try:
-                return date(annee, num, jour)
-            except ValueError:
-                return None
-    return None
+
+    # Normalisation : minuscules + suppression du point final ("oct." → "oct")
+    mois_norm = mois.lower().rstrip('.').strip()
+
+    # 1. Équivalence exacte ("octobre" → 10)
+    if mois_norm in MOIS_FR:
+        num = MOIS_FR[mois_norm]
+    else:
+        # 2. Préfixe complet ou 3 premières lettres
+        #    ("sept" → "septembre", "oct" → "octobre", "juil" → "juillet")
+        #    tri du nom le plus long au plus court pour éviter "juin" vs "juillet"
+        candidats = sorted(MOIS_FR.items(), key=lambda kv: -len(kv[0]))
+        num = next(
+            (
+                n
+                for nom, n in candidats
+                if nom.startswith(mois_norm) or mois_norm[:3] == nom[:3]
+            ),
+            None,
+        )
+    if num is None:
+        return None
+    try:
+        return date(annee, num, jour)
+    except ValueError:
+        return None
 
 
 class BetaMrScraper(BaseScraper):
