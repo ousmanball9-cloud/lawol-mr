@@ -15,7 +15,7 @@ export default function ConfirmationPage() {
         </p>
         <Link href="/">
           <Button size="lg" className="w-full sm:w-auto">
-            Retour à l'accueil
+            Retour à l&apos;accueil
           </Button>
         </Link>
       </div>
