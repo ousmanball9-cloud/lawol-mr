@@ -34,6 +34,7 @@ const TYPES_OFFRES = [
   { value: "stage_ete", label: "Stage été" },
   { value: "emploi_junior", label: "Emploi junior" },
   { value: "alternance", label: "Alternance" },
+  { value: "bourse", label: "Bourse d'études" },
 ];
 
 const OPTIN_TEXTE = "J'accepte de recevoir les offres correspondant à mon profil sur WhatsApp";

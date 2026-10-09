@@ -8,6 +8,7 @@ from apps.api.app.modules.shared.models import (
     OffreStageCreate,
     OffreStagePublic,
     ProfilEtudiantCreate,
+    ProfilEtudiantUpdate,
     ProfilEtudiant,
     StatsResponse,
     Filiere,
@@ -119,6 +120,40 @@ async def get_profil(telephone: str):
     return ProfilEtudiant.model_validate(res.data[0])
 
 
+@app.put("/api/v1/profils/{telephone}", response_model=ProfilEtudiant)
+async def update_profil(telephone: str, update: ProfilEtudiantUpdate):
+    """Modifie les champs d'un profil existant (aucun champ obligatoire)."""
+    res = supabase.table("profils").select("*").eq("telephone", telephone).execute()
+    if not res.data:
+        raise HTTPException(404, "Profil non trouvé")
+
+    # Seuls les champs présents (non-null) sont modifiés
+    changes = update.model_dump(exclude_none=True, mode="json")
+    if not changes:
+        raise HTTPException(422, "Aucun champ à modifier")
+
+    res = (
+        supabase.table("profils")
+        .update(changes)
+        .eq("telephone", telephone)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(500, "Erreur lors de la mise à jour du profil")
+    return ProfilEtudiant.model_validate(res.data[0])
+
+
+@app.post("/api/v1/profils/{telephone}/desinscription")
+async def desinscrire_profil(telephone: str):
+    """Désactive un profil (opt-out : plus aucune notification envoyée)."""
+    res = supabase.table("profils").select("id, actif").eq("telephone", telephone).execute()
+    if not res.data:
+        raise HTTPException(404, "Profil non trouvé")
+
+    supabase.table("profils").update({"actif": False}).eq("telephone", telephone).execute()
+    return {"telephone": telephone, "actif": False, "message": "Profil désactivé"}
+
+
 # ---------- Scraper ----------
 @app.post("/api/v1/scraper/run")
 async def trigger_scraper(source: str | None = None, run_matching: bool = False):
@@ -177,15 +212,41 @@ async def trigger_notifications():
 @app.get("/api/v1/matches")
 async def list_matches(profil_id: str | None = None, limit: int = 50):
     """Liste les matches, enrichis avec titre d'offre + prénom de l'étudiant."""
-    query = supabase.table("matches").select(
-        "id, score, notifie, date_match, "
+    colonnes = (
+        "id, score, notifie, postule, date_match, "
         "offre:offres(id, titre, entreprise, ville, date_limite), "
         "profil:profils(id, prenom, nom, telephone, filiere, niveau)"
     )
+    query = supabase.table("matches").select(colonnes)
     if profil_id:
         query = query.eq("profil_id", profil_id)
-    res = query.order("date_match", desc=True).limit(limit).execute()
+    try:
+        res = query.order("date_match", desc=True).limit(limit).execute()
+    except Exception:
+        # Repli si la colonne 'postule' n'existe pas encore (migration en attente)
+        colonnes = colonnes.replace("notifie, postule,", "notifie,")
+        query = supabase.table("matches").select(colonnes)
+        if profil_id:
+            query = query.eq("profil_id", profil_id)
+        res = query.order("date_match", desc=True).limit(limit).execute()
     return res.data
+
+
+@app.post("/api/v1/matches/{match_id}/postule")
+async def marquer_postule(match_id: str):
+    """Marque un match comme 'postulé' par l'étudiant (postule = true)."""
+    res = supabase.table("matches").select("id").eq("id", match_id).execute()
+    if not res.data:
+        raise HTTPException(404, "Match non trouvé")
+
+    try:
+        res = supabase.table("matches").update({"postule": True}).eq("id", match_id).execute()
+    except Exception:
+        # Migration 'postule' pas encore appliquée sur Supabase
+        raise HTTPException(503, "Fonctionnalité en cours d'activation, réessaie plus tard")
+    if not res.data:
+        raise HTTPException(500, "Erreur lors de la mise à jour du match")
+    return {"id": match_id, "postule": True}
 
 
 # ---------- Stats ----------
@@ -200,13 +261,19 @@ async def get_stats():
     )
     profils = supabase.table("profils").select("id", count="exact").eq("actif", True).execute()
     matches = supabase.table("matches").select("id", count="exact").execute()
-    notifies = supabase.table("matches").select("id", count="exact").eq("notifie", True).execute()
+    notifie_res = supabase.table("matches").select("id", count="exact").eq("notifie", True).execute()
+    try:
+        postules = supabase.table("matches").select("id", count="exact").eq("postule", True).execute()
+        postules_count = postules.count or 0
+    except Exception:
+        postules_count = 0  # colonne 'postule' pas encore migrée
 
     total = matches.count or 0
     return StatsResponse(
         offres_actives=offres.count or 0,
         etudiants_actifs=profils.count or 0,
         matches_total=total,
-        matches_notifies=notifies.count or 0,
-        taux_notification=round((notifies.count or 0) / total * 100, 1) if total else 0.0,
+        matches_notifies=notifie_res.count or 0,
+        matches_postules=postules_count,
+        taux_notification=round((notifie_res.count or 0) / total * 100, 1) if total else 0.0,
     )

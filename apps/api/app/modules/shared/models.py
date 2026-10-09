@@ -12,6 +12,7 @@ class TypeOffre(str, Enum):
     STAGE_ETE = "stage_ete"
     EMPLOI_JUNIOR = "emploi_junior"
     ALTERNANCE = "alternance"
+    BOURSE = "bourse"
 
 
 class Filiere(str, Enum):
@@ -117,6 +118,25 @@ class ProfilEtudiantCreate(ProfilEtudiantBase):
     pass
 
 
+class ProfilEtudiantUpdate(BaseModel):
+    """Champs modifiables par l'étudiant (tous optionnels)."""
+
+    nom: Optional[str] = Field(default=None, min_length=2, max_length=100)
+    prenom: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    email: Optional[EmailStr] = None
+    universite: Optional[str] = Field(default=None, min_length=2, max_length=200)
+    filiere: Optional[Filiere] = None
+    niveau: Optional[str] = Field(default=None, min_length=1, max_length=50)
+    ville: Optional[Ville] = None
+    types_recherches: Optional[list[TypeOffre]] = None
+    filieres_interet: Optional[list[Filiere]] = None
+
+    @field_validator("nom", "prenom", "universite", mode="before")
+    @classmethod
+    def sanitize_fields(cls, v):
+        return _sanitize(v)
+
+
 class ProfilEtudiant(ProfilEtudiantBase):
     id: UUID
     actif: bool = True
@@ -133,6 +153,7 @@ class Match(BaseModel):
     profil_id: UUID
     score: int = 100
     notifie: bool = False
+    postule: bool = False
     date_match: date
 
     model_config = {"from_attributes": True}
@@ -144,4 +165,5 @@ class StatsResponse(BaseModel):
     etudiants_actifs: int
     matches_total: int
     matches_notifies: int
+    matches_postules: int = 0
     taux_notification: float

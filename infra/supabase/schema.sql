@@ -21,3 +21,6 @@ create policy "user_own_matches" on matches for select using (auth.uid() = profi
 create or replace function update_updated_at_column() returns trigger language plpgsql as $$ begin new.updated_at = now(); return new; end $$;
 create trigger update_offres_updated_at before update on offres for each row execute function update_updated_at_column();
 create trigger update_profils_updated_at before update on profils for each row execute function update_updated_at_column();
+-- Migrations idempotentes : type 'bourse' + suivi des candidatures
+alter type type_offre add value if not exists 'bourse';
+alter table matches add column if not exists postule boolean default false;
