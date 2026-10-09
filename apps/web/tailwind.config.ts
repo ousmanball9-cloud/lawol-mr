@@ -34,6 +34,9 @@ const config = {
       animation: { "accordion-down": "accordion-down 0.2s ease-out", "accordion-up": "accordion-up 0.2s ease-out" },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  // flowbite-react : étend le thème (palette primaire, icônes) pour les
+  // composants de la section admin uniquement — aucun token existant écrasé
+  // (extend uniquement, la couleur `primary` de la charte reste DEFAULT).
+  plugins: [require("tailwindcss-animate"), require("flowbite-react/plugin/tailwindcss")],
 } satisfies Config
 export default config
