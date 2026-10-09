@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GraduationCap, MapPin, Calendar, Building2, Briefcase } from "lucide-react";
 
@@ -72,9 +73,9 @@ export default function ProfilPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">{error || "Profil non trouvé"}</p>
-          <a href="/">
-            <Button>Retour à l'accueil</Button>
-          </a>
+          <Link href="/">
+            <Button>Retour à l&apos;accueil</Button>
+          </Link>
         </div>
       </div>
     );
@@ -162,9 +163,9 @@ export default function ProfilPage() {
 
         {/* Actions */}
         <div className="mt-6 text-center">
-          <a href="/">
-            <Button variant="outline">Retour à l'accueil</Button>
-          </a>
+          <Link href="/">
+            <Button variant="outline">Retour à l&apos;accueil</Button>
+          </Link>
         </div>
       </div>
     </div>
