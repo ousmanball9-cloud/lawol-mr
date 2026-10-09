@@ -26,3 +26,5 @@ tools/
 apps/api/_tmp_beta.py
 cloudflared*.log
 ngrok*.log
+# Boilerplate HTML5 (projet seperate)
+new-site/
