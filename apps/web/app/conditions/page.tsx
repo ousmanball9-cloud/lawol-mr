@@ -24,8 +24,8 @@ export default function ConditionsPage() {
 
         <h2 className="text-xl font-semibold mt-8 mb-3">4. Responsabilité</h2>
         <p className="text-gray-600 mb-4">
-          LAWOL.mr ne garantit pas l'exactitude des offres publiées. La candidature et la
-          sélection restent de la responsabilité de l'étudiant et de l'entreprise.
+          LAWOL.mr ne garantit pas l&apos;exactitude des offres publiées. La candidature et la
+          sélection restent de la responsabilité de l&apos;étudiant et de l&apos;entreprise.
         </p>
 
         <h2 className="text-xl font-semibold mt-8 mb-3">5. Contact</h2>
