@@ -14,6 +14,12 @@ import {
   UserMinus,
   Share2,
 } from "lucide-react";
+import {
+  OffreDetailModal,
+  TYPES_OFFRES,
+  BADGES_TYPE,
+  type OffreDetail,
+} from "@/components/offre-detail-modal";
 
 type Profil = {
   telephone: string;
@@ -26,36 +32,12 @@ type Profil = {
   types_recherches: string[];
 };
 
-type Offre = {
-  id: string;
-  titre: string;
-  entreprise: string;
-  ville: string;
-  type_offre: string;
-  date_limite: string;
-  description: string;
-};
+type Offre = OffreDetail;
 
 type Match = {
   id: string;
   postule: boolean;
   offre: Offre;
-};
-
-const TYPES_OFFRES: Record<string, string> = {
-  stage_pfe: "Stage PFE",
-  stage_ete: "Stage été",
-  emploi_junior: "Emploi junior",
-  alternance: "Alternance",
-  bourse: "Bourse d'études",
-};
-
-const BADGES_TYPE: Record<string, string> = {
-  stage_pfe: "bg-indigo-100 text-indigo-800",
-  emploi_junior: "bg-emerald-100 text-emerald-800",
-  bourse: "bg-amber-100 text-amber-900",
-  stage_ete: "bg-sky-100 text-sky-800",
-  alternance: "bg-violet-100 text-violet-800",
 };
 
 export default function ProfilPage() {
@@ -72,6 +54,8 @@ export default function ProfilPage() {
   const [desinscriptionEnCours, setDesinscriptionEnCours] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; texte: string } | null>(null);
   const [desinscrit, setDesinscrit] = useState(false);
+  // Id du match ouvert dans la modale détail (null = fermée)
+  const [offreOuverte, setOffreOuverte] = useState<string | null>(null);
 
   const charger = useCallback(async () => {
     try {
@@ -118,6 +102,14 @@ export default function ProfilPage() {
           (villeFiltre === "tous" || m.offre.ville === villeFiltre)
       ),
     [matches, typeFiltre, villeFiltre]
+  );
+
+  const fermerOffre = useCallback(() => setOffreOuverte(null), []);
+
+  // Toujours résolu depuis `matches` : la modale reste synchronisée (postule, actualisation)
+  const matchOuvert = useMemo(
+    () => matches.find((m) => m.id === offreOuverte) ?? null,
+    [matches, offreOuverte]
   );
 
   async function handlePostule(matchId: string) {
@@ -331,8 +323,15 @@ export default function ProfilPage() {
               {offresFiltrees.map((match) => (
                 <div
                   key={match.id}
-                  className="group rounded-xl border bg-background p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                  className="group relative rounded-xl border bg-background p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
                 >
+                  {/* Clic n'importe où sur la carte (sauf ses boutons) → vue détail */}
+                  <button
+                    type="button"
+                    onClick={() => setOffreOuverte(match.id)}
+                    aria-label={`Voir le détail de l'offre ${match.offre.titre}`}
+                    className="absolute inset-0 z-10 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  />
                   <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                     <h3 className="font-semibold leading-snug text-foreground group-hover:text-primary">
                       {match.offre.titre}
@@ -364,7 +363,7 @@ export default function ProfilPage() {
                       {match.offre.description}
                     </p>
                   )}
-                  <div className="mt-4 flex flex-wrap gap-2 border-t pt-3">
+                  <div className="relative z-20 mt-4 flex flex-wrap gap-2 border-t pt-3">
                     <Button
                       size="sm"
                       onClick={() => handlePostule(match.id)}
@@ -402,6 +401,17 @@ export default function ProfilPage() {
           </Link>
         </div>
       </div>
+
+      {/* Vue détail de l'offre (modale) */}
+      {matchOuvert && (
+        <OffreDetailModal
+          offre={matchOuvert.offre}
+          postule={matchOuvert.postule}
+          enCours={postulEnCours === matchOuvert.id}
+          onPostuler={() => handlePostule(matchOuvert.id)}
+          onFermer={fermerOffre}
+        />
+      )}
     </div>
   );
 }

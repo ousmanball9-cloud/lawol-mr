@@ -63,6 +63,20 @@ const PROFILE = {
   types_recherches: ["stage_pfe", "emploi_junior", "bourse"],
 };
 
+/** Champs enrichis du backend (vue détail) : un cas par canal de candidature + un sans canal. */
+const OFFRES_EXTRAS = {
+  m1: {
+    contact_email: "recrutement@mauritel.mr",
+    source_url: "https://mauritel.mr/offres/pfe-analyse",
+    source_name: "Mauritel",
+    filieres_cibles: ["informatique", "telecoms"],
+  },
+  m2: { contact_whatsapp: "+222 45 25 25 25" },
+  m3: { source_url: "https://anpe.mr/bourses/2026", source_name: "ANPE", filieres_cibles: ["informatique"] },
+  m4: { contact_whatsapp: "0022244445555", contact_email: "rh@ooredoo.mr" },
+  m5: {}, // aucun canal → message de repli « Aucun canal de candidature »
+};
+
 const OFFRES_MOCK = [
   ["m1", false, "Stage PFE — Analyse de données réseau", "Mauritel", "nouakchott", "stage_pfe", "30/11/2026"],
   ["m2", true, "Data Analyst junior (H/F)", "BNM", "nouadhibou", "emploi_junior", "15/12/2026"],
@@ -82,7 +96,7 @@ const OFFRES_MOCK = [
     description:
       "Mission encadrée en entreprise, missions concrètes dès la première semaine et possibilité d'embauche à l'issue du stage.",
   },
-}));
+})).map((m) => ({ ...m, offre: { ...m.offre, ...(OFFRES_EXTRAS[m.id] ?? {}) } }));
 
 const PAGES = [
   {
@@ -145,6 +159,36 @@ const PAGES = [
       r.cartes === 5 &&
       r.boutons >= 8 &&
       r.chips === 4,
+  },
+  {
+    id: "profil-modale",
+    route: "/profil/2221234567",
+    mock: true,
+    // Ouvre la modale détail (clic carte) puis probe le contenu post-clic.
+    action: `document.querySelector('button[aria-label^="Voir le détail"]')?.click()`,
+    probe: `({
+      modale: !!document.querySelector('[role="dialog"]'),
+      badge: document.querySelector('[role="dialog"] span')?.textContent?.trim() ?? "",
+      titre: document.querySelector('[role="dialog"] h2')?.textContent?.trim() ?? "",
+      dateLimite: document.querySelector('[role="dialog"]')?.textContent?.includes("Avant le") ?? false,
+      compteARebours: /J-\\d+|Dernier jour|Clôturée/.test(document.querySelector('[role="dialog"]')?.textContent ?? ""),
+      description: document.querySelector('[role="dialog"]')?.textContent?.includes("Mission encadrée") ?? false,
+      boutonPostuler: [...document.querySelectorAll('[role="dialog"] button')].some((b) => b.textContent.includes("J'ai postulé")),
+      lienSource: !!document.querySelector('[role="dialog"] a[href^="https://mauritel.mr"]'),
+      mailto: !!document.querySelector('[role="dialog"] a[href^="mailto:recrutement@mauritel.mr"]'),
+      scroll: document.querySelector('[role="dialog"]').className.includes("85vh"),
+    })`,
+    expect: (r) =>
+      r.modale &&
+      r.badge === "Stage PFE" &&
+      r.titre.includes("Analyse de données") &&
+      r.dateLimite &&
+      r.compteARebours &&
+      r.description &&
+      r.boutonPostuler &&
+      r.lienSource &&
+      r.mailto &&
+      r.scroll,
   },
   {
     id: "profil-erreur",
@@ -432,6 +476,10 @@ async function runMatrix() {
             cdp,
             `({ overflow: document.documentElement.scrollWidth - window.innerWidth })`
           );
+          if (pageDef.action) {
+            await evaluate(cdp, pageDef.action);
+            await sleep(500);
+          }
           probe = await evaluate(cdp, pageDef.probe);
         } catch (err) {
           probeError = String(err.message).split("\n")[0];

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "verify:design": "node scripts/verify-design.mjs"
+    "verify:design": "node scripts/verify-design.mjs",
+    "verify:modal": "node scripts/verify-offre-modal.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.0",
