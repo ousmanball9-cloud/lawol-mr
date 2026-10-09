@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GraduationCap, MessageSquare } from "lucide-react";
 
@@ -63,6 +64,12 @@ export default function InscriptionPage() {
   function update(field: string, value: string | boolean | string[]) {
     setForm((f) => ({ ...f, [field]: value }));
   }
+
+  // Pré-remplissage depuis /inscription?tel=222XXXXXXXX (lien « Créer mon profil » de /connexion)
+  useEffect(() => {
+    const tel = new URLSearchParams(window.location.search).get("tel");
+    if (tel) setForm((f) => (f.telephone ? f : { ...f, telephone: tel }));
+  }, []);
 
   function toggleTypeOffre(value: string) {
     setForm((f) => ({
@@ -336,6 +343,13 @@ export default function InscriptionPage() {
 
         <p className="text-center text-xs text-muted-foreground mt-4">
           En t&apos;inscrivant, tu acceptes notre politique de confidentialité.
+        </p>
+
+        <p className="text-center text-sm text-muted-foreground mt-4">
+          Déjà un profil ?{" "}
+          <Link href="/connexion" className="font-medium text-signature hover:underline">
+            Connecte-toi
+          </Link>
         </p>
       </div>
     </div>

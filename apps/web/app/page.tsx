@@ -85,6 +85,20 @@ export default function HomePage() {
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[length:72px_72px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]"
         />
+        {/* Slim header : logo texte + entrée connexion */}
+        <div className="container relative mx-auto flex items-center justify-between px-4 py-5">
+          <Link href="/" className="text-lg font-bold tracking-[-0.02em] text-white">
+            LAWOL.mr
+          </Link>
+          <Link href="/connexion">
+            <Button
+              variant="outline"
+              className="h-10 rounded-lg border-white/25 bg-transparent px-4 text-sm text-white hover:border-white/50 hover:bg-white/5 hover:text-white"
+            >
+              Se connecter
+            </Button>
+          </Link>
+        </div>
         <div className="container relative mx-auto px-4 py-24 lg:py-32">
           <div className="mx-auto max-w-3xl text-center">
             <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
@@ -106,7 +120,7 @@ export default function HomePage() {
               ratées.
             </p>
 
-            <div className="mb-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <div className="mb-4 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto">
                 <Button
                   size="lg"
@@ -128,6 +142,15 @@ export default function HomePage() {
                 >
                   Comment ça marche
                 </Button>
+              </Link>
+            </div>
+
+            <div className="mb-10 text-sm text-white/70">
+              <Link
+                href="/connexion"
+                className="underline underline-offset-4 transition-colors duration-150 hover:text-white"
+              >
+                Déjà inscrit ? Connecte-toi
               </Link>
             </div>
 

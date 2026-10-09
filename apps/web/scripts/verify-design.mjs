@@ -7,7 +7,7 @@
  *          4) matrice de rendu réel (navigateur headless via CDP, sans dépendance)
  *          5) synthèse + code retour (0 = tout vert).
  *
- * Matrice : 6 pages × 3 viewports (mobile 375 / tablette 768 / desktop 1440) = 18 cas.
+ * Matrice : 8 pages × 3 viewports (mobile 375 / tablette 768 / desktop 1440) = 24 cas.
  * Par cas : débordement horizontal, erreur console, probe de contenu, capture PNG
  * dans apps/web/.verify/ pour contrôle visuel.
  * Les pages /profil utilisent l'interception CDP : le VRAI chemin (fetch de la page)
@@ -213,6 +213,18 @@ const PAGES = [
       submit: !!document.querySelector("button[type=submit]"),
     })`,
     expect: (r) => r.champs >= 7 && r.nom.length > 0 && r.prenom.length > 0 && r.submit,
+  },
+  {
+    id: "connexion",
+    route: "/connexion",
+    mock: true,
+    probe: `({
+      champTel: !!document.querySelector("input#telephone"),
+      blocGerant: document.body.textContent.includes("Espace gérant"),
+      lienInscription: !!document.querySelector("a[href='/inscription']"),
+      titre: document.querySelector("h1")?.textContent ?? "",
+    })`,
+    expect: (r) => r.champTel && r.blocGerant && r.lienInscription && r.titre.includes("Connexion"),
   },
 ];
 
@@ -504,6 +516,14 @@ async function runMatrix() {
             await sleep(500);
           }
           probe = await evaluate(cdp, pageDef.probe);
+          // Attente adaptative : une page dépendant du réseau réel (proxy → API
+          // distante) peut dépasser les 2,6 s à cause d'un cold start TLS.
+          // On repoll le probe tant que les assertions ne passent pas (plafond 6 s) :
+          // aucun check n'est relâché, seul le délai de patience augmente.
+          for (let i = 0; i < 12 && !probeError && !pageDef.expect(probe ?? {}); i++) {
+            await sleep(500);
+            probe = await evaluate(cdp, pageDef.probe);
+          }
         } catch (err) {
           probeError = String(err.message).split("\n")[0];
         }

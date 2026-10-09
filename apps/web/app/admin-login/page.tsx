@@ -35,21 +35,21 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-center mb-6 text-primary">LAWOL.mr Admin</h1>
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <form onSubmit={handleSubmit} className="bg-card border border-border p-8 rounded-lg w-full max-w-sm shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <h1 className="font-display text-2xl font-bold text-center mb-6 tracking-[-0.02em] text-foreground">LAWOL.mr Admin</h1>
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Mot de passe admin"
-          className="w-full border rounded px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full rounded-lg border border-input bg-white px-4 py-2.5 text-sm text-foreground transition-colors duration-150 placeholder:text-muted-foreground focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30 mb-4"
         />
-        {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
+        {error && <p className="text-destructive text-sm mb-4">{error}</p>}
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-primary text-white rounded py-2 font-medium hover:opacity-90 disabled:opacity-50"
+          className="w-full bg-signature text-white rounded-lg py-2.5 font-medium hover:bg-signature-deep disabled:opacity-50"
         >
           {loading ? "Connexion..." : "Se connecter"}
         </button>
