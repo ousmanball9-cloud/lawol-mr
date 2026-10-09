@@ -102,6 +102,8 @@ async def create_offre(offre: OffreStageCreate):
 # ---------- Profils ----------
 @app.post("/api/v1/profils", response_model=ProfilEtudiant, status_code=201)
 async def create_profil(profil: ProfilEtudiantCreate):
+    if not profil.optin_texte or not profil.optin_texte.strip():
+        raise HTTPException(422, "L'opt-in est obligatoire pour recevoir les offres sur WhatsApp")
     data = profil.model_dump(mode="json")
     res = supabase.table("profils").upsert(data, on_conflict="telephone").execute()
     if not res.data:

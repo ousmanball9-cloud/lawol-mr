@@ -104,6 +104,8 @@ class ProfilEtudiantBase(BaseModel):
     ville: Ville = Ville.NOUAKCHOTT
     types_recherches: list[TypeOffre] = Field(default_factory=lambda: [TypeOffre.STAGE_PFE])
     filieres_interet: list[Filiere] = Field(default_factory=list)
+    optin_at: Optional[datetime] = None
+    optin_texte: Optional[str] = None
 
     @field_validator("nom", "prenom", "universite", mode="before")
     @classmethod
