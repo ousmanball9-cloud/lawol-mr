@@ -117,7 +117,8 @@ export default function InscriptionPage() {
       });
 
       if (res.ok) {
-        router.push("/inscription/confirmation");
+        // Redirection directe vers le profil avec les offres matchées
+        router.push(`/profil/${telephoneClean}`);
       } else if (res.status === 409) {
         setError("Ce numéro de téléphone est déjà inscrit");
       } else if (res.status === 422) {
