@@ -8,7 +8,7 @@ export default function ConfidentialitePage() {
         <h2 className="text-xl font-semibold mt-8 mb-3">1. Données collectées</h2>
         <p className="text-gray-600 mb-4">
           LAWOL.mr collecte uniquement les données nécessaires au matching : nom, téléphone,
-          université, filière, niveau et ville. Aucune donnée n'est vendue à des tiers.
+          université, filière, niveau et ville. Aucune donnée n&apos;est vendue à des tiers.
         </p>
 
         <h2 className="text-xl font-semibold mt-8 mb-3">2. Utilisation</h2>
