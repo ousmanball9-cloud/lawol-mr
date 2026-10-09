@@ -274,20 +274,18 @@ async function scenario(cdp) {
   await sleep(400);
   check("clic sur le fond ferme la modale", (await evaluate(cdp, `!!document.querySelector("[role=dialog]")`)) === false);
 
-  // 5. Cas « aucun canal » (offre m2, déjà postulée)
+  // 5. Mobile : modale à contenu long (m1) → hauteur + scroll, puis cas « aucun canal » (m2)
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 375, height: 812, deviceScaleFactor: 1, mobile: true });
   await sleep(300);
   const cartes = await evaluate(cdp, `document.querySelectorAll('[aria-label^="Voir le détail"]').length`);
   check("2 cartes affichées (m1 + m2)", cartes === 2, `${cartes} cartes`);
-  await evaluate(cdp, `document.querySelectorAll('[aria-label^="Voir le détail"]')[1].click()`);
+  await evaluate(cdp, `document.querySelectorAll('[aria-label^="Voir le détail"]')[0].click()`);
   await sleep(500);
   const mobile = await evaluate(cdp, `(() => {
     const d = document.querySelector("[role=dialog]");
     if (!d) return null;
     const r = d.getBoundingClientRect();
     return {
-      aide: d.textContent.includes("Aucun canal de candidature indiqué"),
-      dejaPostule: [...d.querySelectorAll("button")].some((b) => b.textContent.includes("Postulé") && b.disabled),
       overflow: getComputedStyle(d).overflowY,
       contenuDepasse: d.scrollHeight > d.clientHeight,
       h: Math.round(r.height),
@@ -295,14 +293,31 @@ async function scenario(cdp) {
       debordementX: document.documentElement.scrollWidth - window.innerWidth,
     };
   })()`);
-  check("aucun canal → message d'aide affiché", mobile.aide);
-  check("offre déjà postulée → bouton désactivé « Postulé ✅ »", mobile.dejaPostule);
   check("mobile : hauteur ≤ 85vh avec scroll interne", mobile.h <= mobile.vh * 0.85 + 2 && mobile.overflow === "auto" && mobile.contenuDepasse, `${mobile.h}px / ${mobile.vh}px`);
   check("mobile : aucun débordement horizontal", mobile.debordementX <= 2, `${mobile.debordementX}px`);
 
   const shotMobile = path.join(OUT_DIR, "modale-mobile.png");
   const { data: dataMobile } = await cdp.send("Page.captureScreenshot", { format: "png" });
   await writeFile(shotMobile, Buffer.from(dataMobile, "base64"));
+
+  // Cas « aucun canal » (offre m2, déjà postulée)
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+  await sleep(400);
+  await evaluate(cdp, `document.querySelectorAll('[aria-label^="Voir le détail"]')[1].click()`);
+  await sleep(500);
+  const aide = await evaluate(cdp, `(() => {
+    const d = document.querySelector("[role=dialog]");
+    if (!d) return null;
+    return {
+      messageAide: d.textContent.includes("Aucun canal de candidature indiqué"),
+      aucunLien: d.querySelectorAll("a").length === 0,
+      dejaPostule: [...d.querySelectorAll("button")].some((b) => b.textContent.includes("Postulé") && b.disabled),
+    };
+  })()`);
+  check("aucun canal → message d'aide affiché", aide.messageAide);
+  check("aucun canal → aucun lien de candidature", aide.aucunLien);
+  check("offre déjà postulée → bouton désactivé « Postulé ✅ »", aide.dejaPostule);
 
   // 6. Zéro erreur console sur tout le scénario
   const erreurs = consoleErrors.filter((t) => !/facebook|favicon|404|Failed to load resource/i.test(t));
