@@ -121,7 +121,7 @@ const PAGES = [
     probe: `({
       champs: document.querySelectorAll("form input, form select").length,
       submit: !!document.querySelector("form button[type=submit]"),
-      carte: !!document.querySelector("form")?.closest("div[class*='rounded-2xl']"),
+      carte: !!document.querySelector("form")?.closest("div[class*='rounded-lg']"),
       titre: document.querySelector("h1")?.textContent ?? "",
     })`,
     expect: (r) => r.champs >= 9 && r.submit && r.carte && r.titre.includes("Inscription"),
@@ -145,12 +145,12 @@ const PAGES = [
     route: "/profil/2221234567",
     mock: true,
     probe: `({
-      initiales: document.querySelector("div.rounded-full[class*='from-primary']")?.textContent?.trim() ?? "",
+      initiales: document.querySelector('[data-profil="avatar"]')?.textContent?.trim() ?? "",
       nom: document.querySelector("h1")?.textContent?.trim() ?? "",
-      badges: document.querySelectorAll("span[class*='bg-indigo-100'],span[class*='bg-emerald-100'],span[class*='bg-amber-100'],span[class*='bg-sky-100'],span[class*='bg-violet-100']").length,
+      badges: document.querySelectorAll("span.badge-offre").length,
       cartes: document.querySelectorAll(".group").length,
       boutons: document.querySelectorAll("button").length,
-      chips: document.querySelectorAll("div.rounded-xl.bg-muted").length,
+      chips: document.querySelectorAll("div.rounded-lg.bg-muted").length,
     })`,
     expect: (r) =>
       r.initiales.length >= 2 &&
@@ -242,43 +242,66 @@ function contrast(a, b) {
 const blend = (fg, alpha, bg) => fg.map((v, i) => Math.round(alpha * v + (1 - alpha) * bg[i]));
 
 const WHITE = [255, 255, 255];
+
+/** Hex de la charte (app/globals.css + tailwind.config.ts), exact au pixel. */
+const hex = (h) => {
+  const n = parseInt(h.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+
+/**
+ * Palette « Épuré premium » : quasi noir & blanc (fond #FAFAFA, cartes
+ * #FFFFFF, encre #0A0A0A, secondaire #52525B, chips #F4F4F5) + UNE couleur
+ * signature (#2563EB, survol #1D4ED8) + UN surlignage (#F59E0B).
+ */
 const TOK = {
-  background: hslToRgb(0, 0, 100),
-  foreground: hslToRgb(222.2, 84, 4.9),
-  muted: hslToRgb(210, 40, 96.1),
-  mutedForeground: hslToRgb(215.4, 16.3, 46.9),
-  primary: hslToRgb(239, 84, 62),
+  background: hex("#FAFAFA"),
+  foreground: hex("#0A0A0A"),
+  card: hex("#FFFFFF"),
+  muted: hex("#F4F4F5"),
+  mutedForeground: hex("#52525B"),
+  signature: hex("#2563EB"),
+  signatureDeep: hex("#1D4ED8"),
+  surlignage: hex("#F59E0B"),
   destructive: hslToRgb(0, 74.7, 41),
-  card: hslToRgb(0, 0, 100),
-  violet600: hslToRgb(262.1, 83.3, 57.8),
-  violet500: hslToRgb(258.3, 89.5, 59.6),
-  emerald700: hslToRgb(158.1, 64.4, 32.5),
   green50: hslToRgb(138.4, 89.2, 95.3),
   green800: hslToRgb(141.7, 63.9, 24.1),
   red50: hslToRgb(0, 86.4, 97.1),
   red700: hslToRgb(0, 74.7, 41),
+  amber50: hex("#FFFBEB"),
+  amber900: hex("#78350F"),
 };
 
 const CONTRAST_CASES = [
-  ["texte principal / fond", TOK.foreground, TOK.background, 4.5],
-  ["muted-foreground / fond", TOK.mutedForeground, TOK.background, 4.5],
-  ["muted-foreground / fond muté 30%", TOK.mutedForeground, blend(TOK.muted, 0.3, WHITE), 4.5],
-  ["libellé chip / chip muté", blend(TOK.foreground, 0.7, TOK.muted), TOK.muted, 4.5],
-  ["primary / fond", TOK.primary, TOK.background, 4.5],
-  ["primary / primary 10%", TOK.primary, blend(TOK.primary, 0.1, WHITE), 4.5],
-  ["texte bouton blanc / primary", WHITE, TOK.primary, 4.5],
+  /* — Neutres : texte sur fond de site, cartes et chips — */
+  ["texte principal / fond de site", TOK.foreground, TOK.background, 4.5],
+  ["texte principal / carte blanche", TOK.foreground, TOK.card, 4.5],
+  ["texte secondaire / fond de site", TOK.mutedForeground, TOK.background, 4.5],
+  ["texte secondaire / carte blanche", TOK.mutedForeground, TOK.card, 4.5],
+  ["texte secondaire / chip muté (profil + badges)", TOK.mutedForeground, TOK.muted, 4.5],
+  ["texte principal / chip muté (profil)", TOK.foreground, TOK.muted, 4.5],
+  ["libellé chip muté / chip muté", blend(TOK.foreground, 0.7, TOK.muted), TOK.muted, 4.5],
+
+  /* — Sections sombres : hero, CTA final, avatar, pastilles — */
+  ["texte blanc / section near-black", WHITE, TOK.foreground, 4.5],
+  ["texte blanc 70 % / hero near-black", blend(WHITE, 0.7, TOK.foreground), TOK.foreground, 4.5],
+  ["texte blanc 60 % / bloc CTA near-black", blend(WHITE, 0.6, TOK.foreground), TOK.foreground, 4.5],
+  ["compte à rebours J-X : blanc / pastille encre", WHITE, TOK.foreground, 4.5],
+  ["mot surligné (encre) / surlignage ambre", TOK.foreground, TOK.surlignage, 4.5],
+  ["pastille surlignage / section near-black", TOK.surlignage, TOK.foreground, 4.5],
+
+  /* — Signature : CTA, liens, focus rings — */
+  ["texte blanc / CTA signature", WHITE, TOK.signature, 4.5],
+  ["texte blanc / CTA signature (survol)", WHITE, TOK.signatureDeep, 4.5],
+  ["lien signature / fond de site", TOK.signature, TOK.background, 4.5],
+  ["lien signature / carte blanche", TOK.signature, TOK.card, 4.5],
+  ["lien signature / chip muté", TOK.signature, TOK.muted, 4.5],
+
+  /* — États : erreurs, succès, échéance — */
   ["destructive / carte (astérisque, erreur)", TOK.destructive, TOK.card, 4.5],
-  ["rouge erreur / fond rouge 5%", TOK.red700, TOK.red50, 4.5],
-  ["vert succès / fond vert 5%", TOK.green800, TOK.green50, 4.5],
-  ["badge stage_pfe (indigo 800/100)", hslToRgb(227.3, 76.7, 26.9), hslToRgb(224.9, 94.7, 96.3), 4.5],
-  ["badge emploi_junior (emerald 800/100)", hslToRgb(152.2, 79.7, 26.6), hslToRgb(151.7, 91, 92), 4.5],
-  ["badge bourse (amber 900/100)", hslToRgb(37.9, 92.2, 20), hslToRgb(44.9, 95.8, 95.1), 4.5],
-  ["badge stage_ete (sky 800/100)", hslToRgb(198.7, 89.1, 30.8), hslToRgb(199.1, 93.2, 94.9), 4.5],
-  ["badge alternance (violet 800/100)", hslToRgb(263.4, 76.7, 33.1), hslToRgb(265, 89.4, 96.5), 4.5],
-  ["titre CTA blanc / gradient violet-600", WHITE, TOK.violet600, 4.5],
-  ["texte CTA blanc 90% / violet-600", blend(WHITE, 0.9, TOK.violet600), TOK.violet600, 4.5],
-  ["icône confirmation blanche / emerald-700", WHITE, TOK.emerald700, 3.0],
-  ["dégradé avatar blanc / violet-500", WHITE, TOK.violet500, 4.5],
+  ["rouge erreur / fond rouge 5 %", TOK.red700, TOK.red50, 4.5],
+  ["vert succès / fond vert 5 %", TOK.green800, TOK.green50, 4.5],
+  ["avertissement « Dernier jour » : ambre 900 / ambre 50", TOK.amber900, TOK.amber50, 4.5],
 ];
 
 function runContrastChecks() {

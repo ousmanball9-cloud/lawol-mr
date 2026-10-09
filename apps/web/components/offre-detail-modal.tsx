@@ -37,12 +37,19 @@ export const TYPES_OFFRES: Record<string, string> = {
   bourse: "Bourse d'études",
 };
 
+/**
+ * Tenue des badges type d'offre : version épurée (petites capitales + bordure
+ * fine neutre). Une seule et même tenue pour les 5 types — zéro rainbow.
+ * La classe `badge-offre` sert de sonde de mesure (scripts/verify-design.mjs).
+ */
+const BADGE_OFFRE_NEUTRE = "border border-border bg-muted text-muted-foreground";
+
 export const BADGES_TYPE: Record<string, string> = {
-  stage_pfe: "bg-indigo-100 text-indigo-800",
-  emploi_junior: "bg-emerald-100 text-emerald-800",
-  bourse: "bg-amber-100 text-amber-900",
-  stage_ete: "bg-sky-100 text-sky-800",
-  alternance: "bg-violet-100 text-violet-800",
+  stage_pfe: BADGE_OFFRE_NEUTRE,
+  emploi_junior: BADGE_OFFRE_NEUTRE,
+  bourse: BADGE_OFFRE_NEUTRE,
+  stage_ete: BADGE_OFFRE_NEUTRE,
+  alternance: BADGE_OFFRE_NEUTRE,
 };
 
 const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", {
@@ -133,26 +140,26 @@ export function OffreDetailModal({ offre, postule, enCours, onPostuler, onFermer
         aria-modal="true"
         aria-label={`Détail de l'offre ${offre.titre}`}
         onClick={(e) => e.stopPropagation()}
-        className="relative max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border bg-card p-6 shadow-2xl shadow-primary/10"
+        className="relative max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-[0_24px_48px_-12px_rgba(10,10,10,0.28)]"
       >
         <button
           type="button"
           onClick={onFermer}
           aria-label="Fermer le détail de l'offre"
-          className="absolute right-4 top-4 rounded-full p-1.5 text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          className="absolute right-4 top-4 rounded-full p-1.5 text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature/60"
         >
           <X className="h-4 w-4" />
         </button>
 
         {/* 1. Badge type + titre */}
         <span
-          className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
-            BADGES_TYPE[offre.type_offre] ?? "bg-muted text-muted-foreground"
+          className={`badge-offre inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${
+            BADGES_TYPE[offre.type_offre] ?? BADGE_OFFRE_NEUTRE
           }`}
         >
           {TYPES_OFFRES[offre.type_offre] || offre.type_offre}
         </span>
-        <h2 className="mt-3 pr-8 text-xl font-bold leading-snug text-foreground">{offre.titre}</h2>
+        <h2 className="mt-3 pr-8 font-display text-xl font-bold leading-snug tracking-[-0.01em] text-foreground">{offre.titre}</h2>
 
         {/* 2. Entreprise + ville + source */}
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
@@ -175,15 +182,15 @@ export function OffreDetailModal({ offre, postule, enCours, onPostuler, onFermer
           </span>
           {jours !== null &&
             (jours < 0 ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">
+              <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
                 Clôturée
               </span>
             ) : jours === 0 ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900">
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900">
                 Dernier jour
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+              <span className="inline-flex items-center gap-1 rounded-full bg-ink px-2.5 py-1 text-xs font-semibold text-white">
                 <Clock className="h-3 w-3" />
                 J-{jours}
               </span>
@@ -218,16 +225,16 @@ export function OffreDetailModal({ offre, postule, enCours, onPostuler, onFermer
         )}
 
         {/* 6. Comment postuler */}
-        <div className="mt-5 rounded-xl bg-muted/40 p-4">
+        <div className="mt-5 rounded-lg border border-border bg-muted/50 p-4">
           <h3 className="mb-3 text-sm font-semibold text-foreground">Comment postuler</h3>
           {aUnCanal ? (
             <div className="flex flex-col gap-2">
               {email && (
                 <a
                   href={`mailto:${email}?subject=${encodeURIComponent(`Candidature — ${offre.titre}`)}`}
-                  className="flex items-center gap-2 rounded-xl border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors duration-150 hover:border-primary/40 hover:text-primary"
+                  className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm font-medium text-foreground transition-colors duration-150 hover:border-signature hover:text-signature"
                 >
-                  <Mail className="h-4 w-4 shrink-0 text-primary" />
+                  <Mail className="h-4 w-4 shrink-0 text-signature" />
                   Postuler par e-mail
                 </a>
               )}
@@ -236,9 +243,9 @@ export function OffreDetailModal({ offre, postule, enCours, onPostuler, onFermer
                   href={lienWhatsApp(whatsapp)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-xl border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors duration-150 hover:border-primary/40 hover:text-primary"
+                  className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm font-medium text-foreground transition-colors duration-150 hover:border-signature hover:text-signature"
                 >
-                  <MessageCircle className="h-4 w-4 shrink-0 text-primary" />
+                  <MessageCircle className="h-4 w-4 shrink-0 text-signature" />
                   Écrire sur WhatsApp
                 </a>
               )}
@@ -247,9 +254,9 @@ export function OffreDetailModal({ offre, postule, enCours, onPostuler, onFermer
                   href={lienSource}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-xl border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors duration-150 hover:border-primary/40 hover:text-primary"
+                  className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm font-medium text-foreground transition-colors duration-150 hover:border-signature hover:text-signature"
                 >
-                  <ExternalLink className="h-4 w-4 shrink-0 text-primary" />
+                  <ExternalLink className="h-4 w-4 shrink-0 text-signature" />
                   Voir l&apos;offre originale
                   {offre.source_name ? ` — ${offre.source_name}` : ""}
                 </a>
@@ -266,7 +273,7 @@ export function OffreDetailModal({ offre, postule, enCours, onPostuler, onFermer
         <Button
           onClick={onPostuler}
           disabled={postule || enCours}
-          className="mt-5 w-full rounded-xl shadow-md transition-all duration-150 hover:shadow-lg"
+          className="mt-5 h-11 w-full rounded-lg bg-signature text-white hover:bg-signature-deep"
         >
           {postule ? "Postulé ✅" : enCours ? "Enregistrement..." : "J'ai postulé"}
         </Button>

@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next"
-import { Inter } from "next/font/google"
+import { Inter, Sora } from "next/font/google"
 import "./globals.css"
+// Texte : Inter (lisibilité FR) — Titres : Sora, display avec caractère.
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
+const sora = Sora({ subsets: ["latin"], variable: "--font-display" })
 export const metadata: Metadata = {
   title: "LAWOL.mr — Ton stage, sans le stress",
   description: "La plateforme qui connecte les étudiants mauritaniens aux offres de stage PFE, emploi junior et alternance qui matchent leur profil. Reçois les offres sur WhatsApp.",
@@ -11,7 +13,7 @@ export const metadata: Metadata = {
   openGraph: { type: "website", locale: "fr_MR", url: "https://lawol.mr", siteName: "LAWOL.mr", title: "LAWOL.mr — Ton stage, sans le stress", description: "Reçois uniquement les offres qui matchent ton profil, directement sur WhatsApp." },
   twitter: { card: "summary_large_image", title: "LAWOL.mr — Ton stage, sans le stress", description: "Reçois uniquement les offres qui matchent ton profil, directement sur WhatsApp." },
 }
-export const viewport: Viewport = { themeColor: [{ media: "(prefers-color-scheme: light)", color: "white" }, { media: "(prefers-color-scheme: dark)", color: "#0f172a" }], width: "device-width", initialScale: 1, maximumScale: 5 }
+export const viewport: Viewport = { themeColor: [{ media: "(prefers-color-scheme: light)", color: "#FAFAFA" }, { media: "(prefers-color-scheme: dark)", color: "#0A0A0A" }], width: "device-width", initialScale: 1, maximumScale: 5 }
 
 // Facebook SDK — App ID à remplacer par celui de ton app Meta
 const FACEBOOK_APP_ID = "1353421643376980";
@@ -43,7 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className={`${inter.variable} font-sans antialiased`}>{children}</body>
+      <body className={`${inter.variable} ${sora.variable} font-sans antialiased`}>{children}</body>
     </html>
   );
 }

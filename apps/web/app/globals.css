@@ -1,27 +1,51 @@
 @tailwind base; @tailwind components; @tailwind utilities;
+
+/*
+ * Design system « Épuré premium » (références Stripe / Linear / Vercel).
+ *
+ * Palette : quasi noir & blanc.
+ *   - fond de site #FAFAFA, cartes/blancs #FFFFFF, encre #0A0A0A,
+ *     texte secondaire #52525B, bordures fines 1px #E4E4E7.
+ *   - UNE couleur signature : bleu électrique #2563EB (CTA, liens, focus).
+ *   - UN surlignage : ambre #F59E0B (mot-clé du hero, hairline décorative).
+ * Les dégradés indigo→violet, ombres colorées et fonds `primary/10`
+ * généralisés ont été supprimés : la profondeur vient des bordures fines.
+ */
 @layer base {
   :root {
-    --background: 0 0% 100%; --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%; --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%; --popover-foreground: 222.2 84% 4.9%;
-    --primary: 239 84% 62%; --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%; --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%; --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%; --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 74.7% 41%; --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%; --input: 214.3 31.8% 91.4%; --ring: 239 84% 62%;
+    --background: 0 0% 98%; --foreground: 0 0% 4%;
+    --card: 0 0% 100%; --card-foreground: 0 0% 4%;
+    --popover: 0 0% 100%; --popover-foreground: 0 0% 4%;
+    --primary: 221.2 83.2% 53.3%; --primary-foreground: 0 0% 100%;
+    --secondary: 240 4.8% 95.9%; --secondary-foreground: 0 0% 9%;
+    --muted: 240 4.8% 95.9%; --muted-foreground: 240 5.2% 33.9%;
+    --accent: 240 4.8% 95.9%; --accent-foreground: 0 0% 9%;
+    --destructive: 0 74.7% 41%; --destructive-foreground: 0 0% 100%;
+    --border: 240 5.8% 90%; --input: 240 5.8% 90%; --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
+    /* Tokens de la charte (utilisés en classes utilitaires personnalisées) */
+    --ink: 0 0% 4%;          /* #0A0A0A — sections sombres, icônes pleines */
+    --signature: 221.2 83.2% 53.3%; /* #2563EB */
+    --surlignage: 37.7 92.2% 50.2%; /* #F59E0B */
   }
   .dark {
-    --background: 222.2 84% 4.9%; --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%; --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%; --popover-foreground: 210 40% 98%;
-    --primary: 239 84% 67%; --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%; --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%; --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%; --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%; --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%; --input: 217.2 32.6% 17.5%; --ring: 239 84% 67%;
+    --background: 0 0% 4%; --foreground: 0 0% 98%;
+    --card: 0 0% 7%; --card-foreground: 0 0% 98%;
+    --popover: 0 0% 7%; --popover-foreground: 0 0% 98%;
+    --primary: 221.2 83.2% 53.3%; --primary-foreground: 0 0% 100%;
+    --secondary: 240 4.8% 12%; --secondary-foreground: 0 0% 98%;
+    --muted: 240 4.8% 12%; --muted-foreground: 240 5% 70%;
+    --accent: 240 4.8% 12%; --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 45%; --destructive-foreground: 0 0% 100%;
+    --border: 240 4.8% 16%; --input: 240 4.8% 16%; --ring: 221.2 83.2% 53.3%;
   }
 }
-@layer base { * { @apply border-border; } body { @apply bg-background text-foreground; font-feature-settings: "rlig" 1, "calt" 1; } }
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; font-feature-settings: "rlig" 1, "calt" 1; }
+}
+
+@layer components {
+  /* Overline « petites capitales » : eyebrows, étapes, numéros, sources. */
+  .eyebrow { @apply text-xs font-semibold uppercase tracking-[0.18em]; }
+}

@@ -40,7 +40,7 @@ const TYPES_OFFRES = [
 const OPTIN_TEXTE = "J'accepte de recevoir les offres correspondant à mon profil sur WhatsApp";
 
 const inputClass =
-  "w-full rounded-xl border border-input bg-background px-4 py-2.5 text-sm text-foreground transition-colors duration-150 placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/40";
+  "w-full rounded-lg border border-input bg-white px-4 py-2.5 text-sm text-foreground transition-colors duration-150 placeholder:text-muted-foreground focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30";
 
 const selectClass = `${inputClass} bg-background`;
 
@@ -141,14 +141,14 @@ export default function InscriptionPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-12">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
       <div className="w-full max-w-lg">
-        <div className="rounded-2xl border bg-card p-8 shadow-xl shadow-primary/5 sm:p-10">
+        <div className="rounded-lg border border-border bg-card p-8 shadow-[0_1px_3px_rgba(10,10,10,0.04)] sm:p-10">
           <div className="mb-8 text-center">
-            <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-violet-500 text-primary-foreground shadow-lg shadow-primary/25">
-              <GraduationCap className="h-8 w-8" />
+            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-lg bg-ink text-white">
+              <GraduationCap className="h-7 w-7" />
             </div>
-            <h1 className="mb-2 text-2xl font-bold text-foreground">Inscription LAWOL.mr</h1>
+            <h1 className="mb-2 font-display text-2xl font-bold tracking-[-0.02em] text-foreground">Inscription LAWOL.mr</h1>
             <p className="text-sm text-muted-foreground">
               Reçois les offres de stage, PFE et emploi qui matchent ton profil sur WhatsApp
             </p>
@@ -284,13 +284,13 @@ export default function InscriptionPage() {
                 {TYPES_OFFRES.map((t) => (
                   <label
                     key={t.value}
-                    className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-input bg-background px-3 py-2.5 text-sm transition-colors duration-150 hover:border-primary/40 hover:bg-primary/5"
+                    className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-input bg-white px-3 py-2.5 text-sm transition-colors duration-150 hover:border-signature hover:bg-signature/5"
                   >
                     <input
                       type="checkbox"
                       checked={form.types_recherches.includes(t.value)}
                       onChange={() => toggleTypeOffre(t.value)}
-                      className="rounded border-gray-300 text-primary focus:ring-primary"
+                      className="rounded border-gray-300 text-signature focus:ring-signature"
                     />
                     <span className="text-sm">{t.label}</span>
                   </label>
@@ -299,17 +299,17 @@ export default function InscriptionPage() {
             </div>
 
             {/* Opt-in */}
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <div className="rounded-lg border border-input bg-muted p-4">
               <label className="flex cursor-pointer items-start gap-3">
                 <input
                   type="checkbox"
                   checked={form.optin}
                   onChange={(e) => update("optin", e.target.checked)}
-                  className="mt-1 rounded border-gray-300 text-primary focus:ring-primary"
+                  className="mt-1 rounded border-gray-300 text-signature focus:ring-signature"
                   required
                 />
                 <span className="text-sm text-foreground">
-                  <MessageSquare className="inline h-4 w-4 mr-1 text-primary" />
+                  <MessageSquare className="inline h-4 w-4 mr-1 text-signature" />
                   {OPTIN_TEXTE} <span className="text-destructive">*</span>
                 </span>
               </label>
@@ -317,7 +317,7 @@ export default function InscriptionPage() {
 
             {/* Erreur */}
             {error && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                 {error}
               </div>
             )}
@@ -326,7 +326,7 @@ export default function InscriptionPage() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full h-12 rounded-xl text-base shadow-lg shadow-primary/20 transition-all duration-200 hover:shadow-xl hover:shadow-primary/30"
+              className="h-12 w-full rounded-lg bg-signature text-base text-white hover:bg-signature-deep"
               size="lg"
             >
               {loading ? "Inscription en cours..." : "S'inscrire"}
