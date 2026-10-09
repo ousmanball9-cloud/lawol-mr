@@ -214,7 +214,8 @@ async def list_matches(profil_id: str | None = None, limit: int = 50):
     """Liste les matches, enrichis avec titre d'offre + prénom de l'étudiant."""
     colonnes = (
         "id, score, notifie, postule, date_match, "
-        "offre:offres(id, titre, entreprise, ville, date_limite), "
+        "offre:offres(id, titre, entreprise, ville, type_offre, description, date_limite, "
+        "contact_email, contact_whatsapp, source_url, source_name, filieres_cibles), "
         "profil:profils(id, prenom, nom, telephone, filiere, niveau)"
     )
     query = supabase.table("matches").select(colonnes)
