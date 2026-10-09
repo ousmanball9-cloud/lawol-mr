@@ -159,6 +159,74 @@ class Match(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ---------- P5 : favoris, statut de candidature, préférences, dashboard ----------
+class StatutCandidature(str, Enum):
+    """Statut de candidature attendu (pas de CHECK côté SQL, validation Pydantic)."""
+
+    POSTULE = "postule"
+    EN_COURS = "en_cours"
+    REPONSE_RECUE = "reponse_recue"
+    ENTRETIEN = "entretien"
+    ACCEPTE = "accepte"
+    REFUSE = "refuse"
+
+
+STATUTS_TERMINES = {StatutCandidature.ACCEPTE.value, StatutCandidature.REFUSE.value}
+
+
+class FavoriUpdate(BaseModel):
+    """PATCH /matches/{id}/favori — corps strict : booléen obligatoire."""
+
+    favori: bool
+
+
+class StatutUpdate(BaseModel):
+    """PATCH /matches/{id}/statut — statut obligatoire, null = remise à zéro."""
+
+    statut: Optional[StatutCandidature] = None
+
+
+class PreferencesAvancees(BaseModel):
+    """Préférences avancées stockées dans profils.metadata['prefs_avancees']."""
+
+    villes_exclues: list[Ville] = Field(default_factory=list)
+    types_masques: list[TypeOffre] = Field(default_factory=list)
+    seuil_pertinence: Optional[int] = Field(default=None, ge=0, le=100)
+
+
+class PreferencesAvanceesUpdate(BaseModel):
+    """PATCH /profils/{tel}/preferences — corps partiel (seuls champs fournis)."""
+
+    villes_exclues: Optional[list[Ville]] = None
+    types_masques: Optional[list[TypeOffre]] = None
+    seuil_pertinence: Optional[int] = Field(default=None, ge=0, le=100)
+
+
+class DashboardProfil(BaseModel):
+    id: UUID
+    nom: str
+    prenom: str
+    score_profil: int = Field(ge=0, le=100)
+
+
+class ResumeHebdo(BaseModel):
+    offres_dispo: int = 0
+    nouvelles_7j: int = 0
+    postules_total: int = 0
+    en_cours: int = 0
+
+
+class PosteAnnee(BaseModel):
+    poste: str
+    count: int
+
+
+class DashboardResponse(BaseModel):
+    profil: DashboardProfil
+    resume: ResumeHebdo
+    postes_annee: list[PosteAnnee]
+
+
 # ---------- Stats (dashboard admin) ----------
 class StatsResponse(BaseModel):
     offres_actives: int

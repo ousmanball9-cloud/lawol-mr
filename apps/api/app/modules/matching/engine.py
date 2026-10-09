@@ -14,6 +14,12 @@ Améliorations P3 :
   - Limite anti-spam : MAX_MATCHES_PAR_SEMAINE = 5
   - Déduplication par content_hash (titre + entreprise + date_limite)
   - Tri par score décroissant, ignores si score < 30
+
+Préférences avancées P5 (profils.metadata['prefs_avancees']) :
+  - villes_exclues    : aucune offre de ces villes n'est matchée
+  - types_masques     : ces types d'offre sont sautés
+  - seuil_pertinence  : score minimal personnel (>= SCORE_MIN_PERTINENCE)
+  Prefs absentes = comportement v1 inchangé.
 """
 import hashlib
 import logging
@@ -127,6 +133,18 @@ def compute_content_hash(titre: str, entreprise: str, date_limite: date) -> str:
     return hashlib.md5(raw).hexdigest()
 
 
+def prefs_avancees(metadata) -> dict:
+    """Préférences avancées d'un profil (profils.metadata['prefs_avancees']).
+
+    Absentes ou mal formées = dict vide = comportement inchangé (règle D8/P5).
+    """
+    if isinstance(metadata, dict):
+        prefs = metadata.get("prefs_avancees")
+        if isinstance(prefs, dict):
+            return prefs
+    return {}
+
+
 def _dedup_offres(offres: list[dict]) -> list[dict]:
     """Deduplique les offres par content_hash, garde la plus recente."""
     vues: dict[str, dict] = {}
@@ -198,13 +216,23 @@ def run_matching_job() -> dict:
         "ignores_deja": 0,
         "ignores_score_faible": 0,
         "ignores_spam": 0,
+        "ignores_prefs": 0,
     }
     for p in profils_res.data:
+        # Préférences avancées du profil (P5) — dict vide si absentes
+        prefs = prefs_avancees(p.get("metadata"))
+        villes_exclues = set(prefs.get("villes_exclues") or [])
+        types_masques = set(prefs.get("types_masques") or [])
+        seuil_pertinence = prefs.get("seuil_pertinence")
         candidats = []
         for o in offres_dedup:
             stats["examines"] += 1
             if (o["id"], p["id"]) in deja_matchees:
                 stats["ignores_deja"] += 1
+                continue
+            # Prefs : ville exclue ou type masqué -> aucun match créé
+            if o.get("ville") in villes_exclues or o.get("type_offre") in types_masques:
+                stats["ignores_prefs"] += 1
                 continue
             # Date par defaut si date_limite mal formee -> ne pas faire planter le job
             try:
@@ -246,6 +274,11 @@ def run_matching_job() -> dict:
             )
             if score < SCORE_MIN_PERTINENCE:
                 stats["ignores_score_faible"] += 1
+                continue
+            # Prefs : seuil de pertinence personnel (ne peut descendre sous le
+            # seuil global SCORE_MIN_PERTINENCE — comportement inchangé sans prefs)
+            if seuil_pertinence is not None and score < int(seuil_pertinence):
+                stats["ignores_prefs"] += 1
                 continue
             candidats.append(
                 {

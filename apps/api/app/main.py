@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import sys
 
 from apps.api.app.core.config import settings
 from apps.api.app.core.database import supabase
@@ -14,14 +15,32 @@ from apps.api.app.modules.shared.models import (
     Filiere,
     Ville,
     TypeOffre,
+    DashboardProfil,
+    DashboardResponse,
+    FavoriUpdate,
+    PreferencesAvanceesUpdate,
+    ResumeHebdo,
+    StatutUpdate,
+)
+from apps.api.app.modules.dashboard.summary import (
+    calculer_resume,
+    calculer_score_profil,
+    offres_par_poste,
 )
 from apps.api.app.modules.matching.engine import run_matching_job
 from apps.api.app.modules.scraper.sources.catalogue import get_scrapers
 from datetime import date
+from uuid import UUID
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Console Windows (cp1252) : évite UnicodeEncodeError sur les emojis de log
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")
+        except Exception:
+            pass
     print(f"🚀 {settings.APP_NAME} démarré ({settings.APP_ENV})")
     yield
     print("🛑 API arrêtée")
@@ -248,6 +267,185 @@ async def marquer_postule(match_id: str):
     if not res.data:
         raise HTTPException(500, "Erreur lors de la mise à jour du match")
     return {"id": match_id, "postule": True}
+
+
+# ---------- P5 : dashboard, favoris, statut, historique, préférences ----------
+_MATCHES_OFFRE_ETENDUE = (
+    "id, titre, entreprise, ville, type_offre, description, date_limite, "
+    "contact_email, contact_whatsapp, source_url, source_name, filieres_cibles, active"
+)
+_MATCHES_PROFIL_ETENDU = "id, prenom, nom, telephone, filiere, niveau"
+_MATCHES_BASE = (
+    "id, score, notifie, date_match, "
+    f"offre:offres({_MATCHES_OFFRE_ETENDUE}), "
+    f"profil:profils({_MATCHES_PROFIL_ETENDU})"
+)
+# Variantes du plus complet au plus sobre (repli D8 si une colonne manque)
+_MATCHES_VARIANTES = (
+    _MATCHES_BASE + ", postule, favori, statut_candidature",
+    _MATCHES_BASE + ", postule",
+    _MATCHES_BASE,
+)
+
+
+def _lire_matches_profil(profil_id: str, limit: int | None = None) -> list[dict]:
+    """Matches du profil (tri date_match desc) avec offre étendue (comme /matches).
+
+    Repli D8 : si `favori`/`statut_candidature` (voire `postule`) n'existent pas
+    encore, on retombe sur une sélection plus sobre et on complète les champs
+    manquants avec leur défaut (favori=false, statut_candidature=null).
+    Lecture = valeur par défaut, jamais de 500.
+    """
+    derniere_erreur: Exception | None = None
+    for colonnes in _MATCHES_VARIANTES:
+        try:
+            query = (
+                supabase.table("matches")
+                .select(colonnes)
+                .eq("profil_id", profil_id)
+                .order("date_match", desc=True)
+            )
+            if limit:
+                query = query.limit(limit)
+            res = query.execute()
+        except Exception as e:  # colonne absente (D8) ou souci réseau
+            derniere_erreur = e
+            continue
+        for row in res.data:
+            row.setdefault("postule", False)
+            row.setdefault("favori", False)
+            row.setdefault("statut_candidature", None)
+        return res.data
+
+    msg = str(derniere_erreur or "").lower()
+    if "column" in msg or "not exist" in msg or "schema-cache" in msg:
+        raise HTTPException(
+            503,
+            "Favoris/statuts indisponibles : migration 002_p5.sql non appliquée (règle D8)",
+        )
+    raise HTTPException(503, "Service momentanément indisponible, réessaie plus tard")
+
+
+@app.get("/api/v1/dashboard/{telephone}", response_model=DashboardResponse)
+async def dashboard_client(telephone: str):
+    """Résumé hebdo du client : profil + compteurs de la semaine + offres par poste."""
+    res = supabase.table("profils").select("*").eq("telephone", telephone).execute()
+    if not res.data:
+        raise HTTPException(404, "Profil non trouvé")
+    profil = res.data[0]
+
+    matches = _lire_matches_profil(profil["id"])
+    return DashboardResponse(
+        profil=DashboardProfil(
+            id=profil["id"],
+            nom=profil.get("nom", ""),
+            prenom=profil.get("prenom", ""),
+            score_profil=calculer_score_profil(profil),
+        ),
+        resume=ResumeHebdo(**calculer_resume(matches)),
+        postes_annee=offres_par_poste(profil),
+    )
+
+
+@app.patch("/api/v1/matches/{match_id}/favori")
+async def basculer_favori(match_id: UUID, body: FavoriUpdate):
+    """Active/désactive le favori d'un match (D8 : 503 clair si colonne absente)."""
+    res = supabase.table("matches").select("id").eq("id", str(match_id)).execute()
+    if not res.data:
+        raise HTTPException(404, "Match non trouvé")
+
+    try:
+        res = (
+            supabase.table("matches")
+            .update({"favori": body.favori})
+            .eq("id", str(match_id))
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(
+            503, "Favoris en cours d'activation, réessaie plus tard (migration 002_p5.sql)"
+        )
+    if not res.data:
+        raise HTTPException(500, "Erreur lors de la mise à jour du match")
+    return {"id": str(match_id), "favori": body.favori}
+
+
+@app.patch("/api/v1/matches/{match_id}/statut")
+async def changer_statut_candidature(match_id: UUID, body: StatutUpdate):
+    """Change le statut de candidature (null = remise à zéro).
+
+    Validation stricte : valeur hors enum → 422 (avant tout appel Supabase).
+    D8 : colonne absente → 503 clair, jamais de 500.
+    """
+    if "statut" not in body.model_fields_set:
+        raise HTTPException(422, "Champ 'statut' obligatoire (null pour réinitialiser)")
+
+    res = supabase.table("matches").select("id").eq("id", str(match_id)).execute()
+    if not res.data:
+        raise HTTPException(404, "Match non trouvé")
+
+    valeur = body.statut.value if body.statut else None
+    try:
+        res = (
+            supabase.table("matches")
+            .update({"statut_candidature": valeur})
+            .eq("id", str(match_id))
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(
+            503,
+            "Statut de candidature en cours d'activation, réessaie plus tard "
+            "(migration 002_p5.sql)",
+        )
+    if not res.data:
+        raise HTTPException(500, "Erreur lors de la mise à jour du match")
+    return {"id": str(match_id), "statut_candidature": valeur}
+
+
+@app.get("/api/v1/profils/{telephone}/historique")
+async def historique_candidatures(telephone: str):
+    """Matches du profil (date_match desc) avec offre étendue + favori +
+    statut_candidature + postule (repli D8 si colonnes absentes)."""
+    res = supabase.table("profils").select("id").eq("telephone", telephone).execute()
+    if not res.data:
+        raise HTTPException(404, "Profil non trouvé")
+    return _lire_matches_profil(res.data[0]["id"])
+
+
+@app.patch("/api/v1/profils/{telephone}/preferences")
+async def maj_preferences_avancees(telephone: str, prefs: PreferencesAvanceesUpdate):
+    """Met à jour partiellement profils.metadata['prefs_avancees'] (jsonb, pas de migration).
+
+    Le matching engine applique ensuite ces préférences : villes exclues,
+    types masqués, seuil de pertinence minimal.
+    """
+    res = supabase.table("profils").select("id, metadata").eq("telephone", telephone).execute()
+    if not res.data:
+        raise HTTPException(404, "Profil non trouvé")
+
+    changements = prefs.model_dump(exclude_unset=True, mode="json")
+    if not changements:
+        raise HTTPException(422, "Aucune préférence à modifier")
+
+    metadata = res.data[0].get("metadata")
+    metadata = dict(metadata) if isinstance(metadata, dict) else {}
+    actuelles = metadata.get("prefs_avancees")
+    actuelles = dict(actuelles) if isinstance(actuelles, dict) else {}
+
+    # Fusion : seuls les champs présents dans le corps sont remplacés
+    fusion = {**actuelles, **changements}
+    metadata["prefs_avancees"] = fusion
+
+    maj = (
+        supabase.table("profils")
+        .update({"metadata": metadata})
+        .eq("telephone", telephone)
+        .execute()
+    )
+    if not maj.data:
+        raise HTTPException(500, "Erreur lors de la mise à jour des préférences")
+    return {"telephone": telephone, "prefs_avancees": fusion}
 
 
 # ---------- Stats ----------
