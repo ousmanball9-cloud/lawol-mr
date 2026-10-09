@@ -10,6 +10,7 @@ out/
 build/
 *.tsbuildinfo
 apps/web/.verify/
+apps/web/.verify-offre-modal/
 
 # Python
 .venv/
