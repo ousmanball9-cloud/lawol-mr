@@ -94,7 +94,7 @@ class OffreStagePublic(BaseModel):
 
 # ---------- Profils étudiants ----------
 class ProfilEtudiantBase(BaseModel):
-    telephone: str = Field(pattern=r"^222\d{7}$")
+    telephone: str = Field(pattern=r"^222\d{8}$")
     nom: str = Field(min_length=2, max_length=100)
     prenom: str = Field(min_length=1, max_length=100)
     email: Optional[EmailStr] = None

@@ -72,8 +72,8 @@ export default function InscriptionPage() {
     setError("");
 
     // Validation téléphone
-    if (!/^222\d{7}$/.test(form.telephone)) {
-      setError("Numéro de téléphone invalide. Format attendu : 222XXXXXXXX (10 chiffres)");
+    if (!/^222\d{8}$/.test(form.telephone)) {
+      setError("Numéro de téléphone invalide. Format attendu : +222 suivi de 8 chiffres");
       return;
     }
 
@@ -155,11 +155,11 @@ export default function InscriptionPage() {
                 type="tel"
                 value={form.telephone}
                 onChange={(e) => update("telephone", e.target.value)}
-                placeholder="222XXXXXXXX"
+                placeholder="+222 XXXXXXXXX"
                 className="w-full border rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                 required
               />
-              <p className="text-xs text-muted-foreground mt-1">Format : 222 suivi de 7 chiffres</p>
+              <p className="text-xs text-muted-foreground mt-1">Format : +222 suivi de 8 chiffres</p>
             </div>
 
             {/* Nom */}

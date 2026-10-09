@@ -10,7 +10,7 @@ GRAPH_URL = "https://graph.facebook.com/v21.0"
 
 
 def envoyer_message_texte(destinataire_telephone: str, texte: str) -> dict:
-    """Envoie un message texte à un étudiant (format 222XXXXXXXX)."""
+    """Envoie un message texte à un étudiant (format +222 suivi de 8 chiffres)."""
     if not settings.META_WHATSAPP_TOKEN or not settings.META_PHONE_NUMBER_ID:
         raise RuntimeError("Clés META_WHATSAPP_* non configurées")
 
