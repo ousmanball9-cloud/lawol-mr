@@ -49,6 +49,8 @@ async def recevoir_message(request: Request):
 
 
 @router.get("/api/v1/whatsapp/messages")
-async def lister_messages():
-    """Debug : liste les derniers messages reçus par le webhook."""
+async def lister_messages(token: str = Query()):
+    """Debug : liste les derniers messages reçus par le webhook (auth requise)."""
+    if not token or token != settings.ADMIN_PASSWORD_HASH:
+        raise HTTPException(403, "Token admin invalide")
     return {"total": len(_derniers_messages), "messages": _derniers_messages}

@@ -8,12 +8,22 @@ import hmac
 
 from apps.api.app.core.config import settings
 
+# Fail-fast : en production, META_APP_SECRET doit être impérativement défini.
+# Si ce secret est manquant en production, on plante au démarrage plutôt que
+# de tourner sans protection (une signature vide ou fausse serait acceptée).
+if settings.APP_ENV == "production" and not settings.META_APP_SECRET:
+    raise RuntimeError(
+        "META_APP_SECRET must be set when APP_ENV=production. "
+        "Set it in your .env or production environment variables."
+    )
+
 
 def verifier_signature(body_bytes: bytes, signature_recue: str | None) -> bool:
     """Retourne True si la signature est valide (ou absente en dev)."""
     if not settings.META_APP_SECRET:
-        # Pas de secret configuré = pas de vérification possible (dev seul)
-        return True
+        # Ne JAMAIS accepter silencieusement une signature vide ;
+        # cela laisserait passer les requêtes non authentifiées.
+        return False
     if not signature_recue or not signature_recue.startswith("sha256="):
         return False
     attendu = "sha256=" + hmac.new(

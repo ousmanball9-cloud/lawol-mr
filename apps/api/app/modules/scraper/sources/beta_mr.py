@@ -8,6 +8,7 @@ import re
 from datetime import date
 from typing import Iterable
 
+import certifi
 import httpx
 from bs4 import BeautifulSoup
 
@@ -65,7 +66,7 @@ class BetaMrScraper(BaseScraper):
 
     def _fetch(self, url: str) -> str | None:
         try:
-            r = httpx.get(url, headers=ENTETES, timeout=self.timeout, follow_redirects=True, verify=False)
+            r = httpx.get(url, headers=ENTETES, timeout=self.timeout, follow_redirects=True, verify=certifi.where())
             r.raise_for_status()
             return r.text
         except Exception as e:  # noqa: BLE001
