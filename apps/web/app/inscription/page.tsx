@@ -71,8 +71,11 @@ export default function InscriptionPage() {
     e.preventDefault();
     setError("");
 
-    // Validation téléphone
-    if (!/^222\d{8}$/.test(form.telephone)) {
+    // Nettoyer le téléphone (supprimer +, espaces, tirets, points)
+    const telephoneClean = form.telephone.replace(/[\s+\-\.]/g, "");
+
+    // Validation téléphone (format mauritanien : 222 + 8 chiffres)
+    if (!/^222\d{8}$/.test(telephoneClean)) {
       setError("Numéro de téléphone invalide. Format attendu : +222 suivi de 8 chiffres");
       return;
     }
@@ -100,7 +103,7 @@ export default function InscriptionPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          telephone: form.telephone,
+          telephone: telephoneClean,
           nom: form.nom.trim(),
           prenom: form.prenom.trim(),
           universite: form.universite.trim(),
