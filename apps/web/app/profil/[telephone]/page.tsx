@@ -113,6 +113,7 @@ export default function ProfilPage() {
   );
 
   async function handlePostule(matchId: string) {
+    if (postulEnCours) return; // garde anti double-clic (état asynchrone)
     setPostulEnCours(matchId);
     setMessage(null);
     try {
