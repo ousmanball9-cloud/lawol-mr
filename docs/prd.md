@@ -1,40 +1,55 @@
 # LAWOL.mr — PRD (Product Requirements Document)
 
-**Version** : 2.0 · **Date** : 2026-10-09 · **Statut** : en cours
+**Version** : 3.0 · **Date** : 2026-10-09 · **Statut** : en cours
 
 ---
 
 ## 1. Vision
 
-Envoyer aux étudiants mauritaniens **uniquement** les offres de stage/PFE/emploi junior qui correspondent à leur profil, directement sur WhatsApp. Zéro bruit, zéro stress.
+Envoyer aux étudiants mauritaniens **uniquement** les offres de stage/PFE/emploi junior/bourse qui correspondent à leur profil. **WhatsApp = canal de notification**, pas d'inscription. L'inscription se fait sur le web.
 
 ## 2. Objectifs
 
-| # | Objectif | Mesure | État |
+| # | Objectif | Mesure | État réel |
 |---|---|---|---|
-| O1 | L'étudiant reçoit des offres **pertinentes** (matching profil ↔ offre) | Taux de pertinence > 80% | ✅ 18 matches / 40 offres |
-| O2 | L'étudiant n'a **rien à faire** après l'inscription | Inscription < 2 min | ✅ via WhatsApp |
-| O3 | Les entreprises peuvent publier facilement | Envoi via WhatsApp < 1 min | ⏳ S2 en cours |
+| O1 | L'étudiant reçoit des offres **pertinentes** | Taux de pertinence > 80% | ❌ jamais mesuré (2 étudiants) |
+| O2 | L'étudiant s'inscrit en < 2 min | Formulaire web | ⏳ à faire |
+| O3 | Les entreprises peuvent publier facilement | Envoi via WhatsApp < 1 min | ⏳ v2 |
 | O4 | 100% gratuit, 0 donnée vendue | — | ✅ |
 
-## 3. Fonctionnalités
+## 3. Fonctionnalités — ÉTAT RÉEL (audit 2026-10-09)
 
-### v1 (MVP — en cours)
-- [x] **Inscription étudiant** : téléphone, nom, université, filière, niveau, ville, types recherchés
-- [x] **Collecte d'offres** : scraper beta.mr (37 offres collectées) + API admin
+### ✅ Fonctionne
+- [x] **Scraper beta.mr** : 37 offres collectées
 - [x] **Matching** : règle pure (filière + ville + type + date) — 18 matches
-- [x] **Notification WhatsApp** : envoi de messages via Meta Cloud API
-- [x] **Webhook WhatsApp** : réception des messages (configuré, en attente publication app Meta)
 - [x] **Dashboard admin** : login, stats, offres, profils
-- [ ] **Publication app Meta** : en pause (vérification d'entreprise requise)
+- [x] **Site web** : landing + pages légales (Vercel)
 
-### v2 (plus tard)
-- [ ] Envoi d'offres par les entreprises via WhatsApp (bot bidirectionnel)
-- [ ] Scraping Facebook
-- [ ] Matching avancé (score, mots-clés)
-- [ ] Application mobile (PWA)
+### ⏳ À faire (priorité haute)
+- [ ] **Inscription web** : formulaire + opt-in explicite (stocké : `optin_at`, `optin_texte`)
+- [ ] **Webhook parsing** : traiter les messages WhatsApp (inscription, MAJ, STOP)
+- [ ] **Sender conforme** : templates Meta (pas de texte libre) + fenêtre 24h
+- [ ] **Sécurité** : authentifier `GET /messages`, traiter STOP, anti-spam (max N notifs/semaine)
 
-## 4. Règles de matching (v1)
+### ⏸️ Bloqué
+- [ ] **Publication app Meta** : vérification d'entreprise requise (pas de budget)
+- [ ] **Bot conversationnel** : à faire après 100 étudiants actifs
+
+### ❌ Jamais délivré
+- [ ] **Notification envoyée** : 0 notification (0%) — le produit n'a jamais délivré sa promesse centrale
+
+## 4. Parcours utilisateur (correct)
+
+```
+1. L'étudiant va sur https://lawol-mr.vercel.app
+2. Remplit le formulaire (téléphone, nom, université, filière, niveau, ville, types recherchés)
+3. Case à cocher opt-in explicite → stocké en base
+4. Reçoit les offres matchées sur WhatsApp (si app Meta publiée)
+   OU consulte les offres sur le web
+5. Peut se désinscrire (STOP ou bouton web)
+```
+
+## 5. Règles de matching (v1)
 
 Un match existe si :
 1. Profil actif ET offre active ET offre non expirée
@@ -42,36 +57,38 @@ Un match existe si :
 3. `filière` du profil ∈ `filieres_cibles` de l'offre OU `filieres_interet` ∩ `filieres_cibles` ≠ ∅
 4. Même ville OU l'un des deux = AUTRE
 
-## 5. Architecture technique
+**À améliorer** : score réel (fraîcheur, exactitude), limite anti-spam, déduplication.
 
-| Composant | Technologie | URL |
+## 6. North Star
+
+⭐ **Candidatures déclarées / semaine** (bouton "J'ai postulé")
+> Un match non lu, non cliqué, non postulé vaut zéro.
+
+## 7. Architecture technique
+
+| Composant | Technologie | URL | État |
+|---|---|---|---|
+| Frontend | Next.js 15 + Tailwind | https://lawol-mr.vercel.app | ✅ |
+| API | FastAPI + Pydantic | https://lawol-mr-production.up.railway.app | ✅ |
+| Base de données | Supabase (PostgreSQL) | — | ✅ |
+| Bot WhatsApp | Meta Cloud API | — | ⏸️ bloqué (vérification) |
+| Scraper | beta.mr | — | ✅ |
+
+## 8. Risques majeurs (audit Diablo)
+
+| # | Risque | Sévérité |
 |---|---|---|
-| Frontend (landing + admin) | Next.js 15 + Tailwind | https://lawol-mr.vercel.app |
-| API | FastAPI + Pydantic | https://lawol-mr-production.up.railway.app |
-| Base de données | Supabase (PostgreSQL) | — |
-| Bot WhatsApp | Meta Cloud API | — |
-| Scraper | beta.mr (portail d'emploi) | — |
+| R1 | Webhook vide (pas de parsing) | 🔴 critique |
+| R2 | Sender non conforme (texte libre) | 🔴 critique |
+| R3 | Pas d'opt-in traçable | 🔴 critique |
+| R4 | Endpoint debug exposé (fuite données) | 🟠 high |
+| R5 | Matching non scalable | 🟠 high |
+| R6 | Offre sans demande (40 offres, 2 étudiants) | 🟠 high |
+| R7 | Dépendance mono-source (beta.mr) | 🟡 medium |
 
-## 6. Métriques actuelles (2026-10-09)
+## 9. Plan d'action (2 semaines, 0 €)
 
-| Métrique | Valeur |
-|---|---|
-| Offres actives | 40 |
-| Étudiants actifs | 2 |
-| Matches totaux | 18 |
-| Matches notifiés | 0 |
-| Taux de notification | 0% |
-
-## 7. Contraintes techniques
-
-- **Stack** : Next.js 15 (web) + FastAPI (API) + Supabase (PostgreSQL) + Meta WhatsApp (bot)
-- **Sécurité** : RLS Supabase, service_role côté backend, Pydantic, anti-XSS (bleach), CORS restrictif
-- **Budget** : 0 € (tiers gratuits uniquement)
-- **Langue** : FR + AR (Mauritanie)
-
-## 8. Hors périmètre (v1)
-
-- Paiement / abonnement
-- Application mobile native
-- Matching par IA (v2)
-- International (autres pays africains)
+1. **Formulaire d'inscription web** + opt-in → 20 vrais étudiants
+2. **Notification manuelle WhatsApp** des 3 meilleures offres (numéro classique)
+3. **Mesurer** taux de lecture/réponse
+4. Si > 30% de réponse → continuer. Si < 30% → le problème est l'offre ou le matching.
