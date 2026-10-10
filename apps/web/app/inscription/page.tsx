@@ -57,7 +57,7 @@ export default function InscriptionPage() {
     filiere: "",
     niveau: "",
     ville: "nouakchott",
-    types_recherches: [] as string[],
+    types_recherches: TYPES_OFFRES.map((t) => t.value) as string[], // Hick : tout pré-coché, zéro décision au départ
     optin: false,
   });
 
@@ -315,6 +315,9 @@ export default function InscriptionPage() {
               <label className="block text-sm font-medium text-foreground mb-2">
                 Types d&apos;offres recherchés
               </label>
+              <p className="-mt-1 mb-2 text-xs text-muted-foreground">
+                Tout est coché — décoche ce que tu ne cherches pas.
+              </p>
               <div className="grid grid-cols-2 gap-2">
                 {TYPES_OFFRES.map((t) => (
                   <label
