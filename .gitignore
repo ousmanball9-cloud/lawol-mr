@@ -31,3 +31,4 @@ cloudflared*.log
 ngrok*.log
 # Boilerplate HTML5 (projet seperate)
 new-site/
+logs/
