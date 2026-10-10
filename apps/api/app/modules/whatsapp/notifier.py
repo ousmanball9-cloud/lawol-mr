@@ -4,6 +4,7 @@ Flux : matching job crée les matches (notifie=false) → notifier les envoie �
 """
 from apps.api.app.core.database import supabase
 from apps.api.app.modules.whatsapp.sender import envoyer_message_texte
+from apps.api.app.modules.whatsapp.textes import construire_texte_notification
 
 
 def run_notification_job() -> dict:
@@ -14,7 +15,7 @@ def run_notification_job() -> dict:
         .select(
             "id, score, "
             "profil:profils(id, prenom, nom, telephone, filiere, niveau), "
-            "offre:offres(id, titre, entreprise, ville, date_limite)"
+            "offre:offres(id, titre, entreprise, ville, date_limite, type_offre)"
         )
         .eq("notifie", False)
         .limit(50)
@@ -32,14 +33,7 @@ def run_notification_job() -> dict:
         try:
             profil = m["profil"]
             offre = m["offre"]
-            texte = (
-                f"🎓 *Nouvelle offre matchée !*\n\n"
-                f"📌 {offre['titre']}\n"
-                f"🏢 {offre['entreprise']}\n"
-                f"📍 {offre['ville']}\n"
-                f"📅 Date limite : {offre['date_limite']}\n\n"
-                f"👉 Postule vite !"
-            )
+            texte = construire_texte_notification(offre)
             envoyer_message_texte(profil["telephone"], texte)
 
             # Marquer comme notifié

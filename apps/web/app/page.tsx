@@ -58,7 +58,7 @@ const AVANTAGES = [
   {
     icon: Sparkles,
     title: "Sources fiables",
-    desc: "ANPE, LinkedIn, universités et grandes entreprises locales : uniquement des sources officielles.",
+    desc: "Sites officiels des entreprises, portails d'emploi et portails de bourses : uniquement des sources vérifiées.",
   },
 ]
 
@@ -72,9 +72,9 @@ const TYPES_OFFRES = [
 ]
 
 const SOURCES = [
-  "Mauritel", "Chinguitty Bank", "BNM", "SNIM",
-  "TotalEnergies", "Ooredoo", "MCM", "BACIM",
-  "ANPE", "LinkedIn", "Universités", "Ambassades",
+  "Mauritel", "SNIM", "BNM", "TotalEnergies",
+  "Beta.mr", "Scholar Africa", "Opportunity for Africa",
+  "et de nouvelles sources chaque mois",
 ]
 
 export default function HomePage() {

@@ -34,14 +34,7 @@ def envoyer_notification_match(profil: dict, offres: list[dict]) -> dict:
     """Envoie les offres matchées à un étudiant (1 message par offre)."""
     resultats = []
     for offre in offres[:3]:  # max 3 offres par notification
-        texte = (
-            f"🎓 *Nouvelle offre matchée !*\n\n"
-            f"📌 {offre['titre']}\n"
-            f"🏢 {offre['entreprise']}\n"
-            f"📍 {offre['ville']}\n"
-            f"📅 Date limite : {offre['date_limite']}\n\n"
-            f"👉 Postule vite !"
-        )
+        texte = construire_texte_notification(offre)
         res = envoyer_message_texte(profil["telephone"], texte)
         resultats.append(res)
     return {"envoyes": len(resultats), "details": resultats}

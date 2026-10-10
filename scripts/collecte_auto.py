@@ -52,6 +52,18 @@ def main() -> int:
         resume = run_matching_job()
         print(f"matching: {resume}")
 
+        # Notifications WhatsApp : envoyees si les clés Meta existent, sinon
+        # les matches restent en attente (notifie=false) et partiront des que
+        # l'app Meta sera configurée — jamais de perte.
+        from apps.api.app.core.config import settings
+
+        if settings.META_WHATSAPP_TOKEN and settings.META_PHONE_NUMBER_ID:
+            from apps.api.app.modules.whatsapp.notifier import run_notification_job
+
+            print(f"notifications: {run_notification_job()}")
+        else:
+            print("notifications: skip (cles META_WHATSAPP absentes — matches conserves en attente)")
+
     echecs = sum(1 for _, s in resultats if s.startswith("ERREUR"))
     print(f"SYNTHESE: {len(resultats) - echecs}/{len(resultats)} sources collectees")
     # Echec que si TOUTES les sources sont mortes (partiel = normal, monitore au log)
