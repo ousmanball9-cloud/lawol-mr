@@ -185,6 +185,10 @@ def _nettoie(texte: str) -> str:
     """Déséchappe les entités HTML puis neutralise « & » : le sanitiseur du
     modèle (bleach) ré-échappe « & » en « &amp; », on évite le double passage."""
     t = html.unescape(texte or "")
+    # shortcodes WordPress résiduels (« [vc_column_text css=""] ») — les crochets
+    # légitimes (« [Embassy Track] ») restent : seuls tags/attributs partent.
+    # re.I (« [VC_…] ») + marge 160 car. pour les attributs longs.
+    t = re.sub(r"\[(?:vc_|/vc|[a-z][a-z0-9_]*\s*=)[^\]]{0,160}\]", " ", t, flags=re.IGNORECASE)
     t = t.replace("&", " et ")
     return re.sub(r"\s+", " ", t).strip()
 
@@ -220,9 +224,17 @@ def _filieres(texte: str) -> list[Filiere]:
     return trouvees or list(Filiere)
 
 
-def _resume(texte: str, max_car: int = 700) -> str:
+def _resume(texte: str, max_car: int = 1800) -> str:
+    """Coupe à une frontière de phrase — jamais au milieu d'un mot : une
+    description de blog tronquée à la lettre est illisible dans la modale."""
     texte = re.sub(r"\s+", " ", texte).strip()
-    return texte[:max_car]
+    if len(texte) <= max_car:
+        return texte
+    coupe = texte[:max_car]
+    dernier = max(coupe.rfind("."), coupe.rfind("!"), coupe.rfind("?"))
+    if dernier >= max_car // 2:
+        return coupe[: dernier + 1].strip()
+    return coupe.rsplit(" ", 1)[0].strip()
 
 
 # ---------- Métadonnées des lignes scholar.africa ----------

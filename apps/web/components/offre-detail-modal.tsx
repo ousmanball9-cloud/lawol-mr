@@ -104,16 +104,23 @@ type BlocDescription =
 
 const RE_LIGNE_LISTE = /^\s*(?:[-–—•◦*]|\d{1,2}[.)])\s+(.+)$/;
 const RE_INFO_LIGNE = /^([A-Za-zÀ-ÿ][^:\n]{1,40})\s*:\s*(\S[^:]{0,110})$/;
+/** « Date de clôture : 15 November 2026. Applications are open… » — une paire
+ * en tête suivie d'une vraie prose : la paire monte en grille, le reste en
+ * paragraphe (sinon l'info clé se noie dans un mur de texte). */
+const RE_PAIRE_TETE = /^([A-Za-zÀ-ÿ][^:\n]{1,40})\s*:\s*([^:.]{1,110})\.\s+(.+)$/;
 
-/** « Niveau : X. Couverture : Y. » (une ligne, plusieurs paires) → paires, sinon null. */
-function decouperLigneComposee(ligne: string): { intro: string | null; items: { cle: string; valeur: string }[] } | null {
+/** « Niveau : X. Couverture : Y. » (une ligne, plusieurs paires) → paires, sinon null.
+ * `depassement` = paires au-delà de la 12ᵉ, rendues en prose — jamais jetées. */
+function decouperLigneComposee(
+  ligne: string
+): { intro: string | null; items: { cle: string; valeur: string }[]; depassement: string | null } | null {
   const segments = ligne.split(/\.\s+(?=[^:\n]{2,40}\s*:\s*)/);
   if (segments.length < 2) return null;
   const items: { cle: string; valeur: string }[] = [];
   let intro: string | null = null;
   for (let i = 0; i < segments.length; i++) {
     const morceau = segments[i].trim().replace(/\.$/, "");
-    const m = RE_INFO_LIGNE.exec(morceau.endsWith(".") ? morceau : morceau);
+    const m = RE_INFO_LIGNE.exec(morceau);
     if (m) {
       items.push({ cle: m[1].trim(), valeur: m[2].trim() });
     } else if (i === 0 && morceau.length <= 160) {
@@ -122,7 +129,74 @@ function decouperLigneComposee(ligne: string): { intro: string | null; items: { 
       return null; // vraie prose → on garde le paragraphe tel quel
     }
   }
-  return items.length >= 2 ? { intro, items: items.slice(0, 12) } : null;
+  if (items.length < 2) return null;
+  const dep = items.slice(12);
+  return {
+    intro,
+    items: items.slice(0, 12),
+    depassement: dep.length ? dep.map((p) => `${p.cle} : ${p.valeur}`).join(". ") : null,
+  };
+}
+
+/** Un paragraphe >380 car. devient un mur de texte : on le découpe en
+ * groupes de phrases (aucun mot perdu — la somme = le texte d'origine). */
+const TAILLE_PARA_MAX = 380;
+function decouperPara(texte: string): string[] {
+  if (texte.length <= TAILLE_PARA_MAX) return [texte];
+  const phrases = texte.match(/[^.!?…]+[.!?…]+[»\s]*|[^.!?…]+$/g) ?? [texte];
+  const morceaux: string[] = [];
+  const pousser = (t: string) => {
+    // phrase elle-même trop longue → découpe dure par mots (secours)
+    if (t.length <= TAILLE_PARA_MAX) {
+      morceaux.push(t);
+      return;
+    }
+    const mots = t.split(" ");
+    let bout = "";
+    for (const mot of mots) {
+      if (bout && (bout + " " + mot).length > TAILLE_PARA_MAX) {
+        morceaux.push(bout);
+        bout = mot;
+      } else {
+        bout = bout ? `${bout} ${mot}` : mot;
+      }
+    }
+    if (bout) morceaux.push(bout);
+  };
+  let actuel = "";
+  for (const p of phrases) {
+    if (actuel && (actuel + p).length > TAILLE_PARA_MAX) {
+      pousser(actuel.trim());
+      actuel = p;
+    } else {
+      actuel += p;
+    }
+  }
+  if (actuel.trim()) pousser(actuel.trim());
+  return morceaux.length ? morceaux : [texte];
+}
+
+/** « Date limite : 29 octobre 2026 Lieu : Nouakchott … » — paires séparées
+ * par des espaces (nettoyage beta) : Mot-capital-suivi-de-deux-points = frontière,
+ * puis extraction de la paire en tête de chaque morceau (le reste est conservé). */
+function decouperPairesEspace(
+  ligne: string
+): { items: { cle: string; valeur: string }[]; reste: string } | null {
+  const morceaux = ligne.split(/(?<=\s)(?=[A-ZÀ-Ý][\wà-ÿ]{1,15}\s*:\s*\S)/);
+  if (morceaux.length < 2) return null;
+  const items: { cle: string; valeur: string }[] = [];
+  const reste: string[] = [];
+  for (const m of morceaux) {
+    const t = m.trim();
+    const mi = /^([A-Za-zÀ-ÿ][^:]{1,40})\s*:\s*([^:.]{1,110}?)(?:\s*\.\s*|$)([\s\S]*)$/.exec(t);
+    if (mi && mi[1].trim().length >= 2) {
+      items.push({ cle: mi[1].trim(), valeur: mi[2].trim() });
+      if (mi[3].trim()) reste.push(mi[3].trim());
+    } else {
+      reste.push(t);
+    }
+  }
+  return items.length >= 2 ? { items, reste: reste.filter(Boolean).join(" ") } : null;
 }
 
 /**
@@ -144,7 +218,9 @@ export function formaterDescription(brut: string): BlocDescription[] {
 
   const viderPara = () => {
     if (para.length) {
-      blocs.push({ type: "para", texte: para.join(" ") });
+      for (const morceau of decouperPara(para.join(" "))) {
+        blocs.push({ type: "para", texte: morceau });
+      }
       para = [];
     }
   };
@@ -161,9 +237,11 @@ export function formaterDescription(brut: string): BlocDescription[] {
     }
   };
   const viderTout = () => {
-    viderPara();
+    // Invariant : la grille d'infos se vide AVANT son paragraphe d'explication
+    // (ordre de lecture : « Date de clôture : X » puis la prose qui suit).
     viderListe();
     viderInfos();
+    viderPara();
   };
 
   for (const ligne of lignes) {
@@ -173,8 +251,8 @@ export function formaterDescription(brut: string): BlocDescription[] {
     }
     const ml = RE_LIGNE_LISTE.exec(ligne);
     if (ml) {
-      viderPara();
       viderInfos();
+      viderPara();
       liste.push(ml[1].trim());
       continue;
     }
@@ -190,11 +268,32 @@ export function formaterDescription(brut: string): BlocDescription[] {
     if (composee) {
       viderListe();
       viderInfos();
+      viderPara();
       if (composee.intro) {
-        viderPara();
         blocs.push({ type: "para", texte: composee.intro });
       }
       infos.push(...composee.items);
+      if (composee.depassement) para.push(composee.depassement);
+      continue;
+    }
+    // Paire en tête + prose longue (« Date de clôture : X. Applications… »)
+    const mp = RE_PAIRE_TETE.exec(ligne);
+    if (mp && infos.length < 12) {
+      viderListe();
+      viderInfos();
+      viderPara();
+      infos.push({ cle: mp[1].trim(), valeur: mp[2].trim() });
+      if (mp[3].trim()) para.push(mp[3].trim());
+      continue;
+    }
+    // Paires séparées par espaces (« Date limite : X Lieu : Y … » — nettoyage beta)
+    const paires = decouperPairesEspace(ligne);
+    if (paires && infos.length + paires.items.length <= 12) {
+      viderListe();
+      viderInfos();
+      viderPara();
+      infos.push(...paires.items);
+      if (paires.reste) para.push(paires.reste);
       continue;
     }
     viderListe();
@@ -358,7 +457,7 @@ export function OffreDetailModal({ offre, postule, statut, enCours, onPostuler, 
                   );
                 }
                 return (
-                  <p key={i} className="text-sm leading-relaxed text-foreground/80">
+                  <p key={i} data-probe="desc-para" className="text-sm leading-relaxed text-foreground/80">
                     {bloc.texte}
                   </p>
                 );

@@ -9,7 +9,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "verify:design": "node scripts/verify-design.mjs",
-    "verify:modal": "node scripts/verify-offre-modal.mjs"
+    "verify:modal": "node scripts/verify-offre-modal.mjs",
+    "verify:desc": "node scripts/verify-desc-reelles.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.0",

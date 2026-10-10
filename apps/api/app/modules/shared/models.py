@@ -89,6 +89,8 @@ class OffreStagePublic(BaseModel):
     date_limite: date
     contact_email: Optional[EmailStr] = None
     contact_whatsapp: Optional[str] = None
+    source_name: Optional[str] = None
+    source_url: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
