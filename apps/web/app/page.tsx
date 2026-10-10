@@ -2,7 +2,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
   MessageSquare, CheckCircle, Clock, Shield,
-  GraduationCap, Briefcase, Zap, ArrowRight,
+  GraduationCap, Briefcase, Zap, ArrowRight, Award,
   Sparkles, Target, Users, Bell,
 } from "lucide-react"
 
@@ -68,6 +68,7 @@ const TYPES_OFFRES = [
   { icon: Briefcase, label: "Emploi Junior", desc: "Premier job, 0-2 ans exp." },
   { icon: Zap, label: "Alternance", desc: "Études + travail en entreprise" },
   { icon: Clock, label: "Stage Été", desc: "2-3 mois pendant les vacances" },
+  { icon: Award, label: "Bourse d'études", desc: "Masters, PhD et séjours financés" },
 ]
 
 const SOURCES = [
@@ -115,7 +116,7 @@ export default function HomePage() {
             </h1>
 
             <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-white/70 lg:max-w-3xl">
-              LAWOL.mr t&apos;envoie uniquement les offres de stage, emploi junior et alternance
+              LAWOL.mr t&apos;envoie uniquement les offres de stage, emploi junior, alternance et bourse
               qui correspondent à <strong className="font-semibold text-white">ton profil</strong> —
               directement sur WhatsApp. Fini la veille quotidienne, les groupes saturés et les offres
               ratées.
@@ -252,7 +253,7 @@ export default function HomePage() {
             </h2>
           </div>
 
-          <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 lg:max-w-6xl lg:grid-cols-4">
+          <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 md:grid-cols-3 lg:max-w-6xl lg:grid-cols-5">
             {TYPES_OFFRES.map((item) => (
               <div
                 key={item.label}
