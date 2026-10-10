@@ -2,12 +2,23 @@
 """Scrapers de bourses d'études (TypeOffre.BOURSE).
 
 Le type bourse existait déjà partout (enum, inscription, matching) mais aucune
-source ne le collectait : ce module comble le trou avec 2 portails internationaux
+source ne le collectait : ce module comble le trou avec 5 portails internationaux
 ouverts aux étudiants africains/mauritaniens, vérifiés en réel (2026-10-10) :
 
-  1. scholar.africa        : page HTML SSR, lignes `a.row` + date de clôture.
-  2. opportunityforafrica  : API REST WordPress (JSON), `Deadline: <date>`
-                             dans le contenu de chaque article.
+  1. scholar.africa             : page HTML SSR, lignes `a.row` + date de clôture.
+  2. opportunityforafrica.org   : API REST WordPress (JSON), `Deadline: <date>`
+                                  dans le contenu de chaque article.
+  3. opportunitiesforafricans   : API REST WP, catégorie Scholarships,
+                                  « Application Deadline: <date> ».
+  4. opportunitiescorners       : API REST WP, catégories bourses BS/MS/PhD +
+                                  « Scholarships in <pays> », dates ordinales
+                                  (« 6th July 2026 ») normalisées.
+  5. opportunitydesk            : API REST WP, catégorie Scholarships,
+                                  « Deadline: <date> » en tête d'article.
+
+Les sources 3 à 5 exigent une date de clôture EXPLICITE et lisible dans
+l'article (pas de repli today+60) : un billet de blog ou un digest
+hebdomadaire sans deadline exploitable n'est pas une bourse.
 
 Règles communes (bon citoyen réseau) :
   - User-Agent honnête, throttle global 1 requête/s, timeout 10 s.
@@ -428,3 +439,140 @@ class OpportunityAfricaScraper(BourseScraper):
             )
             if offre:
                 yield offre
+
+
+# ---------- Base commune : portails WordPress (API REST /wp-json/wp/v2/posts) ----------
+class WpBourseScraper(BourseScraper):
+    """Variante « date de clôture explicite » du portail WordPress.
+
+    Contrairement aux sources 1-2 (repli today+60 si la date est illisible),
+    ici la deadline doit être trouvée ET parsée dans l'article : un article
+    sans date exploitable (billet de blog, digest multi-bourses) n'est pas une
+    bourse et n'est jamais publié — on n'invente donc jamais de date.
+
+    Contrat des sous-classes : API, CATEGORIES (catégories WP en OR, vérifiées
+    en réel) + hook facultatif `_exclus()` (articles non-bourses à écarter).
+    """
+
+    API: str = ""
+    CATEGORIES: str = ""
+    NB_ARTICLES: int = 20
+
+    # « Deadline: », « Deadlines: 30 September 2026 (Embassy Track) », « Deadline for
+    # <programme> : 20 October 2026 », « Deadline: (14 October 2026 …) » — le texte
+    # entre le mot-clé et la date est bridé à 40 car. et aux limites de phrase (: . ;)
+    # pour ne jamais sauter sur une date qui n'est pas une clôture.
+    _RE_DL = rf"deadlines?\b[^:.;]{{0,40}}:?\s*(?P<date>{_PERIODE})"
+
+    def _normalise(self, texte: str) -> str:
+        """Hook : variantes de dates rencontrées avant extraction —
+        ordinaux (« 6th July 2026 », « October 2nd, 2026 ») et espace parasite
+        avant la virgule (« 20 October , 2026 »), sinon la deadline devient
+        illisible et la bourse serait écartée à tort."""
+        texte = re.sub(r"(?<=\d)(?:st|nd|rd|th)\b", "", texte)
+        return re.sub(r"\s+,", ",", texte)
+
+    def _exclus(self, titre: str, texte: str) -> bool:
+        """Hook de garde : True = article à écarter (digest, billet hors bourse)."""
+        return False
+
+    def fetch(self) -> Iterable[OffreStageCreate]:
+        url = (
+            f"{self.API}?categories={self.CATEGORIES}&per_page={self.NB_ARTICLES}"
+            "&_fields=id,link,title,content"
+        )
+        r = _get(url)
+        if r is None:
+            return
+        try:
+            articles = r.json()
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"⚠️ {self.source_name}: réponse non-JSON → {e}")
+            return
+        if not isinstance(articles, list):
+            print(f"⚠️ {self.source_name}: format inattendu", type(articles).__name__)
+            return
+
+        print(f"{self.source_name}: {len(articles)} articles")
+        for art in articles:
+            titre = (art.get("title") or {}).get("rendered", "")
+            lien = art.get("link", "")
+            contenu = (art.get("content") or {}).get("rendered", "")
+            texte = html.unescape(BeautifulSoup(contenu, "html.parser").get_text(" ", strip=True))
+            if not lien or not texte:
+                continue
+            if self._exclus(titre, texte):
+                continue
+            texte = self._normalise(texte)
+
+            m = re.search(self._RE_DL, texte, re.I)
+            if not m:
+                continue  # pas de date lisible → non publié (jamais de date inventée)
+            bloc_dl = m.group("date")
+            dl = _date_limite(bloc_dl)
+            if dl is None:
+                continue  # bourse déjà clôturée
+
+            # Résumé = texte après la date de clôture (la deadline s'arrête là)
+            description = f"Date de clôture : {bloc_dl}. {texte[m.end() :].strip()}"
+            offre = self._offre(
+                url=lien,
+                titre=titre,
+                organisme="",  # financeur rarement indiqué → nom du portail
+                description=description,
+                date_limite=dl,
+            )
+            if offre:
+                yield offre
+
+
+# ---------- Source 3 : opportunitiesforafricans.com (API REST WordPress) ----------
+class OpportunitiesForAfricansScraper(WpBourseScraper):
+    """Focal Afrique — catégorie « Scholarships » (12) ; chaque article commence
+    par « Application Deadline: <date> » (EN ou FR, année obligatoire)."""
+
+    source_name = "opportunities-for-africans"
+    API = "https://www.opportunitiesforafricans.com/wp-json/wp/v2/posts"
+    CATEGORIES = "12"  # Scholarships (vérifiée via /wp/v2/categories)
+
+    def __init__(self, limite: int = 20):
+        self.NB_ARTICLES = limite
+
+
+# ---------- Source 4 : opportunitiescorners.com (API REST WordPress) ----------
+class OpportunitiesCornersScraper(WpBourseScraper):
+    """Bourses « Bachelor, Master, PhD » + « Scholarships in <pays> ».
+
+    Les deadlines y sont souvent des ordinaux (« Deadline: 6th July 2026 ») :
+    normalisées par `WpBourseScraper._normalise()`, sinon la date serait
+    illisible et la bourse écartée à tort.
+    """
+
+    source_name = "opportunities-corners"
+    API = "https://opportunitiescorners.com/wp-json/wp/v2/posts"
+    # Bachelor/Master/PhD + Scholarships in Europe/China/Japan/USA/... (OR, vérifié en réel)
+    CATEGORIES = "64,933,934,935,936,937,938,939,941,942,960"
+
+    def __init__(self, limite: int = 20):
+        self.NB_ARTICLES = limite
+
+
+# ---------- Source 5 : opportunitydesk.org (API REST WordPress) ----------
+class OpportunityDeskScraper(WpBourseScraper):
+    """Catégorie « Scholarships » (6) ; article individuel = « Deadline: <date> »
+    en tête. Les digest hebdomadaires (« 27 Scholarships Closing in October »)
+    cumulent des dizaines de deadlines sur un seul lien : exclus par titre et
+    par comptage (≥3 « Deadline: ») pour ne publier qu'une bourse par bourse."""
+
+    source_name = "opportunity-desk"
+    API = "https://opportunitydesk.org/wp-json/wp/v2/posts"
+    CATEGORIES = "6"  # Scholarships (fellowships-and-scholarships)
+    TITRES_DIGEST = re.compile(r"closing|currently open|apply for now|opportunities you can", re.I)
+
+    def __init__(self, limite: int = 20):
+        self.NB_ARTICLES = limite
+
+    def _exclus(self, titre: str, texte: str) -> bool:
+        if self.TITRES_DIGEST.search(titre or ""):
+            return True
+        return len(re.findall(r"deadlines?\s*:", texte, re.I)) >= 3

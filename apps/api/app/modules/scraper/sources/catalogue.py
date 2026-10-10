@@ -1,13 +1,17 @@
 """Catalogue des sources à scraper — modifiable sans toucher au code.
 
 Sources vivantes vérifiées par DNS + HTTP (2026-10-07) ; bourses d'études
-vérifiées en réel (2026-10-10, scholar.africa + opportunityforafrica.org).
+vérifiées en réel (2026-10-10 : scholar.africa, opportunityforafrica.org,
+opportunitiesforafricans.com, opportunitiescorners.com, opportunitydesk.org).
 Les domaines morts (anpe.mr, chinguittybank.mr, ooredoo.mr) sont retirés.
 """
 from apps.api.app.modules.scraper.sources.base import BaseScraper
 from apps.api.app.modules.scraper.sources.beta_mr import BetaMrScraper
 from apps.api.app.modules.scraper.sources.bourses import (
+    OpportunitiesCornersScraper,
+    OpportunitiesForAfricansScraper,
     OpportunityAfricaScraper,
+    OpportunityDeskScraper,
     ScholarAfricaScraper,
 )
 from apps.api.app.modules.scraper.sources.entreprises import EntrepriseScraper
@@ -26,6 +30,9 @@ SPECIFIQUES: list[BaseScraper] = [
     BetaMrScraper(),
     ScholarAfricaScraper(),
     OpportunityAfricaScraper(),
+    OpportunitiesForAfricansScraper(),
+    OpportunitiesCornersScraper(),
+    OpportunityDeskScraper(),
 ]
 
 
