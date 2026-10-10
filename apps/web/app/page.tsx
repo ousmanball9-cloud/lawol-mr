@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { HeroSearch } from "@/components/landing/hero-search"
 import {
   MessageSquare, CheckCircle, Clock, Shield,
   GraduationCap, Briefcase, Zap, ArrowRight, Award,
@@ -77,6 +78,13 @@ const SOURCES = [
   "et de nouvelles sources chaque mois",
 ]
 
+// Entreprises mauritaniennes — grille « Ils recrutent » (pattern Jobteaser).
+const ENTREPRISES_LOGOS = [
+  "Mauritel", "SNIM", "BNM", "Ooredoo",
+  "ANPE", "CNASS", "Air Mauritanie", "Port Autonome",
+  "Total Mauritania", "BOM", "Groupe Nouakchott", "SOMELEC",
+]
+
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-background">
@@ -121,6 +129,9 @@ export default function HomePage() {
               directement sur WhatsApp. Fini la veille quotidienne, les groupes saturés et les offres
               ratées.
             </p>
+
+            {/* Recherche — pattern Jobteaser : champ proéminent dans le hero */}
+            <HeroSearch />
 
             <div className="mb-4 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto">
@@ -294,6 +305,79 @@ export default function HomePage() {
                 {src}
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Ils recrutent en Mauritanie — grille logos (pattern Jobteaser) */}
+      <section className="bg-background py-24 lg:py-32">
+        <div className="container mx-auto px-4">
+          <div className="mb-12 text-center">
+            <p className="eyebrow mb-4 text-signature">
+              Ils recrutent en Mauritanie
+            </p>
+            <h2 className="mb-4 font-display text-3xl font-bold tracking-[-0.02em] text-ink lg:text-4xl">
+              Les entreprises qui <span className="text-signature">recrutent</span> via LAWOL.mr
+            </h2>
+            <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
+              Opérateurs télécom, banques, mines, institutions : les plus grandes organisations
+              du pays publient leurs offres ici.
+            </p>
+          </div>
+
+          <div className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2 md:grid-cols-3 lg:max-w-6xl lg:grid-cols-4">
+            {ENTREPRISES_LOGOS.map((ent) => (
+              <div
+                key={ent}
+                data-probe="entreprise-logo"
+                className="flex items-center justify-center rounded-lg border border-border bg-card px-4 py-6 text-center transition-colors duration-200 hover:border-signature"
+              >
+                <span className="text-sm font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                  {ent}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Bannières CTA — recruteurs / universités (pattern Jobteaser) */}
+      <section className="border-y border-border bg-card py-16">
+        <div className="container mx-auto px-4">
+          <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2">
+            <div className="rounded-lg border border-border bg-background p-8 text-center">
+              <h3 className="mb-2 font-display text-2xl font-bold tracking-[-0.02em] text-ink">
+                Vous recrutez ?
+              </h3>
+              <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
+                Publiez vos offres de stage, d&apos;emploi junior ou d&apos;alternance et touchez
+                les étudiants mauritaniens qui matchent avec vos besoins.
+              </p>
+              <Link href="/entreprise/login">
+                <Button className="h-11 rounded-lg bg-signature px-6 text-white hover:bg-signature-deep">
+                  Espace entreprise
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+            <div className="rounded-lg border border-border bg-background p-8 text-center">
+              <h3 className="mb-2 font-display text-2xl font-bold tracking-[-0.02em] text-ink">
+                Votre université ?
+              </h3>
+              <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
+                Offrez à vos étudiants un accès privilégié aux offres qui correspondent à leur
+                filière, directement sur leur WhatsApp.
+              </p>
+              <Link href="/contact">
+                <Button
+                  variant="outline"
+                  className="h-11 rounded-lg border-border px-6 transition-colors duration-150 hover:border-signature hover:text-signature"
+                >
+                  Devenir partenaire
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </section>

@@ -133,6 +133,22 @@ const OFFRES_ENRICHIES = OFFRES_MOCK.map((m) => ({
   ...(MATCH_ENRICHIS[m.id] ?? {}),
 }));
 
+/** Sprint 1 : liste plate pour /offres (forme OffreStagePublic). */
+const OFFRES_LISTE_MOCK = [
+  { id: "o1", titre: "Stage PFE — Développement web", entreprise: "Mauritel", ville: "nouakchott", filieres_cibles: ["informatique"], type_offre: "stage_pfe", description: "Mission encadrée en entreprise.", date_limite: "2026-11-30", contact_email: "rh@mauritel.mr", contact_whatsapp: null, source_name: "Mauritel", source_url: "https://mauritel.mr", active: true },
+  { id: "o2", titre: "Data Analyst junior", entreprise: "BNM", ville: "nouadhibou", filieres_cibles: ["informatique", "gestion"], type_offre: "emploi_junior", description: "Tableaux de bord SQL.", date_limite: "2026-12-15", contact_email: "recrutement@bnm.mr", contact_whatsapp: null, source_name: "BNM", source_url: null, active: true },
+  { id: "o3", titre: "Bourse d'études 2027", entreprise: "ANPE", ville: "kaedi", filieres_cibles: ["informatique", "gestion"], type_offre: "bourse", description: "Bourse complète niveau Master.", date_limite: "2027-01-10", contact_email: null, contact_whatsapp: "2221234567", source_name: "ANPE", source_url: null, active: true },
+  { id: "o4", titre: "Alternance — Gestion de projet", entreprise: "Ooredoo", ville: "nouakchott", filieres_cibles: ["gestion"], type_offre: "alternance", description: "Alternance 12 mois.", date_limite: "2026-12-05", contact_email: "rh@ooredoo.mr", contact_whatsapp: null, source_name: "Ooredoo", source_url: "https://ooredoo.mr", active: true },
+  { id: "o5", titre: "Stage été — Maintenance", entreprise: "SNIM", ville: "rosso", filieres_cibles: ["mecanique"], type_offre: "stage_ete", description: "Stage été 3 mois.", date_limite: "2026-12-20", contact_email: "stages@snim.mr", contact_whatsapp: null, source_name: "SNIM", source_url: null, active: true },
+];
+
+/** Sprint 2 : annuaire entreprises (forme EntreprisePublique). */
+const ENTREPRISES_MOCK = [
+  { id: "e1", nom: "Mauritel", ville: "nouakchott", secteur: "Telecoms", nb_offres_actives: 2 },
+  { id: "e2", nom: "SNIM", ville: "nouadhibou", secteur: "Mines", nb_offres_actives: 1 },
+  { id: "e3", nom: "BNM", ville: "nouakchott", secteur: "Banque", nb_offres_actives: 1 },
+];
+
 /* ---------- Fragments de probe « largeur exploitée » (évalués dans la page) ----------
  * Chaque fragment renvoie une mesure objective du layout desktop :
  *   P_LARGEUR  → largeur du conteneur / largeur du viewport (1 = plein écran)
@@ -429,6 +445,29 @@ const PAGES = [
       r.liens &&
       r.desinscription,
   },
+  {
+    // Sprint 1 : page publique /offres (cartes + recherche + filtres).
+    id: "offres-publiques",
+    route: "/offres",
+    mock: true,
+    probe: `({
+      cartes: document.querySelectorAll('[data-probe="offre-carte"]').length,
+      recherche: !!document.querySelector('[data-probe="offres-recherche"]'),
+      filtres: !!document.querySelector('[data-probe="offres-filtres"]'),
+    })`,
+    expect: (r) => r.cartes > 0 && r.recherche && r.filtres,
+  },
+  {
+    // Sprint 2 : annuaire /entreprises (cartes + titre).
+    id: "entreprises-annuaire",
+    route: "/entreprises",
+    mock: true,
+    probe: `({
+      cartes: document.querySelectorAll('[data-probe="entreprise-carte"]').length,
+      titre: document.querySelector("h1")?.textContent?.trim() ?? "",
+    })`,
+    expect: (r) => r.cartes > 0 && r.titre.length > 3,
+  },
 ];
 
 /* ---------- Contraste WCAG (statique, déterministe) ---------- */
@@ -696,6 +735,22 @@ async function runMatrix() {
               responseCode: 200,
               responseHeaders: [{ name: "Content-Type", value: "application/json" }],
               body: Buffer.from(JSON.stringify(OFFRES_ENRICHIES)).toString("base64"),
+            });
+          } else if (request.method === "GET" && url.includes("/api/v1/offres?")) {
+            // Sprint 1 : liste plate /offres (forme OffreStagePublic).
+            await cdp.send("Fetch.fulfillRequest", {
+              requestId,
+              responseCode: 200,
+              responseHeaders: [{ name: "Content-Type", value: "application/json" }],
+              body: Buffer.from(JSON.stringify(OFFRES_LISTE_MOCK)).toString("base64"),
+            });
+          } else if (request.method === "GET" && url.includes("/api/v1/entreprises")) {
+            // Sprint 2 : annuaire entreprises.
+            await cdp.send("Fetch.fulfillRequest", {
+              requestId,
+              responseCode: 200,
+              responseHeaders: [{ name: "Content-Type", value: "application/json" }],
+              body: Buffer.from(JSON.stringify(ENTREPRISES_MOCK)).toString("base64"),
             });
           } else if (request.method === "PATCH" && url.includes("/favori")) {
             // Migration 002_p5.sql non appliquée : 503 attendu, la page doit

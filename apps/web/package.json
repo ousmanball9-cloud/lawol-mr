@@ -11,7 +11,9 @@
     "verify:design": "node scripts/verify-design.mjs",
     "verify:modal": "node scripts/verify-offre-modal.mjs",
     "verify:desc": "node scripts/verify-desc-reelles.mjs",
-    "verify:espace": "node scripts/verify-espace.mjs"
+    "verify:espace": "node scripts/verify-espace.mjs",
+    "verify:offres": "node scripts/verify-offres.mjs",
+    "verify:entreprise": "node scripts/verify-entreprise.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.0",
