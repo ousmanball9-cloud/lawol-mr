@@ -66,7 +66,9 @@ const DESCRIPTION_LONGUE =
   "Possibilité d'embauche à l'issue du stage pour les profils qui confirment. " +
   "Candidature ouverte aux étudiants en M2 informatique ou génie électrique " +
   "mais volontaires, maîtrisant au minimum les bases de Python et des " +
-  "tableurs avancés. Une lettre de motivation et un CV sont demandés.";
+  "tableurs avancés. Une lettre de motivation et un CV sont demandés." +
+  "\nNiveau : M2 requis\nIndemnité : 15 000 MRU/mois\n" +
+  "• CV en français\n• Lettre de motivation\n• Références académiques";
 
 const OFFRES_MOCK = [
   {
@@ -224,6 +226,8 @@ async function scenario(cdp) {
       dateClair: /Avant le \\d+ [a-zéû]+\\. 2026/.test(d.textContent),
       compteRebours: /J-\\d+/.test(d.textContent),
       descriptionComplete: d.textContent.includes("embauche à l'issue") && d.textContent.includes("tableurs avancés"),
+      infosRendues: !!d.querySelector('dl[data-probe="desc-infos"]') && (d.querySelector('dl[data-probe="desc-infos"]')?.textContent ?? "").includes("Indemnité"),
+      listeRendue: d.querySelectorAll('ul[data-probe="desc-liste"] li').length,
       filieres: d.querySelectorAll("span.capitalize").length,
       mailto: !!d.querySelector('a[href^="mailto:recrutement@mauritel.mr"]'),
       waMe: d.querySelector('a[href*="wa.me"]')?.href ?? "",
@@ -240,6 +244,8 @@ async function scenario(cdp) {
   check("date limite en clair (« Avant le 30 nov. 2026 »)", vue.dateClair);
   check("compte à rebours J-X affiché", vue.compteRebours);
   check("description complète (pas de line-clamp)", vue.descriptionComplete);
+  check("description organisée : paires clé/valeur en grid (Niveau/Indemnité)", vue.infosRendues);
+  check("description organisée : liste à puces rendue (3 éléments)", vue.listeRendue === 3, `${vue.listeRendue} éléments`);
   check("filières cibles en badges (2)", vue.filieres === 2, `${vue.filieres} badges`);
   check("bouton e-mail mailto présent", vue.mailto);
   check("WhatsApp nettoyé + préfixé 222", vue.waMe === "https://wa.me/22245678912", vue.waMe);

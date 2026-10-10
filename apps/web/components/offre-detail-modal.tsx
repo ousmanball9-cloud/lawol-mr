@@ -95,6 +95,116 @@ function lienSecurise(url: string): string | null {
   }
 }
 
+/* ---------- Organisation du texte de l'offre (le « brief » scrapé) ---------- */
+
+type BlocDescription =
+  | { type: "infos"; items: { cle: string; valeur: string }[] }
+  | { type: "liste"; items: string[] }
+  | { type: "para"; texte: string };
+
+const RE_LIGNE_LISTE = /^\s*(?:[-–—•◦*]|\d{1,2}[.)])\s+(.+)$/;
+const RE_INFO_LIGNE = /^([A-Za-zÀ-ÿ][^:\n]{1,40})\s*:\s*(\S[^:]{0,110})$/;
+
+/** « Niveau : X. Couverture : Y. » (une ligne, plusieurs paires) → paires, sinon null. */
+function decouperLigneComposee(ligne: string): { intro: string | null; items: { cle: string; valeur: string }[] } | null {
+  const segments = ligne.split(/\.\s+(?=[^:\n]{2,40}\s*:\s*)/);
+  if (segments.length < 2) return null;
+  const items: { cle: string; valeur: string }[] = [];
+  let intro: string | null = null;
+  for (let i = 0; i < segments.length; i++) {
+    const morceau = segments[i].trim().replace(/\.$/, "");
+    const m = RE_INFO_LIGNE.exec(morceau.endsWith(".") ? morceau : morceau);
+    if (m) {
+      items.push({ cle: m[1].trim(), valeur: m[2].trim() });
+    } else if (i === 0 && morceau.length <= 160) {
+      intro = morceau; // phrase d'accroche avant la série de paires
+    } else {
+      return null; // vraie prose → on garde le paragraphe tel quel
+    }
+  }
+  return items.length >= 2 ? { intro, items: items.slice(0, 12) } : null;
+}
+
+/**
+ * Découpe le texte scrapé en blocs lisibles : paires clé/valeur (grid),
+ * listes à puces, paragraphes. Aucun mot n'est perdu (textContent identique),
+ * aucun lien n'est fabriqué — lisible quel que soit le désordre de la source.
+ */
+export function formaterDescription(brut: string): BlocDescription[] {
+  const propre = brut
+    .replace(/<[^>]+>/g, " ") // anti-HTML injecté
+    .replace(/[\u00a0\u200b]/g, " ")
+    .replace(/\r\n?/g, "\n");
+  const lignes = propre.split("\n").map((l) => l.replace(/\s+/g, " ").trim());
+
+  const blocs: BlocDescription[] = [];
+  let para: string[] = [];
+  let liste: string[] = [];
+  let infos: { cle: string; valeur: string }[] = [];
+
+  const viderPara = () => {
+    if (para.length) {
+      blocs.push({ type: "para", texte: para.join(" ") });
+      para = [];
+    }
+  };
+  const viderListe = () => {
+    if (liste.length) {
+      blocs.push({ type: "liste", items: liste });
+      liste = [];
+    }
+  };
+  const viderInfos = () => {
+    if (infos.length) {
+      blocs.push({ type: "infos", items: infos });
+      infos = [];
+    }
+  };
+  const viderTout = () => {
+    viderPara();
+    viderListe();
+    viderInfos();
+  };
+
+  for (const ligne of lignes) {
+    if (!ligne) {
+      viderTout(); // ligne vide = vrai séparateur de bloc
+      continue;
+    }
+    const ml = RE_LIGNE_LISTE.exec(ligne);
+    if (ml) {
+      viderPara();
+      viderInfos();
+      liste.push(ml[1].trim());
+      continue;
+    }
+    const mi = RE_INFO_LIGNE.exec(ligne);
+    if (mi && infos.length < 12) {
+      viderPara();
+      viderListe();
+      infos.push({ cle: mi[1].trim(), valeur: mi[2].trim() });
+      continue;
+    }
+    // Ligne prose : tente la version composée (« Niveau : X. Couverture : Y. »)
+    const composee = decouperLigneComposee(ligne);
+    if (composee) {
+      viderListe();
+      viderInfos();
+      if (composee.intro) {
+        viderPara();
+        blocs.push({ type: "para", texte: composee.intro });
+      }
+      infos.push(...composee.items);
+      continue;
+    }
+    viderListe();
+    viderInfos();
+    para.push(ligne);
+  }
+  viderTout();
+  return blocs;
+}
+
 type Props = {
   offre: OffreDetail;
   postule: boolean;
@@ -140,7 +250,7 @@ export function OffreDetailModal({ offre, postule, enCours, onPostuler, onFermer
         aria-modal="true"
         aria-label={`Détail de l'offre ${offre.titre}`}
         onClick={(e) => e.stopPropagation()}
-        className="relative max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-[0_24px_48px_-12px_rgba(10,10,10,0.28)]"
+        className="relative max-h-[85vh] w-full max-w-lg sm:max-w-xl overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-[0_24px_48px_-12px_rgba(10,10,10,0.28)]"
       >
         <button
           type="button"
@@ -197,13 +307,50 @@ export function OffreDetailModal({ offre, postule, enCours, onPostuler, onFermer
             ))}
         </div>
 
-        {/* 4. Description complète (la carte reste tronquée) */}
+        {/* 4. Description organisée : paires clé/valeur, listes, paragraphes */}
         {offre.description && (
           <div className="mt-4">
-            <h3 className="mb-1 text-sm font-semibold text-foreground">Description</h3>
-            <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/80">
-              {offre.description}
-            </p>
+            <h3 className="mb-2 text-sm font-semibold text-foreground">Description</h3>
+            <div className="space-y-3">
+              {formaterDescription(offre.description).map((bloc, i) => {
+                if (bloc.type === "infos") {
+                  return (
+                    <dl
+                      key={i}
+                      data-probe="desc-infos"
+                      className="grid grid-cols-1 gap-x-6 gap-y-2.5 rounded-lg border border-border bg-muted/40 px-4 py-3 sm:grid-cols-2"
+                    >
+                      {bloc.items.map((item) => (
+                        <div key={item.cle} className="flex flex-col">
+                          <dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                            {item.cle}
+                          </dt>
+                          <dd className="text-sm text-foreground">{item.valeur}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  );
+                }
+                if (bloc.type === "liste") {
+                  return (
+                    <ul
+                      key={i}
+                      data-probe="desc-liste"
+                      className="list-disc space-y-1 pl-5 text-sm leading-relaxed text-foreground/80"
+                    >
+                      {bloc.items.map((item, j) => (
+                        <li key={j}>{item}</li>
+                      ))}
+                    </ul>
+                  );
+                }
+                return (
+                  <p key={i} className="text-sm leading-relaxed text-foreground/80">
+                    {bloc.texte}
+                  </p>
+                );
+              })}
+            </div>
           </div>
         )}
 

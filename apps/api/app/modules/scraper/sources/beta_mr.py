@@ -70,6 +70,91 @@ def _parse_date_fr(texte: str) -> date | None:
         return None
 
 
+# --- Nettoyage des descriptions : le site entier ne doit PAS finir dans l'offre ---
+_JUNK_EXACT = {
+    'accueil', 'outils', 'contact', 'services rh', 'tests psycho', 'base cv',
+    'se connecter (presto)', 'pré-inscription', 'témoignez', 'beta 2',
+    'recrutement', 'conseils rh', 'assistance emploi', 'options', 'liens utiles',
+}
+_JUNK_CONTIENT = re.compile(
+    r'(Suivez-nous|العربية|Partager cette offre|Voir la liste complète|'
+    r'Voir toutes les annonces|Contactez nous|Premier portail de recrutement|'
+    r'أول بوابة|بريستو|برستو)',
+    re.IGNORECASE,
+)
+_FINS_DESC = re.compile(
+    r'(Partager cette offre|Voir la liste complète|Voir toutes les annonces|Contactez nous)',
+    re.IGNORECASE,
+)
+
+
+def _ligne_junk(ligne: str) -> bool:
+    """Ligne de menu/pied de page (jamais une vraie phrase d'offre)."""
+    bas = ligne.lower().strip(' .:')
+    return bas in _JUNK_EXACT or bool(_JUNK_CONTIENT.search(ligne))
+
+
+# Marques en tête à retirer d'un titre : "(Presto)", mots de marque latins…
+# (les mots arabes ne sont retirés que s'ils précèdent un « - » bilingue :
+#  « توظيف … - Responsable Marketing » → la partie française, le titre seul
+#  en arabe est conservé tel quel)
+_BRUIT_TITRE = re.compile(
+    r'^\s*(?:\([^)]{1,40}\)|Presto|beta\.mr|Beta|Nouveau|Offre)\s*',
+    re.IGNORECASE,
+)
+_TITRE_AR_ENTETE = re.compile(r'^(?:[\u0600-\u06FF]+\s*){1,5}[-–—]\s*')
+# Connecteurs en minuscules = morceau du nom d'entreprise, pas du titre
+_CONNECTEURS = {'et', 'des', 'de', 'du', 'd', 'la', 'le', 'les', 'en', 'a', 'au'}
+
+
+def _nettoyer_titre(titre: str) -> str:
+    """Retire les tags de marque en tête (itératif) puis l'entête arabe
+    d'un titre bilingue « … - … ». Jamais de titre entièrement arabe perdu."""
+    t = titre.strip()
+    precedent = None
+    while t and t != precedent:
+        precedent = t
+        t = _BRUIT_TITRE.sub('', t).strip()
+    m = _TITRE_AR_ENTETE.match(t)
+    if m:
+        t = t[m.end():].strip()
+    return t or titre.strip()
+
+
+def _completer_entreprise(entreprise: str, titre: str) -> tuple[str, str]:
+    """Les connecteurs minuscules en tête du titre appartiennent à l'entreprise,
+    suivis éventuellement du mot capitalisé qui les termine.
+
+    « Société des Travaux Publics » + « et des Infrastructures Des chauffeurs… »
+    → (« Société des Travaux Publics et des Infrastructures », « Des chauffeurs… »).
+    """
+    mots = titre.split(' ')
+    connectes = 0
+    while entreprise and mots and mots[0].lower().strip('.,') in _CONNECTEURS and len(entreprise.split()) < 8:
+        entreprise = f"{entreprise} {mots.pop(0)}".strip()
+        connectes += 1
+    if connectes and mots and mots[0][:1].isupper() and len(entreprise.split()) < 8:
+        entreprise = f"{entreprise} {mots.pop(0)}".strip()
+    return entreprise, ' '.join(mots)
+
+
+def _nettoyer_texte_desc(texte: str) -> str:
+    """Description nette depuis le texte du bloc d'offre.
+
+    Commence à « Date limite » (tout ce qui précède = menus/entête),
+    s'arrête au marqueur de pied de page, filtre les lignes de navigation,
+    garde la structure \n (la modale en fait des blocs organisés), 600 car. max.
+    """
+    idx = texte.find('Date limite')
+    if idx >= 0:
+        texte = texte[idx:]
+    fin = _FINS_DESC.search(texte)
+    if fin:
+        texte = texte[: fin.start()]
+    lignes = [l.strip() for l in texte.split('\n') if l.strip() and not _ligne_junk(l)]
+    return '\n'.join(lignes)[:600]
+
+
 class BetaMrScraper(BaseScraper):
     """Scrape beta.mr : page d'accueil + recrutement + listes paginées."""
 
@@ -106,10 +191,12 @@ class BetaMrScraper(BaseScraper):
 
         # Bloc principal : div.row contenant entreprise + titre + date + lieu
         bloc = None
+        bloc_div = None
         for div in soup.find_all('div', class_='row'):
             txt = div.get_text(' ', strip=True)
             if 'Date limite' in txt and 'Lieu' in txt:
                 bloc = txt
+                bloc_div = div
                 break
         if not bloc:
             return None
@@ -142,6 +229,13 @@ class BetaMrScraper(BaseScraper):
             entreprise = 'beta.mr'
             titre = avant
 
+        # Tag de marque en tête ("(Presto)") = nom de l'entreprise + titre assaini
+        m_tag = re.match(r'^\s*\(([^)]{2,40})\)', avant)
+        if m_tag and entreprise == 'beta.mr':
+            entreprise = m_tag.group(1).strip()
+        titre = _nettoyer_titre(titre)
+        entreprise, titre = _completer_entreprise(entreprise, titre)
+
         # Date limite
         date_limite = _parse_date_fr(bloc) or (date.today() + __import__('datetime').timedelta(days=30))
 
@@ -159,8 +253,8 @@ class BetaMrScraper(BaseScraper):
         else:
             type_offre = TypeOffre.EMPLOI_JUNIOR
 
-        # Description = texte de la page sans le bloc principal
-        desc = soup.get_text(' ', strip=True)[:800]
+        # Description = uniquement le bloc de l'offre, nettoyé (pas de menus)
+        desc = _nettoyer_texte_desc(bloc_div.get_text('\n', strip=True))
 
         return OffreStageCreate(
             source=self._type_source,
@@ -189,11 +283,18 @@ class BetaMrScraper(BaseScraper):
 
         print(f'beta_mr: {len(urls_a_scraper)} offres trouvées dans les listes')
 
-        # 2. Fetcher chaque page d'offre
+        # 2. Fetcher chaque page d'offre (dédoublonnage : la même offre peut
+        #    apparaître sur plusieurs listes avec des URLs différentes)
+        vus: set[tuple[str, str]] = set()
         for url in sorted(urls_a_scraper):
             html = self._fetch(url)
             if not html:
                 continue
             offre = self._parse_offre(url, html)
-            if offre:
-                yield offre
+            if not offre:
+                continue
+            cle = (offre.titre.lower().strip(), offre.date_limite.isoformat())
+            if cle in vus:
+                continue
+            vus.add(cle)
+            yield offre
