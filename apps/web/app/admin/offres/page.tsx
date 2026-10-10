@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { OffreForm } from "@/components/admin/offre-form";
 
 type Offre = {
   id: string;
@@ -11,6 +12,9 @@ type Offre = {
   active: boolean;
   date_limite: string;
 };
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "https://lawol-mr-production.up.railway.app";
 
 // Badges « type » façon template Flowbite (pastilles de couleur).
 const TYPE_BADGE: Record<string, string> = {
@@ -30,13 +34,40 @@ function typeLabel(type: string) {
 export default function AdminOffresPage() {
   const [offres, setOffres] = useState<Offre[]>([]);
   const [loading, setLoading] = useState(true);
+  const [formOuvert, setFormOuvert] = useState(false);
+
+  // Rechargement de la liste (montée initiale + après création d'une offre).
+  // Le proxy Next appelle l'API avec le plafond par défaut (50 offres, triées par
+  // date_scrape) : une offre fraîchement créée peut donc rester hors fenêtre.
+  // On interroge d'abord l'API avec une fenêtre large, et on retombe sur le
+  // proxy existant si l'origine du navigateur n'est pas autorisée (CORS).
+  const chargerOffres = useCallback(async () => {
+    let data: unknown = null;
+    try {
+      const r = await fetch(`${API_URL}/api/v1/offres?limit=200`);
+      if (r.ok) {
+        const json = await r.json();
+        if (Array.isArray(json)) data = json;
+      }
+    } catch {
+      // CORS ou réseau → repli sur le proxy ci-dessous.
+    }
+    if (!Array.isArray(data)) {
+      try {
+        const r = await fetch("/api/admin/offres");
+        const json = await r.json();
+        if (Array.isArray(json)) data = json;
+      } catch {
+        // Hors-ligne : liste vide plutôt qu'une page en erreur.
+      }
+    }
+    setOffres(Array.isArray(data) ? (data as Offre[]) : []);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    fetch("/api/admin/offres")
-      .then((r) => r.json())
-      .then(setOffres)
-      .finally(() => setLoading(false));
-  }, []);
+    chargerOffres();
+  }, [chargerOffres]);
 
   return (
     <div>
@@ -55,9 +86,20 @@ export default function AdminOffresPage() {
             Toutes les offres publiées sur la plateforme
           </p>
         </div>
+        <div className="mt-3 sm:mt-0">
+          <button
+            type="button"
+            onClick={() => setFormOuvert((v) => !v)}
+            aria-expanded={formOuvert}
+            className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-700 rounded-lg hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300"
+          >
+            {formOuvert ? "Fermer le formulaire" : "Nouvelle offre"}
+          </button>
+        </div>
       </div>
 
       <div className="p-4">
+        {formOuvert && <OffreForm onCreated={chargerOffres} />}
         {loading && (
           <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm sm:p-6">
             <p className="text-sm text-gray-500">Chargement...</p>
