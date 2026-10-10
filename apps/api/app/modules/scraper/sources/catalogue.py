@@ -1,12 +1,17 @@
 """Catalogue des sources à scraper — modifiable sans toucher au code.
 
-Sources vivantes vérifiées par DNS + HTTP (2026-10-07).
+Sources vivantes vérifiées par DNS + HTTP (2026-10-07) ; bourses d'études
+vérifiées en réel (2026-10-10, scholar.africa + opportunityforafrica.org).
 Les domaines morts (anpe.mr, chinguittybank.mr, ooredoo.mr) sont retirés.
 """
-from apps.api.app.modules.shared.models import Ville
 from apps.api.app.modules.scraper.sources.base import BaseScraper
-from apps.api.app.modules.scraper.sources.entreprises import EntrepriseScraper
 from apps.api.app.modules.scraper.sources.beta_mr import BetaMrScraper
+from apps.api.app.modules.scraper.sources.bourses import (
+    OpportunityAfricaScraper,
+    ScholarAfricaScraper,
+)
+from apps.api.app.modules.scraper.sources.entreprises import EntrepriseScraper
+from apps.api.app.modules.shared.models import Ville
 
 # Sources génériques (sites d'entreprises)
 CATALOGUE: list[tuple[str, list[str], Ville]] = [
@@ -16,9 +21,11 @@ CATALOGUE: list[tuple[str, list[str], Ville]] = [
     ("totalenergies", ["https://totalenergies.mr/"], Ville.NOUAKCHOTT),
 ]
 
-# Sources spécifiques (portails d'emploi)
+# Sources spécifiques (portails d'emploi + bourses d'études)
 SPECIFIQUES: list[BaseScraper] = [
     BetaMrScraper(),
+    ScholarAfricaScraper(),
+    OpportunityAfricaScraper(),
 ]
 
 

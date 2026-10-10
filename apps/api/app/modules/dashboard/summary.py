@@ -3,7 +3,8 @@
 Tout se calcule à la volée : aucune migration, aucun stockage dérivé.
 
 - extract_poste()      : regroupe les offres de l'année par famille de poste
-                         (dict de mots-clés FR, insensible aux accents).
+                         (dict de mots-clés FR, insensible aux accents) ;
+                         toute offre de type « bourse » → « Bourse d'études ».
 - calculer_score_profil(): % de complétion documenté (plafond 100).
 - calculer_resume()    : compteurs de la semaine à partir des matches du profil.
 - offres_par_poste()   : compteur « offres par poste cette année ».
@@ -49,8 +50,15 @@ def _norm(texte: str) -> str:
     )
 
 
-def extract_poste(titre: str) -> str:
-    """Retourne la famille de poste d'un titre d'offre, sinon « Autre »."""
+def extract_poste(titre: str, type_offre: str | None = None) -> str:
+    """Retourne la famille de poste d'un titre d'offre, sinon « Autre ».
+
+    Une offre de type « bourse » est toujours classée « Bourse d'études »,
+    quel que soit son titre (règle du brief bourses). `type_offre` optionnel :
+    les appels sans type gardent le comportement historique.
+    """
+    if (type_offre or "").lower() == "bourse":
+        return "Bourse d'études"
     t = _norm(titre)
     if not t.strip():
         return "Autre"
@@ -163,7 +171,7 @@ def offres_par_poste(profil: dict, *, today: date | None = None) -> list[PosteAn
             continue
         if o.get("type_offre") not in types:
             continue
-        compte[extract_poste(o.get("titre", ""))] += 1
+        compte[extract_poste(o.get("titre", ""), o.get("type_offre"))] += 1
 
     return [
         PosteAnnee(poste=poste, count=count)
