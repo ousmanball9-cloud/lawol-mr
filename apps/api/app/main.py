@@ -114,6 +114,24 @@ async def list_offres(
     return [OffreStagePublic.model_validate(o) for o in res.data]
 
 
+@app.get("/api/v1/offres/{offre_id}", response_model=OffreStagePublic)
+async def detail_offre(offre_id: str):
+    """Page publique de détail — mêmes garde-fou que la liste : offre active
+    et date_limite future uniquement (une pending_review n'est pas accessible
+    par URL directe)."""
+    res = (
+        supabase.table("offres")
+        .select("*")
+        .eq("id", offre_id)
+        .eq("active", True)
+        .gte("date_limite", date.today().isoformat())
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(404, "Offre introuvable")
+    return OffreStagePublic.model_validate(res.data[0])
+
+
 @app.post("/api/v1/offres", status_code=201)
 async def create_offre(offre: OffreStageCreate):
     data = offre.model_dump(mode="json")

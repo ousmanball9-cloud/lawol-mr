@@ -91,6 +91,9 @@ class OffreStagePublic(BaseModel):
     contact_whatsapp: Optional[str] = None
     source_name: Optional[str] = None
     source_url: Optional[str] = None
+    # Arbitrage 2026-10-10 : la colonne « Active » de l'admin lit offre.active —
+    # l'exposer ici (additif, select * le ramène) au lieu de la retirer.
+    active: bool = True
 
     model_config = {"from_attributes": True}
 

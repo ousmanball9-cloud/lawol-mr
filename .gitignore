@@ -13,6 +13,9 @@ apps/web/.verify/
 apps/web/.verify-offre-modal/
 apps/web/.verify-manual/
 apps/web/.verify-desc-reelles/
+apps/web/.verify-espace/
+apps/web/.verify-entreprise/
+apps/web/.verify-offres/
 # D17 : token sans scope workflow → CI en local non trackée (à retirer si token corrigé)
 .github/
 
