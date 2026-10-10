@@ -412,7 +412,7 @@ export function OffreDetailModal({ offre, postule, statut, enCours, onPostuler, 
                 Dernier jour
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-ink px-2.5 py-1 text-xs font-semibold text-white">
+              <span className="inline-flex items-center gap-1 rounded-full bg-nuit px-2.5 py-1 text-xs font-semibold text-white">
                 <Clock className="h-3 w-3" />
                 J-{jours}
               </span>

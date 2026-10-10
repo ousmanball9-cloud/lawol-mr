@@ -136,7 +136,7 @@ export default function EntrepriseDetailPage() {
           <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
             <div
               aria-hidden="true"
-              className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-ink text-2xl font-bold text-white ring-4 ring-muted"
+              className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-nuit text-2xl font-bold text-white ring-4 ring-muted"
             >
               {initiales || "?"}
             </div>

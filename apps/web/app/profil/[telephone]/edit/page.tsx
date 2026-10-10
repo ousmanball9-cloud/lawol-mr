@@ -163,7 +163,7 @@ export default function EditProfilPage() {
       <div className="w-full max-w-lg">
         <div className="rounded-lg border border-border bg-card p-8 shadow-[0_1px_3px_rgba(10,10,10,0.04)] sm:p-10">
           <div className="mb-8 text-center">
-            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-lg bg-ink text-white">
+            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-lg bg-nuit text-white">
               <GraduationCap className="h-7 w-7" />
             </div>
             <h1 className="mb-2 font-display text-2xl font-bold tracking-[-0.02em] text-foreground">Modifier mon profil</h1>

@@ -93,27 +93,31 @@ export default function HomePage() {
       {/* Header global blanc — chrome Jobteaser unifié */}
       <Header />
       {/* Hero — bloc near-black = ancrage premium, accent uniquement sur le CTA */}
-      <section className="relative overflow-hidden bg-ink text-white">
+      <section className="relative overflow-hidden fond-nuit-anime text-white">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[length:72px_72px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]"
         />
+        {/* Lueur radiale douce qui respire — profondeur élégante (zéro noir) */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="lueur-nuit absolute -top-32 left-1/4 h-[560px] w-[560px] rounded-full blur-3xl" />
+        </div>
         <div className="container relative mx-auto px-4 py-24 lg:py-32">
           {/* Conteneur du hero : mesure desktop (verify-design) via data-probe */}
           <div data-probe="hero-conteneur" className="mx-auto max-w-3xl text-center lg:max-w-6xl">
-            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
+            <div className="entree-douce mb-8 inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
               <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-surlignage" />
               <span>Nouveau : offres PFE directement sur WhatsApp</span>
             </div>
 
-            <h1 className="mb-6 font-display text-[clamp(2.5rem,6vw,4rem)] font-bold leading-[1.06] tracking-[-0.03em] lg:text-[clamp(4rem,6vw,5.5rem)]">
+            <h1 className="entree-douce mb-6 font-display text-[clamp(2.5rem,6vw,4rem)] font-bold leading-[1.06] tracking-[-0.03em] lg:text-[clamp(4rem,6vw,5.5rem)]">
               Ton stage PFE, <br />
               <span className="box-decoration-clone rounded bg-surlignage px-2 pb-1 text-ink">
                 sans le stress
               </span>
             </h1>
 
-            <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-white/70 lg:max-w-3xl">
+            <p className="entree-douce mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-white/70 lg:max-w-3xl">
               LAWOL.mr t&apos;envoie uniquement les offres de stage, emploi junior, alternance et bourse
               qui correspondent à <strong className="font-semibold text-white">ton profil</strong> —
               directement sur WhatsApp. Fini la veille quotidienne, les groupes saturés et les offres
@@ -260,7 +264,7 @@ export default function HomePage() {
                 key={item.label}
                 className="rounded-lg border border-border bg-card p-6 transition-colors duration-200 hover:border-signature"
               >
-                <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-lg bg-ink text-white">
+                <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-lg bg-nuit text-white">
                   <item.icon className="h-5 w-5" />
                 </div>
                 <h3 className="mb-1 text-lg font-semibold text-ink">{item.label}</h3>
@@ -375,7 +379,7 @@ export default function HomePage() {
       {/* CTA Final — bloc near-black, accent uniquement sur le bouton */}
       <section className="bg-background py-24 lg:py-32">
         <div className="container mx-auto px-4">
-          <div className="mx-auto max-w-3xl rounded-lg bg-ink px-8 py-12 text-center lg:max-w-5xl lg:px-14 lg:py-16">
+          <div className="mx-auto max-w-3xl rounded-lg fond-nuit px-8 py-12 text-center lg:max-w-5xl lg:px-14 lg:py-16">
             <h2 className="mb-4 font-display text-3xl font-bold tracking-[-0.02em] text-white lg:text-4xl">
               Prêt à ne plus rater aucune offre ?
             </h2>

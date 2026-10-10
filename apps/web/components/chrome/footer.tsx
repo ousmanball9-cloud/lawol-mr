@@ -40,7 +40,7 @@ const COLONNES = [
 /** Footer global — pattern Jobteaser : fond sombre, 4 colonnes de liens. */
 export function Footer() {
   return (
-    <footer className="border-t border-border bg-ink text-white">
+    <footer className="border-t border-border fond-nuit text-white">
       <div className="container mx-auto px-4 py-14">
         <div className="mb-10 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           {COLONNES.map((col) => (

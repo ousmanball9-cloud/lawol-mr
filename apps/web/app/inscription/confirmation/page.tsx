@@ -13,7 +13,7 @@ export default function ConfirmationPage() {
           <aside
             data-probe="branding"
             aria-hidden="true"
-            className="hidden w-[40%] shrink-0 flex-col justify-center bg-ink p-10 text-white lg:flex"
+            className="hidden w-[40%] shrink-0 flex-col justify-center fond-nuit p-10 text-white lg:flex"
           >
             <span className="mb-6 text-lg font-bold tracking-[-0.02em]">LAWOL.mr</span>
             <p className="mb-6 font-display text-3xl font-bold leading-[1.1] tracking-[-0.02em]">
@@ -33,7 +33,7 @@ export default function ConfirmationPage() {
             </ol>
           </aside>
           <div className="min-w-0 flex-1 p-8 text-center sm:p-10">
-        <div className="mx-auto mb-6 flex h-20 w-20 animate-in items-center justify-center rounded-lg bg-ink text-white duration-500 fade-in zoom-in-95">
+        <div className="mx-auto mb-6 flex h-20 w-20 animate-in items-center justify-center rounded-lg bg-nuit text-white duration-500 fade-in zoom-in-95">
           <CheckCircle className="h-10 w-10" />
         </div>
 

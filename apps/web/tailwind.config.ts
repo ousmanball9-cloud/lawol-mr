@@ -17,8 +17,9 @@ const config = {
         accent: { DEFAULT: "hsl(var(--accent))", foreground: "hsl(var(--accent-foreground))" },
         popover: { DEFAULT: "hsl(var(--popover))", foreground: "hsl(var(--popover-foreground))" },
         card: { DEFAULT: "hsl(var(--card))", foreground: "hsl(var(--card-foreground))" },
-        // Charte « Épuré premium » : encre + UNE couleur signature + surlignage.
-        ink: "#0A0A0A",
+        // Charte « Nuit d'Indigo » : zéro noir — slate doux (texte) + nuit indigo (surfaces) + signature + surlignage.
+        ink: "#1E293B", // slate-800 : titres/texte, plus doux que le noir pur
+        nuit: { DEFAULT: "#312E81", deep: "#1E1B4B", lift: "#4338CA" }, // indigo profond : surfaces sombres
         signature: { DEFAULT: "#2563EB", deep: "#1D4ED8" },
         surlignage: "#F59E0B",
       },

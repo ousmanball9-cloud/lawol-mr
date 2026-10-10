@@ -152,12 +152,12 @@ export default function InscriptionPage() {
     <Chrome>
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
       <div className="w-full max-w-lg lg:max-w-5xl">
-        {/* Double panneau desktop : branding (bg-ink) + formulaire — mobile : formulaire seul */}
+        {/* Double panneau desktop : branding (fond-nuit) + formulaire — mobile : formulaire seul */}
         <div data-probe="carte-conteneur" className="flex overflow-hidden rounded-lg border border-border bg-card shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
           <aside
             data-probe="branding"
             aria-hidden="true"
-            className="hidden w-[42%] shrink-0 flex-col justify-center bg-ink p-10 text-white lg:flex"
+            className="hidden w-[42%] shrink-0 flex-col justify-center fond-nuit p-10 text-white lg:flex"
           >
             <span className="mb-6 text-lg font-bold tracking-[-0.02em]">LAWOL.mr</span>
             <p className="mb-4 font-display text-3xl font-bold leading-[1.1] tracking-[-0.02em]">
@@ -182,7 +182,7 @@ export default function InscriptionPage() {
           </aside>
           <div className="min-w-0 flex-1 p-8 sm:p-10">
           <div className="mb-8 text-center">
-            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-lg bg-ink text-white">
+            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-lg bg-nuit text-white">
               <GraduationCap className="h-7 w-7" />
             </div>
             <h1 className="mb-2 font-display text-2xl font-bold tracking-[-0.02em] text-foreground">Inscription LAWOL.mr</h1>

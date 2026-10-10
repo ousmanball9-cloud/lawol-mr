@@ -1,37 +1,41 @@
 @tailwind base; @tailwind components; @tailwind utilities;
 
 /*
- * Design system « Épuré premium » (références Stripe / Linear / Vercel).
+ * Design system « Nuit d'Indigo » — 100 % sans noir.
  *
- * Palette : quasi noir & blanc.
- *   - fond de site #FAFAFA, cartes/blancs #FFFFFF, encre #0A0A0A,
- *     texte secondaire #52525B, bordures fines 1px #E4E4E7.
- *   - UNE couleur signature : bleu électrique #2563EB (CTA, liens, focus).
- *   - UN surlignage : ambre #F59E0B (mot-clé du hero, hairline décorative).
- * Les dégradés indigo→violet, ombres colorées et fonds `primary/10`
- * généralisés ont été supprimés : la profondeur vient des bordures fines.
+ * Palette élégante, chaleureuse, académique (bourses/études) :
+ *   - fond de site #FAFAFA, cartes/blancs #FFFFFF, texte slate #1E293B
+ *     (plus doux que le noir pur), bordures fines 1px #E4E4E7.
+ *   - Surfaces sombres (hero, CTA, footer, panneaux branding, avatars) :
+ *     dégradé indigo profond #1E1B4B → #312E81 → #4338CA
+ *     (classes .fond-nuit / .fond-nuit-anime). Aucun noir pur n'est utilisé.
+ *   - UNE couleur signature : bleu #2563EB (CTA, liens, focus).
+ *   - UN surlignage : ambre #F59E0B (sublime sur l'indigo).
+ *   - Animations discrètes : dérive lente du dégradé, lueur qui respire,
+ *     entrée fondu-légère du hero.
  */
 @layer base {
   :root {
-    --background: 0 0% 98%; --foreground: 0 0% 4%;
-    --card: 0 0% 100%; --card-foreground: 0 0% 4%;
-    --popover: 0 0% 100%; --popover-foreground: 0 0% 4%;
+    --background: 0 0% 98%; --foreground: 217.2 32.6% 17.5%;
+    --card: 0 0% 100%; --card-foreground: 217.2 32.6% 17.5%;
+    --popover: 0 0% 100%; --popover-foreground: 217.2 32.6% 17.5%;
     --primary: 221.2 83.2% 53.3%; --primary-foreground: 0 0% 100%;
-    --secondary: 240 4.8% 95.9%; --secondary-foreground: 0 0% 9%;
+    --secondary: 240 4.8% 95.9%; --secondary-foreground: 217.2 32.6% 17.5%;
     --muted: 240 4.8% 95.9%; --muted-foreground: 240 5.2% 33.9%;
-    --accent: 240 4.8% 95.9%; --accent-foreground: 0 0% 9%;
+    --accent: 240 4.8% 95.9%; --accent-foreground: 217.2 32.6% 17.5%;
     --destructive: 0 74.7% 41%; --destructive-foreground: 0 0% 100%;
     --border: 240 5.8% 90%; --input: 240 5.8% 90%; --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
-    /* Tokens de la charte (utilisés en classes utilitaires personnalisées) */
-    --ink: 0 0% 4%;          /* #0A0A0A — sections sombres, icônes pleines */
+    /* Tokens de la charte « Nuit d'Indigo » (zéro noir) */
+    --ink: 217.2 32.6% 17.5%;      /* slate #1E293B — titres/texte, plus doux que le noir */
+    --nuit: 242.9 47.1% 34.3%;     /* indigo #312E81 — surfaces sombres */
     --signature: 221.2 83.2% 53.3%; /* #2563EB */
     --surlignage: 37.7 92.2% 50.2%; /* #F59E0B */
   }
   .dark {
-    --background: 0 0% 4%; --foreground: 0 0% 98%;
-    --card: 0 0% 7%; --card-foreground: 0 0% 98%;
-    --popover: 0 0% 7%; --popover-foreground: 0 0% 98%;
+    --background: 243 47% 20%; --foreground: 0 0% 98%;
+    --card: 243 40% 24%; --card-foreground: 0 0% 98%;
+    --popover: 243 40% 24%; --popover-foreground: 0 0% 98%;
     --primary: 221.2 83.2% 53.3%; --primary-foreground: 0 0% 100%;
     --secondary: 240 4.8% 12%; --secondary-foreground: 0 0% 98%;
     --muted: 240 4.8% 12%; --muted-foreground: 240 5% 70%;
@@ -48,4 +52,38 @@
 @layer components {
   /* Overline « petites capitales » : eyebrows, étapes, numéros, sources. */
   .eyebrow { @apply text-xs font-semibold uppercase tracking-[0.18em]; }
+
+  /* Surface sombre élégante (remplace le noir pur) : dégradé indigo profond. */
+  .fond-nuit {
+    background-image: linear-gradient(135deg, #1E1B4B 0%, #312E81 55%, #4338CA 100%);
+  }
+  /* Idem, avec dérive lente du dégradé (effet vivant, très subtil). */
+  .fond-nuit-anime {
+    background-image: linear-gradient(120deg, #1E1B4B, #312E81, #4338CA, #312E81, #1E1B4B);
+    background-size: 220% 220%;
+    animation: derive-nuit 20s ease-in-out infinite;
+  }
+  /* Lueur radiale douce qui « respire » derrière le hero. */
+  .lueur-nuit {
+    background: radial-gradient(circle at 35% 30%, rgba(129,140,248,0.45), transparent 60%);
+    animation: respire-lueur 11s ease-in-out infinite;
+  }
+  /* Entrée fondu-légère (contenu du hero au chargement). */
+  .entree-douce {
+    animation: monte-doux 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+}
+
+/* Keyframes — animations discrètes & élégantes */
+@keyframes derive-nuit {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+@keyframes respire-lueur {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.08); }
+}
+@keyframes monte-doux {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
 }
