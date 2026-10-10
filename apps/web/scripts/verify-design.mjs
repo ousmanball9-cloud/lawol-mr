@@ -210,23 +210,43 @@ const PAGES = [
     // Contrôle desktop : layout d'application (conteneur élargi + grille d'offres ≥2 colonnes).
     desktopProbes: ["espaceLargeur", "offresColonnes"],
     expectDesktop: (r) => r.espaceLargeur >= 0.7 && r.offresColonnes >= 2,
+    // EXIGENCE : à l'entrée, AUCUNE info profil visible (identité, téléphone,
+    // filière, niveau, ville, université) — la sidebar ne contient que la nav.
+    // innerText (pas textContent) : le HTML embarque les données de vol RSC
+    // (params de route) qui ne sont PAS du texte visible.
     probe: `({
-      initiales: document.querySelector('[data-profil="avatar"]')?.textContent?.trim() ?? "",
-      nom: document.querySelector("h1")?.textContent?.trim() ?? "",
+      profilCache: !/Fatimetou|Ould|2221234567|informatique|M2|Université/.test(document.body.innerText),
+      nav: [...document.querySelectorAll('[data-probe^="nav-"]')].filter((el) => el.getBoundingClientRect().width > 0).length,
+      navAccueil: !!document.querySelector('[data-probe="nav-accueil"]'),
+      navProfil: !!document.querySelector('[data-probe="nav-profil"]'),
+      navParametres: !!document.querySelector('[data-probe="nav-parametres"]'),
+      salut: document.querySelector("h1")?.textContent?.includes("Salut") ?? false,
       badges: document.querySelectorAll("span.badge-offre").length,
       cartes: document.querySelectorAll(".group").length,
-      boutons: document.querySelectorAll("button").length,
-      chips: document.querySelectorAll("div.rounded-lg.bg-muted").length,
       espaceLargeur: ${P_LARGEUR('[data-probe="espace-conteneur"]')},
       offresColonnes: ${P_COLONNES('[data-probe="grille-offres"]')},
     })`,
     expect: (r) =>
+      r.profilCache && r.nav === 3 && r.navAccueil && r.navProfil && r.navParametres && r.salut &&
+      r.badges === 5 && r.cartes === 5,
+  },
+  {
+    id: "profil-onglet",
+    route: "/profil/2221234567?onglet=profil",
+    mock: true,
+    // L'onglet Profil (deep-linké) montre identité + infos — et masque les offres.
+    probe: `({
+      initiales: document.querySelector('[data-profil="avatar"]')?.textContent?.trim() ?? "",
+      nom: document.querySelector("h1")?.textContent?.trim() ?? "",
+      chips: document.querySelectorAll("div.rounded-lg.bg-muted").length,
+      grilleMasquee: document.querySelectorAll(".group").length === 0,
+      desinscription: !!document.querySelector('button:not([data-probe])'),
+    })`,
+    expect: (r) =>
       r.initiales.length >= 2 &&
       r.nom.includes("Fatimetou") &&
-      r.badges === 5 &&
-      r.cartes === 5 &&
-      r.boutons >= 8 &&
-      r.chips === 4,
+      r.chips === 4 &&
+      r.grilleMasquee,
   },
   {
     id: "profil-modale",
@@ -346,7 +366,7 @@ const PAGES = [
       statutBadge: document.querySelector('[data-probe="statut-badge"]')?.textContent?.trim() ?? "",
       onglets: document.querySelectorAll('[data-probe="onglet"]').length,
       alerte: document.querySelector('[data-probe="alerte"]')?.textContent?.trim() ?? "",
-      parametres: !!document.querySelector('a[href="/profil/2221234567/parametres"]'),
+      parametres: !!document.querySelector('[data-probe="nav-parametres"]'),
       cartes: document.querySelectorAll(".group").length,
       espaceLargeur: ${P_LARGEUR('[data-probe="espace-conteneur"]')},
       offresColonnes: ${P_COLONNES('[data-probe="grille-offres"]')},

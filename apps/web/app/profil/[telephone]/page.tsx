@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,11 +10,12 @@ import {
   Building2,
   Briefcase,
   RefreshCw,
-  Pencil,
-  UserMinus,
   Share2,
-  Settings,
   Star,
+  LayoutDashboard,
+  User,
+  Settings,
+  LogOut,
 } from "lucide-react";
 import {
   OffreDetailModal,
@@ -23,6 +24,8 @@ import {
   BADGES_TYPE,
   type OffreDetail,
 } from "@/components/offre-detail-modal";
+import { CarteProfil } from "@/components/espace/carte-profil";
+import { FormPrefs } from "@/components/espace/form-prefs";
 
 type Profil = {
   telephone: string;
@@ -54,12 +57,17 @@ type Dashboard = {
   postes_annee: { poste: string; count: number }[];
 };
 
-/** Jauge « profil complété » — bloc 100 % présentational (aucun handler),
- * rendu deux fois à des largeurs différentes pour conserver à l'identique
- * l'ordre mobile d'origine : copie visible en colonne latérale desktop
- * (`hidden lg:block`), copie d'origine dans le flux principal (`lg:hidden`).
- * Un seul des deux nœuds est jamais affiché à un instant donné.
- */
+/** Navigation de l'espace client — la sidebar ne contient QUE ces options :
+ * les infos du profil vivent derrière l'onglet « Profil », jamais à l'entrée. */
+const ONGLETS = [
+  { id: "accueil", label: "Tableau de bord", icone: LayoutDashboard },
+  { id: "profil", label: "Profil", icone: User },
+  { id: "parametres", label: "Paramètres", icone: Settings },
+] as const;
+type Onglet = (typeof ONGLETS)[number]["id"];
+
+/** Jauge « profil complété » — rendue sur le tableau de bord (données de matching,
+ * pas une info personnelle : elle ne révèle ni identité ni coordonnées). */
 function CarteScore({ dashboard, telephone }: { dashboard: Dashboard; telephone: string }) {
   return (
     <div className="rounded-lg border border-border bg-card p-4 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
@@ -97,7 +105,12 @@ function CarteScore({ dashboard, telephone }: { dashboard: Dashboard; telephone:
 
 export default function ProfilPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const telephone = params.telephone as string;
+  const ongletParam = searchParams.get("onglet");
+  const onglet: Onglet = ONGLETS.some((o) => o.id === ongletParam)
+    ? (ongletParam as Onglet)
+    : "accueil";
   const [profil, setProfil] = useState<Profil | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,7 +128,7 @@ export default function ProfilPage() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   // P5 : historique enrichi (favori/statut/date_match) — sert aussi d'onglet
   const [historique, setHistorique] = useState<Match[]>([]);
-  const [onglet, setOnglet] = useState<"offres" | "historique">("offres");
+  const [ongletOffres, setOngletOffres] = useState<"offres" | "historique">("offres");
   // Alerte éphémère 3 s (503 favoris/statut : dégradation propre, jamais de crash)
   const [alerte, setAlerte] = useState("");
   const minuterieAlerte = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -333,7 +346,7 @@ export default function ProfilPage() {
           aria-hidden="true"
           className="h-10 w-10 animate-spin rounded-full border-2 border-signature border-t-transparent"
         />
-        <p className="text-sm text-muted-foreground">Chargement de ton profil...</p>
+        <p className="text-sm text-muted-foreground">Chargement de ton espace...</p>
       </div>
     );
   }
@@ -353,397 +366,413 @@ export default function ProfilPage() {
     );
   }
 
-  const initiales = `${profil.prenom?.charAt(0) ?? ""}${profil.nom?.charAt(0) ?? ""}`.toUpperCase();
-
   return (
     <div className="min-h-screen bg-background py-8 px-4">
-      {/* Layout d'application desktop : colonne latérale profil (sticky) + flux principal.
-          En mobile/tablette : colonne unique, ordre d'origine strictement conservé. */}
+      {/* Layout d'application : sidebar de navigation (desktop) + contenu.
+          La sidebar ne contient QUE les options — aucune info profil à l'entrée. */}
       <div
         data-probe="espace-conteneur"
         className="mx-auto flex max-w-2xl flex-col lg:max-w-7xl lg:flex-row lg:items-start lg:gap-8"
       >
-        {/* Colonne gauche (desktop ≈300px, sticky) : identité + actions + score */}
-        <aside className="lg:sticky lg:top-6 lg:w-[300px] lg:shrink-0">
-        {/* En-tête profil */}
-        <div className="mb-6 overflow-hidden rounded-lg border border-border bg-card shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
-          <div aria-hidden="true" className="h-1 w-full bg-signature" />
-          <div className="px-6 pb-6 pt-6">
-            <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
-              <div
-                data-profil="avatar"
-                className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-ink text-2xl font-bold text-white ring-4 ring-muted"
+        {/* Sidebar desktop : navigation uniquement */}
+        <aside className="hidden lg:sticky lg:top-6 lg:block lg:w-[280px] lg:shrink-0">
+          <div className="rounded-lg border border-border bg-card p-4 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+            <div className="mb-4 px-2">
+              <span className="font-display text-lg font-bold tracking-[-0.02em] text-foreground">
+                LAWOL<span className="text-signature">.mr</span>
+              </span>
+            </div>
+            <nav className="flex flex-col gap-1" aria-label="Navigation de l'espace">
+              {ONGLETS.map((o) => (
+                <Link
+                  key={o.id}
+                  href={`/profil/${telephone}?onglet=${o.id}`}
+                  data-probe={`nav-${o.id}`}
+                  aria-current={onglet === o.id ? "page" : undefined}
+                  className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150 ${
+                    onglet === o.id
+                      ? "bg-signature/10 text-signature"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <o.icone className="h-4 w-4" />
+                  {o.label}
+                </Link>
+              ))}
+            </nav>
+            <div className="mt-4 border-t border-border pt-3">
+              <Link
+                href="/"
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
               >
-                {initiales || "?"}
-              </div>
-              <div className="min-w-0">
-                <h1 className="font-display text-2xl font-bold tracking-[-0.02em] text-foreground">
-                  {profil.prenom} {profil.nom}
-                </h1>
-                <p className="truncate text-muted-foreground">{profil.universite}</p>
-              </div>
+                <LogOut className="h-4 w-4" />
+                Retour à l&apos;accueil
+              </Link>
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-3 px-6 py-5 text-sm">
-            <div className="rounded-lg bg-muted px-3 py-2">
-              <span className="block text-xs text-muted-foreground">Filière</span>
-              <span className="font-medium capitalize">{profil.filiere}</span>
-            </div>
-            <div className="rounded-lg bg-muted px-3 py-2">
-              <span className="block text-xs text-muted-foreground">Niveau</span>
-              <span className="font-medium">{profil.niveau}</span>
-            </div>
-            <div className="rounded-lg bg-muted px-3 py-2">
-              <span className="block text-xs text-muted-foreground">Ville</span>
-              <span className="font-medium capitalize">{profil.ville}</span>
-            </div>
-            <div className="rounded-lg bg-muted px-3 py-2">
-              <span className="block text-xs text-muted-foreground">Téléphone</span>
-              <span className="font-medium">{profil.telephone}</span>
-            </div>
-          </div>
-
-          {/* Actions profil */}
-          <div className="flex flex-wrap gap-2 border-t border-border px-6 py-4">
-            <Button variant="outline" size="sm" onClick={handleActualiser} disabled={actualisation} className="rounded-lg border-border transition-colors duration-150 hover:border-signature hover:text-signature">
-              <RefreshCw className={`h-4 w-4 mr-2 ${actualisation ? "animate-spin" : ""}`} />
-              {actualisation ? "Actualisation..." : "Actualiser"}
-            </Button>
-            <Link href={`/profil/${telephone}/edit`}>
-              <Button variant="outline" size="sm" className="rounded-lg border-border transition-colors duration-150 hover:border-signature hover:text-signature">
-                <Pencil className="h-4 w-4 mr-2" />
-                Modifier mon profil
-              </Button>
-            </Link>
-            <Link href={`/profil/${telephone}/parametres`}>
-              <Button variant="outline" size="sm" className="rounded-lg border-border transition-colors duration-150 hover:border-signature hover:text-signature">
-                <Settings className="h-4 w-4 mr-2" />
-                Paramètres
-              </Button>
-            </Link>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDesinscrire}
-              disabled={desinscrit || desinscriptionEnCours}
-              className="rounded-lg border-border transition-colors duration-150 hover:border-destructive hover:bg-destructive/5 hover:text-destructive"
-            >
-              <UserMinus className="h-4 w-4 mr-2" />
-              {desinscriptionEnCours ? "Désinscription..." : "Se désinscrire"}
-            </Button>
-          </div>
-
-          {message && (
-            <div
-              className={`mx-6 mb-4 rounded-lg px-4 py-3 text-sm font-medium ${
-                message.ok
-                  ? "border border-green-200 bg-green-50 text-green-800"
-                  : "border border-red-200 bg-red-50 text-red-700"
-              }`}
-            >
-              {message.texte}
-            </div>
-          )}
-        </div>
-
-        {/* Score en colonne latérale (desktop uniquement — la copie du flux est masquée lg:hidden) */}
-        {dashboard && (
-          <div className="mt-4 hidden lg:block">
-            <CarteScore dashboard={dashboard} telephone={telephone} />
-          </div>
-        )}
         </aside>
 
-        {/* Colonne droite (desktop, fluide) : résumé, marché, onglets, grille d'offres */}
-        <div className="min-w-0 flex-1">
-
-        {/* Alerte éphémère 3 s (503 favoris/statut) : dégradation propre, jamais de crash */}
-        {alerte && (
-          <div
-            data-probe="alerte"
-            role="status"
-            className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900"
-          >
-            {alerte}
-          </div>
-        )}
-
-        {/* P5 : résumé hebdo + score de profil + marché des postes.
-            En cas d'erreur API : section masquée silencieusement, la page reste utilisable. */}
-        {dashboard && (
-          <div className="mb-6 space-y-4">
-            {/* Résumé de la semaine : 3 cartes */}
-            <div data-probe="bandeau" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {[
-                { cle: "dispo", libelle: "À postuler", valeur: dashboard.resume.offres_dispo },
-                { cle: "nouvelles", libelle: "Nouvelles (7 jours)", valeur: dashboard.resume.nouvelles_7j },
-                { cle: "postules", libelle: "Postulées", valeur: dashboard.resume.postules_total },
-              ].map((carte) => (
-                <div
-                  key={carte.cle}
-                  data-probe="resume-carte"
-                  className="rounded-lg border border-border bg-card px-4 py-3 shadow-[0_1px_3px_rgba(10,10,10,0.04)]"
-                >
-                  <span className="block text-xs text-muted-foreground">{carte.libelle}</span>
-                  <span className="font-display text-2xl font-bold tracking-[-0.02em] text-foreground">
-                    {carte.valeur}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Score de profil : jauge horizontale (desktop : copie en colonne latérale) */}
-            <div className="lg:hidden">
-              <CarteScore dashboard={dashboard} telephone={telephone} />
-            </div>
-
-            {/* Marché des postes — cette année (bloc vidé si tableau vide) */}
-            {dashboard.postes_annee.length > 0 && (
-              <div className="rounded-lg border border-border bg-card p-4 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
-                <h2 className="mb-2 text-sm font-semibold text-foreground">
-                  Marché des postes — cette année
-                </h2>
-                <ul className="flex flex-wrap gap-2 lg:grid lg:grid-cols-2">
-                  {dashboard.postes_annee.map((p) => (
-                    <li
-                      key={p.poste}
-                      data-probe="poste"
-                      className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium capitalize text-muted-foreground"
-                    >
-                      {p.poste} — {p.count} offre{p.count > 1 ? "s" : ""}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Onglets discrets : Offres / Historique */}
-        <div className="mb-4 flex gap-1 border-b border-border">
-          {(["offres", "historique"] as const).map((cle) => (
-            <button
-              key={cle}
-              type="button"
-              data-probe="onglet"
-              data-cle={cle}
-              onClick={() => setOnglet(cle)}
-              aria-current={onglet === cle ? "page" : undefined}
-              className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors duration-150 ${
-                onglet === cle
-                  ? "border-signature text-signature"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+        {/* Navigation mobile : barre horizontale */}
+        <nav
+          className="mb-4 flex gap-1 rounded-lg border border-border bg-card p-1 shadow-[0_1px_3px_rgba(10,10,10,0.04)] lg:hidden"
+          aria-label="Navigation de l'espace"
+        >
+          {ONGLETS.map((o) => (
+            <Link
+              key={o.id}
+              href={`/profil/${telephone}?onglet=${o.id}`}
+              data-probe={`nav-${o.id}`}
+              aria-current={onglet === o.id ? "page" : undefined}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-2 text-xs font-medium transition-colors duration-150 ${
+                onglet === o.id
+                  ? "bg-signature/10 text-signature"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
-              {cle === "offres" ? "Offres" : "Historique"}
-            </button>
+              <o.icone className="h-4 w-4" />
+              {o.label}
+            </Link>
           ))}
-        </div>
+        </nav>
 
-        {/* Offres matchées */}
-        <div className="rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
-          <h2 className="mb-4 flex items-center gap-2 font-display text-xl font-bold tracking-[-0.01em] text-foreground">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-signature">
-              <Briefcase className="h-4 w-4" />
-            </span>
-            {onglet === "offres"
-              ? `Offres qui matchent ton profil (${offresFiltrees.length})`
-              : "Historique des candidatures"}
-          </h2>
-
-          {onglet === "historique" ? (
-            /* Onglet historique : liste triée date de match desc (statut + date) */
-            <div data-probe="historique-liste">
-              {historique.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-border bg-background px-4 py-10 text-center">
-                  <p className="text-muted-foreground">
-                    Aucune candidature dans ton historique pour le moment.
+        {/* Contenu principal — l'onglet actif */}
+        <div className="min-w-0 flex-1">
+          {onglet === "accueil" && (
+            <>
+              {/* Salutation + actualisation — AUCUNE info profil visible ici */}
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h1 className="font-display text-2xl font-bold tracking-[-0.02em] text-foreground">
+                    Salut 👋
+                  </h1>
+                  <p className="text-sm text-muted-foreground">
+                    Voici les offres qui matchent ton profil.
                   </p>
                 </div>
-              ) : (
-                <ul className="divide-y divide-border">
-                  {historique.map((match) => (
-                    <li
-                      key={match.id}
-                      className="flex flex-wrap items-center justify-between gap-2 py-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-foreground">{match.offre.titre}</p>
-                        <p className="truncate text-sm text-muted-foreground">
-                          {match.offre.entreprise} — {match.offre.ville}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-3 text-sm">
-                        {match.date_match && (
-                          <span className="text-muted-foreground">Matché le {match.date_match}</span>
-                        )}
-                        <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
-                          {STATUTS[match.statut_candidature ?? ""] ??
-                            (match.postule ? "Postulé" : "Matché")}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleActualiser}
+                  disabled={actualisation}
+                  className="rounded-lg border-border transition-colors duration-150 hover:border-signature hover:text-signature"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${actualisation ? "animate-spin" : ""}`} />
+                  {actualisation ? "Actualisation..." : "Actualiser"}
+                </Button>
+              </div>
+
+              {/* Alerte éphémère 3 s (503 favoris/statut) : dégradation propre, jamais de crash */}
+              {alerte && (
+                <div
+                  data-probe="alerte"
+                  role="status"
+                  className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900"
+                >
+                  {alerte}
+                </div>
+              )}
+
+              {message && (
+                <div
+                  className={`mb-4 rounded-lg px-4 py-3 text-sm font-medium ${
+                    message.ok
+                      ? "border border-green-200 bg-green-50 text-green-800"
+                      : "border border-red-200 bg-red-50 text-red-700"
+                  }`}
+                >
+                  {message.texte}
+                </div>
+              )}
+
+              {/* P5 : résumé hebdo + score de profil + marché des postes.
+                  En cas d'erreur API : section masquée silencieusement, la page reste utilisable. */}
+              {dashboard && (
+                <div className="mb-6 space-y-4">
+                  <div data-probe="bandeau" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {[
+                      { cle: "dispo", libelle: "À postuler", valeur: dashboard.resume.offres_dispo },
+                      { cle: "nouvelles", libelle: "Nouvelles (7 jours)", valeur: dashboard.resume.nouvelles_7j },
+                      { cle: "postules", libelle: "Postulées", valeur: dashboard.resume.postules_total },
+                    ].map((carte) => (
+                      <div
+                        key={carte.cle}
+                        data-probe="resume-carte"
+                        className="rounded-lg border border-border bg-card px-4 py-3 shadow-[0_1px_3px_rgba(10,10,10,0.04)]"
+                      >
+                        <span className="block text-xs text-muted-foreground">{carte.libelle}</span>
+                        <span className="font-display text-2xl font-bold tracking-[-0.02em] text-foreground">
+                          {carte.valeur}
                         </span>
                       </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ) : (
-            <>
-          {/* Filtres type / ville */}
-          {matches.length > 0 && (
-            <div className="mb-5 flex flex-wrap gap-3 border-b border-border pb-4">
-              <select
-                value={typeFiltre}
-                onChange={(e) => setTypeFiltre(e.target.value)}
-                aria-label="Filtrer par type d'offre"
-                className="rounded-lg border border-input bg-white px-3 py-2 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30"
-              >
-                <option value="tous">Tous les types</option>
-                {Object.entries(TYPES_OFFRES).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={villeFiltre}
-                onChange={(e) => setVilleFiltre(e.target.value)}
-                aria-label="Filtrer par ville"
-                className="rounded-lg border border-input bg-white px-3 py-2 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30"
-              >
-                <option value="tous">Toutes les villes</option>
-                {villesDisponibles.map((ville) => (
-                  <option key={ville} value={ville}>
-                    {ville}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+                    ))}
+                  </div>
 
-          {offresFiltrees.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border bg-background px-4 py-10 text-center">
-              <p className="text-muted-foreground">
-                {matches.length === 0
-                  ? "Aucune offre matchée pour le moment. Reviens bientôt !"
-                  : "Aucune offre ne correspond à ces filtres."}
-              </p>
-            </div>
-          ) : (
-            <div data-probe="grille-offres" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {offresFiltrees.map((match) => (
-                <div
-                  key={match.id}
-                  className="group relative rounded-lg border border-border bg-background p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-signature hover:shadow-[0_1px_3px_rgba(10,10,10,0.06)]"
-                >
-                  {/* Clic n'importe où sur la carte (sauf ses boutons) → vue détail */}
-                  <button
-                    type="button"
-                    onClick={() => setOffreOuverte(match.id)}
-                    aria-label={`Voir le détail de l'offre ${match.offre.titre}`}
-                    className="absolute inset-0 z-10 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature/60"
-                  />
-                  <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-                    <h3 className="font-semibold leading-snug text-foreground group-hover:text-signature">
-                      {match.offre.titre}
-                    </h3>
-                    <span
-                      className={`badge-offre inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${
-                        BADGES_TYPE[match.offre.type_offre] ?? "border border-border bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {TYPES_OFFRES[match.offre.type_offre] || match.offre.type_offre}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1.5">
-                      <Building2 className="h-4 w-4" />
-                      {match.offre.entreprise}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <MapPin className="h-4 w-4" />
-                      {match.offre.ville}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <Calendar className="h-4 w-4" />
-                      {match.offre.date_limite}
-                    </span>
-                  </div>
-                  {match.offre.description && (
-                    <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
-                      {match.offre.description}
-                    </p>
+                  <CarteScore dashboard={dashboard} telephone={telephone} />
+
+                  {dashboard.postes_annee.length > 0 && (
+                    <div className="rounded-lg border border-border bg-card p-4 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+                      <h2 className="mb-2 text-sm font-semibold text-foreground">
+                        Marché des postes — cette année
+                      </h2>
+                      <ul className="flex flex-wrap gap-2 lg:grid lg:grid-cols-2">
+                        {dashboard.postes_annee.map((p) => (
+                          <li
+                            key={p.poste}
+                            data-probe="poste"
+                            className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium capitalize text-muted-foreground"
+                          >
+                            {p.poste} — {p.count} offre{p.count > 1 ? "s" : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
-                  <div className="relative z-20 mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-3">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleFavori(match)}
-                      aria-pressed={!!match.favori}
-                      aria-label={
-                        match.favori
-                          ? `Retirer ${match.offre.titre} des favoris`
-                          : `Ajouter ${match.offre.titre} aux favoris`
-                      }
-                      data-probe="favori"
-                      data-actif={match.favori ? "true" : "false"}
-                      className={`rounded-lg border-border px-3 transition-colors duration-150 ${
-                        match.favori
-                          ? "border-surlignage text-surlignage"
-                          : "hover:border-surlignage hover:text-surlignage"
-                      }`}
-                    >
-                      <Star className={`h-4 w-4 ${match.favori ? "fill-current" : ""}`} />
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => handlePostule(match.id)}
-                      disabled={match.postule || postulEnCours === match.id}
-                      className="rounded-lg bg-signature px-4 text-white hover:bg-signature-deep"
-                    >
-                      {match.postule
-                        ? "Postulé ✅"
-                        : postulEnCours === match.id
-                          ? "Enregistrement..."
-                          : "J'ai postulé"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handlePartager(match.offre)}
-                      className="rounded-lg border-border transition-colors duration-150 hover:border-signature hover:text-signature"
-                    >
-                      <Share2 className="mr-2 h-4 w-4" />
-                      Partager
-                    </Button>
-                    {/* Suivi de candidature : info passive sur la carte (Hick) —
-                        le sélecteur vit dans la modale, une seule décision à la fois */}
-                    {match.postule && (
-                      <span
-                        data-probe="statut-badge"
-                        className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground"
-                      >
-                        {STATUTS[match.statut_candidature ?? "postule"] ?? "Postulé"}
-                      </span>
+                </div>
+              )}
+
+              {/* Onglets discrets : Offres / Historique */}
+              <div className="mb-4 flex gap-1 border-b border-border">
+                {(["offres", "historique"] as const).map((cle) => (
+                  <button
+                    key={cle}
+                    type="button"
+                    data-probe="onglet"
+                    data-cle={cle}
+                    onClick={() => setOngletOffres(cle)}
+                    aria-current={ongletOffres === cle ? "page" : undefined}
+                    className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors duration-150 ${
+                      ongletOffres === cle
+                        ? "border-signature text-signature"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {cle === "offres" ? "Offres" : "Historique"}
+                  </button>
+                ))}
+              </div>
+
+              {/* Offres matchées */}
+              <div className="rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+                <h2 className="mb-4 flex items-center gap-2 font-display text-xl font-bold tracking-[-0.01em] text-foreground">
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-signature">
+                    <Briefcase className="h-4 w-4" />
+                  </span>
+                  {ongletOffres === "offres"
+                    ? `Offres qui matchent ton profil (${offresFiltrees.length})`
+                    : "Historique des candidatures"}
+                </h2>
+
+                {ongletOffres === "historique" ? (
+                  /* Onglet historique : liste triée date de match desc (statut + date) */
+                  <div data-probe="historique-liste">
+                    {historique.length === 0 ? (
+                      <div className="rounded-lg border border-dashed border-border bg-background px-4 py-10 text-center">
+                        <p className="text-muted-foreground">
+                          Aucune candidature dans ton historique pour le moment.
+                        </p>
+                      </div>
+                    ) : (
+                      <ul className="divide-y divide-border">
+                        {historique.map((match) => (
+                          <li
+                            key={match.id}
+                            className="flex flex-wrap items-center justify-between gap-2 py-3"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-foreground">{match.offre.titre}</p>
+                              <p className="truncate text-sm text-muted-foreground">
+                                {match.offre.entreprise} — {match.offre.ville}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-3 text-sm">
+                              {match.date_match && (
+                                <span className="text-muted-foreground">Matché le {match.date_match}</span>
+                              )}
+                              <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                                {STATUTS[match.statut_candidature ?? ""] ??
+                                  (match.postule ? "Postulé" : "Matché")}
+                              </span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ) : (
+                  <>
+                  {/* Filtres type / ville */}
+                  {matches.length > 0 && (
+                    <div className="mb-5 flex flex-wrap gap-3 border-b border-border pb-4">
+                      <select
+                        value={typeFiltre}
+                        onChange={(e) => setTypeFiltre(e.target.value)}
+                        aria-label="Filtrer par type d'offre"
+                        className="rounded-lg border border-input bg-white px-3 py-2 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30"
+                      >
+                        <option value="tous">Tous les types</option>
+                        {Object.entries(TYPES_OFFRES).map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={villeFiltre}
+                        onChange={(e) => setVilleFiltre(e.target.value)}
+                        aria-label="Filtrer par ville"
+                        className="rounded-lg border border-input bg-white px-3 py-2 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30"
+                      >
+                        <option value="tous">Toutes les villes</option>
+                        {villesDisponibles.map((ville) => (
+                          <option key={ville} value={ville}>
+                            {ville}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {offresFiltrees.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border bg-background px-4 py-10 text-center">
+                      <p className="text-muted-foreground">
+                        {matches.length === 0
+                          ? "Aucune offre matchée pour le moment. Reviens bientôt !"
+                          : "Aucune offre ne correspond à ces filtres."}
+                      </p>
+                    </div>
+                  ) : (
+                    <div data-probe="grille-offres" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      {offresFiltrees.map((match) => (
+                        <div
+                          key={match.id}
+                          className="group relative rounded-lg border border-border bg-background p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-signature hover:shadow-[0_1px_3px_rgba(10,10,10,0.06)]"
+                        >
+                          {/* Clic n'importe où sur la carte (sauf ses boutons) → vue détail */}
+                          <button
+                            type="button"
+                            onClick={() => setOffreOuverte(match.id)}
+                            aria-label={`Voir le détail de l'offre ${match.offre.titre}`}
+                            className="absolute inset-0 z-10 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature/60"
+                          />
+                          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                            <h3 className="font-semibold leading-snug text-foreground group-hover:text-signature">
+                              {match.offre.titre}
+                            </h3>
+                            <span
+                              className={`badge-offre inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${
+                                BADGES_TYPE[match.offre.type_offre] ?? "border border-border bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              {TYPES_OFFRES[match.offre.type_offre] || match.offre.type_offre}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1.5">
+                              <Building2 className="h-4 w-4" />
+                              {match.offre.entreprise}
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <MapPin className="h-4 w-4" />
+                              {match.offre.ville}
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <Calendar className="h-4 w-4" />
+                              {match.offre.date_limite}
+                            </span>
+                          </div>
+                          {match.offre.description && (
+                            <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+                              {match.offre.description}
+                            </p>
+                          )}
+                          <div className="relative z-20 mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleFavori(match)}
+                              aria-pressed={!!match.favori}
+                              aria-label={
+                                match.favori
+                                  ? `Retirer ${match.offre.titre} des favoris`
+                                  : `Ajouter ${match.offre.titre} aux favoris`
+                              }
+                              data-probe="favori"
+                              data-actif={match.favori ? "true" : "false"}
+                              className={`rounded-lg border-border px-3 transition-colors duration-150 ${
+                                match.favori
+                                  ? "border-surlignage text-surlignage"
+                                  : "hover:border-surlignage hover:text-surlignage"
+                              }`}
+                            >
+                              <Star className={`h-4 w-4 ${match.favori ? "fill-current" : ""}`} />
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handlePostule(match.id)}
+                              disabled={match.postule || postulEnCours === match.id}
+                              className="rounded-lg bg-signature px-4 text-white hover:bg-signature-deep"
+                            >
+                              {match.postule
+                                ? "Postulé ✅"
+                                : postulEnCours === match.id
+                                  ? "Enregistrement..."
+                                  : "J'ai postulé"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handlePartager(match.offre)}
+                              className="rounded-lg border-border transition-colors duration-150 hover:border-signature hover:text-signature"
+                            >
+                              <Share2 className="mr-2 h-4 w-4" />
+                              Partager
+                            </Button>
+                            {/* Suivi de candidature : info passive sur la carte (Hick) —
+                                le sélecteur vit dans la modale, une seule décision à la fois */}
+                            {match.postule && (
+                              <span
+                                data-probe="statut-badge"
+                                className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground"
+                              >
+                                {STATUTS[match.statut_candidature ?? "postule"] ?? "Postulé"}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  </>
+                )}
+              </div>
             </>
           )}
-        </div>
 
-        {/* Actions */}
-        <div className="mt-6 text-center">
-          <Link href="/">
-            <Button variant="outline" className="h-11 rounded-lg border-border px-6 transition-colors duration-150 hover:border-signature hover:text-signature">
-              Retour à l&apos;accueil
-            </Button>
-          </Link>
-        </div>
+          {onglet === "profil" && (
+            <div className="space-y-4">
+              <CarteProfil
+                profil={profil}
+                telephone={telephone}
+                onActualiser={handleActualiser}
+                actualisation={actualisation}
+                onDesinscrire={handleDesinscrire}
+                desinscriptionEnCours={desinscriptionEnCours}
+                desinscrit={desinscrit}
+              />
+              {dashboard && <CarteScore dashboard={dashboard} telephone={telephone} />}
+            </div>
+          )}
+
+          {onglet === "parametres" && <FormPrefs telephone={telephone} />}
+
+          {/* Actions */}
+          <div className="mt-6 text-center">
+            <Link href="/">
+              <Button variant="outline" className="h-11 rounded-lg border-border px-6 transition-colors duration-150 hover:border-signature hover:text-signature">
+                Retour à l&apos;accueil
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
 
