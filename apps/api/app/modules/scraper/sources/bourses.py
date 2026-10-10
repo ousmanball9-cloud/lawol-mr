@@ -23,8 +23,9 @@ hebdomadaire sans deadline exploitable n'est pas une bourse.
 Règles communes (bon citoyen réseau) :
   - User-Agent honnête, throttle global 1 requête/s, timeout 10 s.
   - Erreurs isolées par source : `_get()` renvoie None, fetch() continue.
-  - date_limite : date de clôture future parsée (EN/FR), sinon today+60 ;
-    une bourse déjà clôturée est ignorée (jamais de date passée en base).
+  - date_limite : date de clôture future RÉELLE parsée (EN/FR) ; une bourse
+    sans deadline lisible ou déjà clôturée est IGNORÉE (Lot B « bourses 100 % »
+    : on n'invente jamais de date, zéro offre morte, qualité > quantité).
   - filieres_cibles : détectées par mots-clés, sinon TOUTES les filières
     (règle du brief : le matching engine exclut les offres à filières vides).
 """
@@ -32,7 +33,7 @@ import html
 import json
 import re
 import time
-from datetime import date, timedelta
+from datetime import date
 from typing import Iterable
 
 import certifi
@@ -152,12 +153,11 @@ def _parse_date(texte: str) -> date | None:
 
 
 def _date_limite(texte: str) -> date | None:
-    """Date de clôture exploitable : future = telle quelle, passée = None (on
-    ignore la bourse close), illisible = today+60 (jamais une date passée)."""
+    """Date de clôture RÉELLE : future = telle quelle ; passée OU illisible =
+    None (on n'invente JAMAIS de date — Lot B « bourses 100 % » : zéro offre
+    morte. Une bourse sans deadline lisible exploitable n'est pas publiée)."""
     d = _parse_date(texte)
-    if d is None:
-        return date.today() + timedelta(days=60)
-    if d < date.today():
+    if d is None or d < date.today():
         return None
     return d
 
@@ -457,10 +457,10 @@ class OpportunityAfricaScraper(BourseScraper):
 class WpBourseScraper(BourseScraper):
     """Variante « date de clôture explicite » du portail WordPress.
 
-    Contrairement aux sources 1-2 (repli today+60 si la date est illisible),
-    ici la deadline doit être trouvée ET parsée dans l'article : un article
-    sans date exploitable (billet de blog, digest multi-bourses) n'est pas une
-    bourse et n'est jamais publié — on n'invente donc jamais de date.
+    La deadline doit être trouvée ET parsée dans l'article : un article sans
+    date exploitable (billet de blog, digest multi-bourses) n'est pas une
+    bourse et n'est jamais publié. Depuis le Lot B, cette exigence de date
+    réelle vaut pour TOUTES les sources (fin du repli today+60).
 
     Contrat des sous-classes : API, CATEGORIES (catégories WP en OR, vérifiées
     en réel) + hook facultatif `_exclus()` (articles non-bourses à écarter).
@@ -582,6 +582,48 @@ class OpportunityDeskScraper(WpBourseScraper):
     TITRES_DIGEST = re.compile(r"closing|currently open|apply for now|opportunities you can", re.I)
 
     def __init__(self, limite: int = 20):
+        self.NB_ARTICLES = limite
+
+    def _exclus(self, titre: str, texte: str) -> bool:
+        if self.TITRES_DIGEST.search(titre or ""):
+            return True
+        return len(re.findall(r"deadlines?\s*:", texte, re.I)) >= 3
+
+
+# ---------- Source 6 : opportunitiesforyouth.org (API REST WordPress) ----------
+class OpportunitiesForYouthScraper(WpBourseScraper):
+    """« Scholarships » (2) + sous-catégories Bachelor/Master/PhD (8/9/10) :
+    chaque article est une bourse individuelle avec « deadline: <date> »
+    (vérifié en réel 2026-10-11 : 3/3 posts récents avec deadline parsable).
+    Garde anti-digest (≥3 « deadline: » = digest) héritée du motif OpportunityDesk."""
+
+    source_name = "opportunities-for-youth"
+    API = "https://opportunitiesforyouth.org/wp-json/wp/v2/posts"
+    CATEGORIES = "2,8,9,10"  # Scholarships + Bachelor/Master/PhD (OR, vérifié en réel)
+    TITRES_DIGEST = re.compile(r"closing|currently open|apply for now|top\s*\d+", re.I)
+
+    def __init__(self, limite: int = 100):
+        self.NB_ARTICLES = limite
+
+    def _exclus(self, titre: str, texte: str) -> bool:
+        if self.TITRES_DIGEST.search(titre or ""):
+            return True
+        return len(re.findall(r"deadlines?\s*:", texte, re.I)) >= 3
+
+
+# ---------- Source 7 : afterschoolafrica.com (API REST WordPress) ----------
+class AfterSchoolAfricaScraper(WpBourseScraper):
+    """« Scholarships for Africans » (110) + « Scholarships » (13) : focale Afrique
+    (pertinente Mauritania/Africa). Les posts sans deadline lisible (« not
+    specified ») sont écartés par le contrat strict — normal (qualité > quantité).
+    Garde anti-digest héritée du motif OpportunityDesk."""
+
+    source_name = "afterschool-africa"
+    API = "https://afterschoolafrica.com/wp-json/wp/v2/posts"
+    CATEGORIES = "110,13"  # Scholarships for Africans + Scholarships (OR, vérifié)
+    TITRES_DIGEST = re.compile(r"closing|currently open|apply for now|top\s*\d+|list of", re.I)
+
+    def __init__(self, limite: int = 100):
         self.NB_ARTICLES = limite
 
     def _exclus(self, titre: str, texte: str) -> bool:

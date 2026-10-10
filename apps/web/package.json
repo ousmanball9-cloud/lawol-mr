@@ -13,7 +13,8 @@
     "verify:desc": "node scripts/verify-desc-reelles.mjs",
     "verify:espace": "node scripts/verify-espace.mjs",
     "verify:offres": "node scripts/verify-offres.mjs",
-    "verify:entreprise": "node scripts/verify-entreprise.mjs"
+    "verify:entreprise": "node scripts/verify-entreprise.mjs",
+    "verify:dates": "node scripts/verify-dates.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.0",

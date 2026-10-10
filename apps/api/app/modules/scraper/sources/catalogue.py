@@ -8,8 +8,10 @@ Les domaines morts (anpe.mr, chinguittybank.mr, ooredoo.mr) sont retirés.
 from apps.api.app.modules.scraper.sources.base import BaseScraper
 from apps.api.app.modules.scraper.sources.beta_mr import BetaMrScraper
 from apps.api.app.modules.scraper.sources.bourses import (
+    AfterSchoolAfricaScraper,
     OpportunitiesCornersScraper,
     OpportunitiesForAfricansScraper,
+    OpportunitiesForYouthScraper,
     OpportunityAfricaScraper,
     OpportunityDeskScraper,
     ScholarAfricaScraper,
@@ -33,6 +35,8 @@ SPECIFIQUES: list[BaseScraper] = [
     OpportunitiesForAfricansScraper(),
     OpportunitiesCornersScraper(),
     OpportunityDeskScraper(),
+    OpportunitiesForYouthScraper(),
+    AfterSchoolAfricaScraper(),
 ]
 
 
