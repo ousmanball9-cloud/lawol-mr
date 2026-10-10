@@ -1,11 +1,13 @@
 import Link from "next/link";
+import { Chrome } from "@/components/chrome/chrome";
 
 const WHATSAPP_URL =
   "https://wa.me/222XXXXXXXX?text=Bonjour%20LAWOL%2C%20je%20veux%20recevoir%20les%20offres%20qui%20matchent%20mon%20profil.";
 
 export default function ContactPage() {
   return (
-    <div className="min-h-screen bg-white py-16 px-4">
+    <Chrome>
+    <div className="py-16 px-4">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">Contact</h1>
         <p className="text-gray-600 mb-4">Dernière mise à jour : octobre 2026</p>
@@ -42,5 +44,6 @@ export default function ContactPage() {
         </p>
       </div>
     </div>
+    </Chrome>
   );
 }

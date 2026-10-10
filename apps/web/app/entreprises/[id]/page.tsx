@@ -16,6 +16,7 @@ import {
   SearchX,
 } from "lucide-react";
 import { CarteOffreEntreprise } from "@/components/entreprises/carte-offre-entreprise";
+import { Chrome } from "@/components/chrome/chrome";
 import type { FicheEntreprise } from "@/components/entreprises/types";
 
 type Etat = "chargement" | "charge" | "erreur" | "introuvable";
@@ -120,7 +121,8 @@ export default function EntrepriseDetailPage() {
   const telephone = fiche.telephone?.trim() || null;
 
   return (
-    <main className="min-h-screen bg-background px-4 py-10">
+    <Chrome>
+    <main className="bg-background px-4 py-10">
       <div className="mx-auto max-w-3xl">
         <Link
           href="/entreprises"
@@ -242,5 +244,6 @@ export default function EntrepriseDetailPage() {
         </section>
       </div>
     </main>
+    </Chrome>
   );
 }

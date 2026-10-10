@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GraduationCap, MessageSquare, CheckCircle } from "lucide-react";
+import { Chrome } from "@/components/chrome/chrome";
 
 const FILIERES = [
   { value: "informatique", label: "Informatique" },
@@ -148,6 +149,7 @@ export default function InscriptionPage() {
   }
 
   return (
+    <Chrome>
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
       <div className="w-full max-w-lg lg:max-w-5xl">
         {/* Double panneau desktop : branding (bg-ink) + formulaire — mobile : formulaire seul */}
@@ -385,5 +387,6 @@ export default function InscriptionPage() {
         </p>
       </div>
     </div>
+    </Chrome>
   );
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Briefcase, RefreshCw } from "lucide-react";
 import { BarreFiltres } from "@/components/offres/barre-filtres";
+import { Chrome } from "@/components/chrome/chrome";
 import { CarteOffre } from "@/components/offres/carte-offre";
 import { PaginationOffres } from "@/components/offres/pagination-offres";
 import type { Offre } from "@/components/offres/types";
@@ -118,7 +119,8 @@ export default function OffresPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background px-4 py-10">
+    <Chrome>
+    <main className="bg-background px-4 py-10">
       <div className="mx-auto max-w-7xl">
         <header className="mb-8">
           <p className="eyebrow text-signature">Stages · Emplois · Bourses</p>
@@ -189,5 +191,6 @@ export default function OffresPage() {
         </div>
       </div>
     </main>
+    </Chrome>
   );
 }

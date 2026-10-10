@@ -14,6 +14,7 @@ import {
   SearchX,
 } from "lucide-react";
 import { BADGES_TYPE, TYPES_OFFRES } from "@/components/offre-detail-modal";
+import { Chrome } from "@/components/chrome/chrome";
 import { BlocDescription } from "@/components/offres/bloc-description";
 import { CtaCandidater } from "@/components/offres/cta-candidater";
 import { CarteOffre } from "@/components/offres/carte-offre";
@@ -120,7 +121,8 @@ export default function OffreDetailPage() {
   const filieres = offre.filieres_cibles ?? [];
 
   return (
-    <main className="min-h-screen bg-background px-4 py-10">
+    <Chrome>
+    <main className="bg-background px-4 py-10">
       <div className="mx-auto max-w-3xl">
         <Link
           href="/offres"
@@ -227,5 +229,6 @@ export default function OffreDetailPage() {
         )}
       </div>
     </main>
+    </Chrome>
   );
 }

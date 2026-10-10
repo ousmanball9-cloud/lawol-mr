@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { LogIn, CheckCircle } from "lucide-react";
+import { Chrome } from "@/components/chrome/chrome";
 
 const inputClass =
   "w-full rounded-lg border border-input bg-white px-4 py-2.5 text-sm text-foreground transition-colors duration-150 placeholder:text-muted-foreground focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30";
@@ -49,6 +50,7 @@ export default function ConnexionPage() {
   }
 
   return (
+    <Chrome>
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
       <div className="w-full max-w-lg lg:max-w-5xl">
         {/* Double panneau desktop : branding (bg-ink) + formulaire — mobile : formulaire seul */}
@@ -190,5 +192,6 @@ export default function ConnexionPage() {
         </p>
       </div>
     </div>
+    </Chrome>
   );
 }

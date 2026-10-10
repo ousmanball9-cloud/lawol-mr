@@ -1,6 +1,9 @@
+import { Chrome } from "@/components/chrome/chrome";
+
 export default function ConditionsPage() {
   return (
-    <div className="min-h-screen bg-white py-16 px-4">
+    <Chrome>
+    <div className="py-16 px-4">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">Conditions d&apos;utilisation</h1>
         <p className="text-gray-600 mb-4">Dernière mise à jour : octobre 2026</p>
@@ -34,5 +37,6 @@ export default function ConditionsPage() {
         </p>
       </div>
     </div>
+    </Chrome>
   );
 }

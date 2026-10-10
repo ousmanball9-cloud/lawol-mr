@@ -1,6 +1,8 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { HeroSearch } from "@/components/landing/hero-search"
+import { Header } from "@/components/chrome/header"
+import { Footer } from "@/components/chrome/footer"
 import {
   MessageSquare, CheckCircle, Clock, Shield,
   GraduationCap, Briefcase, Zap, ArrowRight, Award,
@@ -88,26 +90,14 @@ const ENTREPRISES_LOGOS = [
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-background">
+      {/* Header global blanc — chrome Jobteaser unifié */}
+      <Header />
       {/* Hero — bloc near-black = ancrage premium, accent uniquement sur le CTA */}
       <section className="relative overflow-hidden bg-ink text-white">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[length:72px_72px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]"
         />
-        {/* Slim header : logo texte + entrée connexion */}
-        <div className="container relative mx-auto flex items-center justify-between px-4 py-5">
-          <Link href="/" className="text-lg font-bold tracking-[-0.02em] text-white">
-            LAWOL.mr
-          </Link>
-          <Link href="/connexion">
-            <Button
-              variant="outline"
-              className="h-10 rounded-lg border-white/25 bg-transparent px-4 text-sm text-white hover:border-white/50 hover:bg-white/5 hover:text-white"
-            >
-              Se connecter
-            </Button>
-          </Link>
-        </div>
         <div className="container relative mx-auto px-4 py-24 lg:py-32">
           {/* Conteneur du hero : mesure desktop (verify-design) via data-probe */}
           <div data-probe="hero-conteneur" className="mx-auto max-w-3xl text-center lg:max-w-6xl">
@@ -415,70 +405,7 @@ export default function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-card">
-        <div className="container mx-auto px-4 py-14">
-          <div className="mb-10 grid gap-10 md:grid-cols-4">
-            <div>
-              <div className="mb-4 flex items-center gap-2">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-ink text-sm font-bold text-white">
-                  L
-                </span>
-                <span className="text-lg font-bold tracking-[-0.02em] text-ink">LAWOL.mr</span>
-              </div>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                La plateforme qui connecte les étudiants mauritaniens aux opportunités qui leur
-                correspondent.
-              </p>
-            </div>
-            <div>
-              <h4 className="eyebrow mb-4 text-ink">
-                Liens
-              </h4>
-              <ul className="space-y-2.5 text-sm text-muted-foreground">
-                <li>
-                  <Link href="/mentions" className="transition-colors duration-150 hover:text-signature">
-                    Mentions légales
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/confidentialite" className="transition-colors duration-150 hover:text-signature">
-                    Confidentialité
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/contact" className="transition-colors duration-150 hover:text-signature">
-                    Contact
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="eyebrow mb-4 text-ink">
-                Pour les étudiants
-              </h4>
-              <ul className="space-y-2.5 text-sm text-muted-foreground">
-                <li>Recevoir les offres</li>
-                <li>Modifier mon profil</li>
-                <li>Se désinscrire</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="eyebrow mb-4 text-ink">
-                Pour les entreprises
-              </h4>
-              <ul className="space-y-2.5 text-sm text-muted-foreground">
-                <li>Publier une offre</li>
-                <li>Espace recruteur</li>
-                <li>Partenariat</li>
-              </ul>
-            </div>
-          </div>
-          <div className="flex flex-col items-center justify-between gap-3 border-t border-border pt-8 text-center text-sm text-muted-foreground sm:flex-row sm:text-left">
-            <p>© 2024 LAWOL.mr — Tous droits réservés.</p>
-            <p>Fait avec ❤️ pour les étudiants mauritaniens.</p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }

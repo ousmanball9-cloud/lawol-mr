@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, ArrowRight } from "lucide-react";
+import { Chrome } from "@/components/chrome/chrome";
 
 export default function ConfirmationPage() {
   return (
+    <Chrome>
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
       <div className="w-full max-w-md lg:max-w-4xl">
         {/* Double panneau desktop : prochaines étapes (bg-ink) + message de succès — mobile : carte seule */}
@@ -63,5 +65,6 @@ export default function ConfirmationPage() {
         </div>
       </div>
     </div>
+    </Chrome>
   );
 }

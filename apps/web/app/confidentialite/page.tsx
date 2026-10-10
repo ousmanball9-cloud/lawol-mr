@@ -1,6 +1,9 @@
+import { Chrome } from "@/components/chrome/chrome";
+
 export default function ConfidentialitePage() {
   return (
-    <div className="min-h-screen bg-white py-16 px-4">
+    <Chrome>
+    <div className="py-16 px-4">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">Politique de confidentialité</h1>
         <p className="text-gray-600 mb-4">Dernière mise à jour : octobre 2026</p>
@@ -28,5 +31,6 @@ export default function ConfidentialitePage() {
         </p>
       </div>
     </div>
+    </Chrome>
   );
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Briefcase, RefreshCw } from "lucide-react";
 import { CarteEntreprise } from "@/components/entreprises/carte-entreprise";
+import { Chrome } from "@/components/chrome/chrome";
 import { FiltresEntreprises } from "@/components/entreprises/filtres-entreprises";
 import type { Entreprise } from "@/components/entreprises/types";
 
@@ -80,7 +81,8 @@ export default function EntreprisesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background px-4 py-10">
+    <Chrome>
+    <main className="bg-background px-4 py-10">
       <div className="mx-auto max-w-7xl">
         <header className="mb-8">
           <p className="eyebrow text-signature">Annuaire</p>
@@ -141,5 +143,6 @@ export default function EntreprisesPage() {
         )}
       </div>
     </main>
+    </Chrome>
   );
 }
