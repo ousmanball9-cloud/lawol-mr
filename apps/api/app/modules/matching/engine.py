@@ -217,6 +217,7 @@ def run_matching_job() -> dict:
         "ignores_score_faible": 0,
         "ignores_spam": 0,
         "ignores_prefs": 0,
+        "ignores_hors_active": 0,
     }
     for p in profils_res.data:
         # Préférences avancées du profil (P5) — dict vide si absentes
@@ -227,6 +228,14 @@ def run_matching_job() -> dict:
         candidats = []
         for o in offres_dedup:
             stats["examines"] += 1
+            # P6-A : seules les offres validées matchent — les offres déposées
+            # par les entreprises en pending_review sont écartées. Sans la
+            # colonne (migration 003_p6.sql absente), `get` renvoie None et
+            # le comportement reste inchangé (règle D8).
+            statut = o.get("statut_publication")
+            if statut is not None and statut != "active":
+                stats["ignores_hors_active"] += 1
+                continue
             if (o["id"], p["id"]) in deja_matchees:
                 stats["ignores_deja"] += 1
                 continue

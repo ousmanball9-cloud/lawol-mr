@@ -27,6 +27,7 @@ from apps.api.app.modules.dashboard.summary import (
     calculer_score_profil,
     offres_par_poste,
 )
+from apps.api.app.modules.entreprises.routes import router as entreprises_router
 from apps.api.app.modules.matching.engine import run_matching_job
 from apps.api.app.modules.scraper.sources.catalogue import get_scrapers
 from datetime import date
@@ -64,6 +65,9 @@ app.add_middleware(
 # ---------- WhatsApp ----------
 from apps.api.app.modules.whatsapp.webhook import router as whatsapp_router
 app.include_router(whatsapp_router)
+
+# ---------- P6-A : entreprises (comptes, offres, candidatures, admin) ----------
+app.include_router(entreprises_router)
 
 
 # ---------- Health ----------
@@ -467,6 +471,17 @@ async def get_stats():
     except Exception:
         postules_count = 0  # colonne 'postule' pas encore migrée
 
+    try:
+        attente = (
+            supabase.table("offres")
+            .select("id", count="exact")
+            .eq("statut_publication", "pending_review")
+            .execute()
+        )
+        attente_count = attente.count or 0
+    except Exception:
+        attente_count = 0  # colonne 'statut_publication' pas encore migrée (D8)
+
     total = matches.count or 0
     return StatsResponse(
         offres_actives=offres.count or 0,
@@ -475,4 +490,5 @@ async def get_stats():
         matches_notifies=notifie_res.count or 0,
         matches_postules=postules_count,
         taux_notification=round((notifie_res.count or 0) / total * 100, 1) if total else 0.0,
+        offres_en_attente=attente_count,
     )

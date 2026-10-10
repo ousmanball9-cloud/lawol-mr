@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import date, datetime
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID, uuid4
 import bleach
 
@@ -235,3 +235,148 @@ class StatsResponse(BaseModel):
     matches_notifies: int
     matches_postules: int = 0
     taux_notification: float
+    # File de validation P6-A (0 tant que la migration 003_p6.sql n'est pas appliquée)
+    offres_en_attente: int = 0
+
+
+# ---------- P6-A : entreprises & pipeline offres ----------
+class StatutPublication(str, Enum):
+    """Statut de publication d'une offre (colonne offres.statut_publication)."""
+
+    ACTIVE = "active"
+    PENDING_REVIEW = "pending_review"
+    REJETEE = "rejetee"
+
+
+class EntrepriseInscription(BaseModel):
+    """POST /api/v1/entreprises/inscription — fiche + compte entreprise."""
+
+    nom: str = Field(min_length=2, max_length=200)
+    secteur: Optional[str] = Field(default=None, max_length=120)
+    ville: Ville = Ville.NOUAKCHOTT
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)  # v1 : min 8 caractères
+    description: Optional[str] = Field(default=None, max_length=2000)
+    site_url: Optional[str] = Field(default=None, max_length=300)
+    telephone: Optional[str] = Field(default=None, max_length=30)
+
+    @field_validator("nom", "secteur", "description", mode="before")
+    @classmethod
+    def sanitize_fields(cls, v):
+        return _sanitize(v)
+
+
+class EntrepriseLogin(BaseModel):
+    """POST /api/v1/entreprises/login."""
+
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+
+
+class TokenEntreprise(BaseModel):
+    """POST /logout + envoi du token dans le corps (dépôt d'offre).
+
+    Token absent → 401 côté handler ; token court → 422 (validation)."""
+
+    token: Optional[str] = Field(default=None, min_length=8, max_length=64)
+
+
+class EntrepriseInscriptionReponse(BaseModel):
+    entreprise_id: UUID
+    message: str = "Compte créé"
+
+
+class EntrepriseLoginReponse(BaseModel):
+    token: str
+    entreprise_id: UUID
+    expires_in_jours: int = 7
+
+
+class OffreEntrepriseCreate(OffreStageCreate):
+    """Offre déposée par une entreprise : le corps reprend OffreStageCreate
+    auquel s'ajoute le token d'authentification. source/source_name/
+    source_url/entreprise sont calculés côté serveur (règles métier P6-A)."""
+
+    token: Optional[str] = Field(default=None, min_length=8, max_length=64)
+    source: Optional[SourceType] = None
+    source_name: Optional[str] = None
+    source_url: Optional[str] = None
+    entreprise: Optional[str] = None
+
+
+class OffreEntrepriseResume(BaseModel):
+    id: UUID
+    titre: str
+    ville: Ville
+    type_offre: TypeOffre
+    date_limite: date
+    statut_publication: StatutPublication = StatutPublication.ACTIVE
+    active: bool = True
+    url_publique: Optional[str] = None
+    nb_matches: int = 0
+    nb_postules: int = 0
+
+
+class OffreEntrepriseReponse(BaseModel):
+    id: UUID
+    statut_publication: StatutPublication
+    message: str = "Offre soumise à validation"
+
+
+class ProfilCandidature(BaseModel):
+    id: UUID
+    nom: str
+    prenom: str
+    telephone: str
+    universite: str
+    filiere: str
+    niveau: str
+    ville: str
+
+
+class OffreCandidature(BaseModel):
+    id: UUID
+    titre: str
+    entreprise: str
+    ville: str
+    type_offre: str
+    date_limite: date
+
+
+class CandidatureEntreprise(BaseModel):
+    """Une ligne du suivi employeur : le match + l'étudiant + l'offre."""
+
+    match_id: UUID
+    date_match: date
+    score: int = 100
+    notifie: bool = False
+    postule: bool = False
+    favori: bool = False
+    statut_candidature: Optional[str] = None
+    profil: ProfilCandidature
+    offre: OffreCandidature
+
+
+class EntreprisePublique(BaseModel):
+    id: UUID
+    nom: str
+    ville: Ville = Ville.NOUAKCHOTT
+    secteur: Optional[str] = None
+    nb_offres_actives: int = 0
+
+
+class EntrepriseFiche(EntreprisePublique):
+    description: Optional[str] = None
+    site_url: Optional[str] = None
+    telephone: Optional[str] = None
+    email_contact: Optional[str] = None
+    logo_url: Optional[str] = None
+    verifiee: bool = False
+    created_at: Optional[datetime] = None
+    offres: list[OffreEntrepriseResume] = Field(default_factory=list)
+
+
+class PublicationUpdate(BaseModel):
+    """PATCH /api/v1/admin/offres/{id}/publication — file de validation."""
+
+    statut: Literal["active", "rejetee"]
