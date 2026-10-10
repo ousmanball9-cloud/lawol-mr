@@ -10,6 +10,10 @@
  * Matrice : 10 pages × 3 viewports (mobile 375 / tablette 768 / desktop 1440) = 30 cas.
  * Par cas : débordement horizontal, erreur console, probe de contenu, capture PNG
  * dans apps/web/.verify/ pour contrôle visuel.
+ * Contrôle desktop supplémentaire (viewport ≥1024px uniquement) : chaque probe des
+ * pages élargies rapporte la largeur exploitée (conteneur / viewport) et le nombre
+ * de colonnes de grille — `expectDesktop` prouve que le layout s'élargit réellement
+ * (ex. hero de la landing ≥ 70 % du viewport), sans rien relâcher des expects existants.
  * Les pages /profil utilisent l'interception CDP : le VRAI chemin (fetch de la page)
  * avec backend simulé (profils, matches, dashboard, historique, PATCH favori 503 +
  * PATCH statut 200 pour éprouver la dégradation propre P5), pour couvrir l'état
@@ -129,11 +133,27 @@ const OFFRES_ENRICHIES = OFFRES_MOCK.map((m) => ({
   ...(MATCH_ENRICHIS[m.id] ?? {}),
 }));
 
+/* ---------- Fragments de probe « largeur exploitée » (évalués dans la page) ----------
+ * Chaque fragment renvoie une mesure objective du layout desktop :
+ *   P_LARGEUR  → largeur du conteneur / largeur du viewport (1 = plein écran)
+ *   P_COLONNES → nombre de colonnes réelles d'une grille CSS
+ *   P_VISIBLE  → vrai si l'élément (panneau branding) est affiché à cette largeur
+ */
+const P_LARGEUR = (sel) =>
+  `(() => { const el = document.querySelector('${sel}'); return el ? Math.round(1000 * el.getBoundingClientRect().width / window.innerWidth) / 1000 : 0; })()`;
+const P_COLONNES = (sel) =>
+  `(() => { const el = document.querySelector('${sel}'); return el ? getComputedStyle(el).gridTemplateColumns.split(" ").filter(Boolean).length : 0; })()`;
+const P_VISIBLE = (sel) =>
+  `(() => { const el = document.querySelector('${sel}'); return el ? getComputedStyle(el).display !== "none" : false; })()`;
+
 const PAGES = [
   {
     id: "landing",
     route: "/",
     mock: false,
+    // Contrôle desktop : largeur exploitée du hero + grilles multi-colonnes.
+    desktopProbes: ["heroLargeur", "etapesColonnes"],
+    expectDesktop: (r) => r.heroLargeur >= 0.7 && r.etapesColonnes >= 3,
     probe: `({
       h1: !!document.querySelector("h1"),
       gradient: !!document.querySelector("h1 span"),
@@ -142,6 +162,8 @@ const PAGES = [
       types: document.body.textContent.includes("Stage PFE"),
       footer: !!document.querySelector("footer"),
       liensFooter: document.querySelectorAll("footer a[href^='/']").length,
+      heroLargeur: ${P_LARGEUR('[data-probe="hero-conteneur"]')},
+      etapesColonnes: ${P_COLONNES("#comment-ca-marche .grid")},
     })`,
     expect: (r) => r.h1 && r.gradient && r.etapes === 3 && r.avantages && r.types && r.footer && r.liensFooter >= 3,
   },
@@ -149,11 +171,16 @@ const PAGES = [
     id: "inscription",
     route: "/inscription",
     mock: false,
+    // Contrôle desktop : double panneau actif + carte assez large (vs max-w-lg d'origine).
+    desktopProbes: ["branding", "largeurCarte"],
+    expectDesktop: (r) => r.branding === true && r.largeurCarte >= 0.65,
     probe: `({
       champs: document.querySelectorAll("form input, form select").length,
       submit: !!document.querySelector("form button[type=submit]"),
       carte: !!document.querySelector("form")?.closest("div[class*='rounded-lg']"),
       titre: document.querySelector("h1")?.textContent ?? "",
+      branding: ${P_VISIBLE('[data-probe="branding"]')},
+      largeurCarte: ${P_LARGEUR('[data-probe="carte-conteneur"]')},
     })`,
     expect: (r) => r.champs >= 9 && r.submit && r.carte && r.titre.includes("Inscription"),
   },
@@ -161,6 +188,9 @@ const PAGES = [
     id: "confirmation",
     route: "/inscription/confirmation",
     mock: false,
+    // Contrôle desktop : volet « Et maintenant » visible + carte élargie.
+    desktopProbes: ["branding", "largeurCarte"],
+    expectDesktop: (r) => r.branding === true && r.largeurCarte >= 0.55,
     probe: `({
       titre: document.querySelector("h1")?.textContent ?? "",
       retour: !!document.querySelector("a[href='/']"),
@@ -168,6 +198,8 @@ const PAGES = [
       icone: (() => { const i = document.querySelector("div.h-20"); const c = document.querySelector("span.rounded-full");
         return !i || !c ? null : c.getBoundingClientRect().y - i.getBoundingClientRect().y >= 80; })(),
       display: (() => { const i = document.querySelector("div.h-20"); return i ? getComputedStyle(i).display : null; })(),
+      branding: ${P_VISIBLE('[data-probe="branding"]')},
+      largeurCarte: ${P_LARGEUR('[data-probe="carte-conteneur"]')},
     })`,
     expect: (r) => r.titre.includes("réussie") && r.retour && r.pastille && r.icone === true && r.display === "flex",
   },
@@ -175,6 +207,9 @@ const PAGES = [
     id: "profil-chargé",
     route: "/profil/2221234567",
     mock: true,
+    // Contrôle desktop : layout d'application (conteneur élargi + grille d'offres ≥2 colonnes).
+    desktopProbes: ["espaceLargeur", "offresColonnes"],
+    expectDesktop: (r) => r.espaceLargeur >= 0.7 && r.offresColonnes >= 2,
     probe: `({
       initiales: document.querySelector('[data-profil="avatar"]')?.textContent?.trim() ?? "",
       nom: document.querySelector("h1")?.textContent?.trim() ?? "",
@@ -182,6 +217,8 @@ const PAGES = [
       cartes: document.querySelectorAll(".group").length,
       boutons: document.querySelectorAll("button").length,
       chips: document.querySelectorAll("div.rounded-lg.bg-muted").length,
+      espaceLargeur: ${P_LARGEUR('[data-probe="espace-conteneur"]')},
+      offresColonnes: ${P_COLONNES('[data-probe="grille-offres"]')},
     })`,
     expect: (r) =>
       r.initiales.length >= 2 &&
@@ -195,6 +232,9 @@ const PAGES = [
     id: "profil-modale",
     route: "/profil/2221234567",
     mock: true,
+    // Contrôle desktop : le layout large tient aussi avec la modale ouverte.
+    desktopProbes: ["espaceLargeur"],
+    expectDesktop: (r) => r.espaceLargeur >= 0.7,
     // Ouvre la modale détail (clic carte) puis probe le contenu post-clic.
     action: `document.querySelector('button[aria-label^="Voir le détail"]')?.click()`,
     probe: `({
@@ -208,6 +248,7 @@ const PAGES = [
       lienSource: !!document.querySelector('[role="dialog"] a[href^="https://mauritel.mr"]'),
       mailto: !!document.querySelector('[role="dialog"] a[href^="mailto:recrutement@mauritel.mr"]'),
       scroll: document.querySelector('[role="dialog"]').className.includes("85vh"),
+      espaceLargeur: ${P_LARGEUR('[data-probe="espace-conteneur"]')},
     })`,
     expect: (r) =>
       r.modale &&
@@ -249,11 +290,16 @@ const PAGES = [
     id: "connexion",
     route: "/connexion",
     mock: true,
+    // Contrôle desktop : double panneau branding + carte élargie.
+    desktopProbes: ["branding", "largeurCarte"],
+    expectDesktop: (r) => r.branding === true && r.largeurCarte >= 0.65,
     probe: `({
       champTel: !!document.querySelector("input#telephone"),
       blocGerant: document.body.textContent.includes("Espace gérant"),
       lienInscription: !!document.querySelector("a[href='/inscription']"),
       titre: document.querySelector("h1")?.textContent ?? "",
+      branding: ${P_VISIBLE('[data-probe="branding"]')},
+      largeurCarte: ${P_LARGEUR('[data-probe="carte-conteneur"]')},
     })`,
     expect: (r) => r.champTel && r.blocGerant && r.lienInscription && r.titre.includes("Connexion"),
   },
@@ -264,6 +310,9 @@ const PAGES = [
     id: "accueil",
     route: "/profil/2221234567",
     mock: true,
+    // Contrôle desktop : espace client élargi + grille d'offres multi-colonnes.
+    desktopProbes: ["espaceLargeur", "offresColonnes"],
+    expectDesktop: (r) => r.espaceLargeur >= 0.7 && r.offresColonnes >= 2,
     // Le 503 du PATCH favori EST le scénario (migration 002_p5 non appliquée) :
     // son journal réseau n'est pas une régression — le probe vérifie la rétrograde.
     ignoreConsole: [/Failed to load resource.*status of 503.*\/favori/],
@@ -294,6 +343,8 @@ const PAGES = [
       alerte: document.querySelector('[data-probe="alerte"]')?.textContent?.trim() ?? "",
       parametres: !!document.querySelector('a[href="/profil/2221234567/parametres"]'),
       cartes: document.querySelectorAll(".group").length,
+      espaceLargeur: ${P_LARGEUR('[data-probe="espace-conteneur"]')},
+      offresColonnes: ${P_COLONNES('[data-probe="grille-offres"]')},
     })`,
     expect: (r) =>
       r.bandeau === 3 &&
@@ -317,6 +368,9 @@ const PAGES = [
     id: "parametres",
     route: "/profil/2221234567/parametres",
     mock: true,
+    // Contrôle desktop : page élargie (max-w-4xl) + sections en 2 colonnes.
+    desktopProbes: ["largeurCarte", "sectionsColonnes"],
+    expectDesktop: (r) => r.largeurCarte >= 0.55 && r.sectionsColonnes >= 2,
     probe: `({
       titre: document.querySelector("h1")?.textContent?.trim() ?? "",
       edit: !!document.querySelector('a[href="/profil/2221234567/edit"]'),
@@ -332,6 +386,8 @@ const PAGES = [
         document.querySelector(\`a[href^="/\${p}"]\`)
       ),
       desinscription: document.querySelector('[data-probe="desinscription"]')?.textContent?.includes("Se désinscrire") ?? false,
+      largeurCarte: ${P_LARGEUR('[data-probe="params-conteneur"]')},
+      sectionsColonnes: ${P_COLONNES('[data-probe="params-sections"]')},
     })`,
     expect: (r) =>
       r.titre.includes("Paramètres") &&
@@ -660,6 +716,12 @@ async function runMatrix() {
         let checks = { overflow: 999 };
         let probe = null;
         let probeError = null;
+        const estDesktop = vp.width >= 1024;
+        // Un probe est « valide » s'il passe l'expect de base ET le contrôle
+        // desktop de largeur exploitée (celui-ci n'est actif qu'à ≥1024px).
+        const valide = (p) =>
+          pageDef.expect(p ?? {}) &&
+          (!estDesktop || !pageDef.expectDesktop || pageDef.expectDesktop(p ?? {}));
         try {
           checks = await evaluate(
             cdp,
@@ -674,7 +736,7 @@ async function runMatrix() {
           // distante) peut dépasser les 2,6 s à cause d'un cold start TLS.
           // On repoll le probe tant que les assertions ne passent pas (plafond 6 s) :
           // aucun check n'est relâché, seul le délai de patience augmente.
-          for (let i = 0; i < 12 && !probeError && !pageDef.expect(probe ?? {}); i++) {
+          for (let i = 0; i < 12 && !probeError && !valide(probe); i++) {
             await sleep(500);
             probe = await evaluate(cdp, pageDef.probe);
           }
@@ -684,11 +746,22 @@ async function runMatrix() {
         const erreurs = [...consoleErrors, ...pageErrors].filter(
           (t) => !(pageDef.ignoreConsole ?? []).some((re) => re.test(t))
         );
+        // Contrôle desktop (viewport ≥1024px, si la page en définit un) :
+        // la largeur exploitée et le nombre de colonnes sont mesurés pour de vrai.
+        const desktopOk =
+          estDesktop && pageDef.expectDesktop && !probeError
+            ? pageDef.expectDesktop(probe ?? {})
+            : null;
+        const desktopDetail =
+          desktopOk === null || !probe
+            ? null
+            : (pageDef.desktopProbes ?? []).map((k) => `${k}=${probe[k]}`).join("  ");
         const ok =
           !probeError &&
           checks.overflow <= 2 &&
           erreurs.length === 0 &&
-          pageDef.expect(probe ?? {});
+          pageDef.expect(probe ?? {}) &&
+          (desktopOk === null || desktopOk);
 
         const shot = path.join(OUT_DIR, `${pageDef.id}-${vp.name}.png`);
         const { data } = await cdp.send("Page.captureScreenshot", { format: "png" });
@@ -716,6 +789,8 @@ async function runMatrix() {
           probe,
           probeError,
           consoleErrors: erreurs,
+          desktopOk,
+          desktopDetail,
           shot: path.relative(WEB_ROOT, shot),
         });
       }
@@ -767,6 +842,9 @@ async function main() {
   if (matrixError) console.log(`  ERREUR matrice : ${matrixError}`);
   for (const r of matrixResults) {
     console.log(`  ${r.ok ? "OK " : "KO "} ${r.case}  (overflow ${r.overflow}px)  → ${r.shot}`);
+    if (r.desktopOk !== null && r.desktopOk !== undefined) {
+      console.log(`        desktop: ${r.desktopOk ? "OK" : "KO"}  ${r.desktopDetail ?? ""}`);
+    }
     if (r.probeError) console.log(`        probe: ${r.probeError}`);
     if (!r.ok && r.probe) console.log(`        probe: ${JSON.stringify(r.probe)}`);
     for (const e of r.consoleErrors) console.log(`        console: ${e}`);
@@ -776,12 +854,15 @@ async function main() {
   const attendu = PAGES.length * VIEWPORTS.length;
   const passes = matrixResults.filter((r) => r.ok).length;
   const contrastPasses = contrastRows.filter((r) => r.ok).length;
+  const desktopCas = matrixResults.filter((r) => r.desktopOk !== null && r.desktopOk !== undefined);
+  const desktopPasses = desktopCas.filter((r) => r.desktopOk).length;
   const allOk =
     lintCode === 0 &&
     buildCode === 0 &&
     !matrixError &&
     total === attendu &&
     passes === total &&
+    desktopPasses === desktopCas.length &&
     contrastPasses === contrastRows.length;
 
   console.log("\n=== SYNTHÈSE ===");
@@ -789,6 +870,7 @@ async function main() {
   console.log(`  build (exit ${buildCode})             : ${buildCode === 0 ? "0 erreur" : "ÉCHEC"}`);
   console.log(`  contraste WCAG                    : ${contrastPasses}/${contrastRows.length} ≥ seuil AA`);
   console.log(`  matrice visuelle                  : ${passes}/${total} cas verts (attendu ${attendu})`);
+  console.log(`  largeur desktop exploitée         : ${desktopPasses}/${desktopCas.length} contrôles ≥ seuil`);
   console.log(`  captures PNG                      : ${path.relative(process.cwd(), OUT_DIR)}`);
   console.log(`  RÉSULTAT                          : ${allOk ? "TOUT VERT ✅" : "ÉCHEC ❌"}`);
   process.exit(allOk ? 0 : 1);

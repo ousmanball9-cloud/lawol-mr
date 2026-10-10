@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { GraduationCap, MessageSquare } from "lucide-react";
+import { GraduationCap, MessageSquare, CheckCircle } from "lucide-react";
 
 const FILIERES = [
   { value: "informatique", label: "Informatique" },
@@ -149,8 +149,36 @@ export default function InscriptionPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
-      <div className="w-full max-w-lg">
-        <div className="rounded-lg border border-border bg-card p-8 shadow-[0_1px_3px_rgba(10,10,10,0.04)] sm:p-10">
+      <div className="w-full max-w-lg lg:max-w-5xl">
+        {/* Double panneau desktop : branding (bg-ink) + formulaire — mobile : formulaire seul */}
+        <div data-probe="carte-conteneur" className="flex overflow-hidden rounded-lg border border-border bg-card shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+          <aside
+            data-probe="branding"
+            aria-hidden="true"
+            className="hidden w-[42%] shrink-0 flex-col justify-center bg-ink p-10 text-white lg:flex"
+          >
+            <span className="mb-6 text-lg font-bold tracking-[-0.02em]">LAWOL.mr</span>
+            <p className="mb-4 font-display text-3xl font-bold leading-[1.1] tracking-[-0.02em]">
+              30 secondes pour ne plus jamais rater une offre.
+            </p>
+            <p className="mb-8 text-sm leading-relaxed text-white/70">
+              Un seul formulaire court : nos robots font la veille à ta place et t&apos;écrivent
+              uniquement quand l&apos;offre te concerne vraiment.
+            </p>
+            <ul className="space-y-3 text-sm text-white/80">
+              {[
+                "Stage PFE, emploi junior, alternance, bourse : tous les formats",
+                "Alerte WhatsApp en quelques minutes après publication",
+                "100 % gratuit, désinscription en un clic",
+              ].map((point) => (
+                <li key={point} className="flex items-start gap-2">
+                  <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-white/50" />
+                  <span>{point}</span>
+                </li>
+              ))}
+            </ul>
+          </aside>
+          <div className="min-w-0 flex-1 p-8 sm:p-10">
           <div className="mb-8 text-center">
             <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-lg bg-ink text-white">
               <GraduationCap className="h-7 w-7" />
@@ -339,6 +367,7 @@ export default function InscriptionPage() {
               {loading ? "Inscription en cours..." : "S'inscrire"}
             </Button>
           </form>
+          </div>
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-4">

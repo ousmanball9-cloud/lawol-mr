@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { LogIn } from "lucide-react";
+import { LogIn, CheckCircle } from "lucide-react";
 
 const inputClass =
   "w-full rounded-lg border border-input bg-white px-4 py-2.5 text-sm text-foreground transition-colors duration-150 placeholder:text-muted-foreground focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30";
@@ -50,8 +50,36 @@ export default function ConnexionPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
-      <div className="w-full max-w-lg">
-        <div className="rounded-lg border border-border bg-card p-8 shadow-[0_1px_3px_rgba(10,10,10,0.04)] sm:p-10">
+      <div className="w-full max-w-lg lg:max-w-5xl">
+        {/* Double panneau desktop : branding (bg-ink) + formulaire — mobile : formulaire seul */}
+        <div data-probe="carte-conteneur" className="flex overflow-hidden rounded-lg border border-border bg-card shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+          <aside
+            data-probe="branding"
+            aria-hidden="true"
+            className="hidden w-[42%] shrink-0 flex-col justify-center bg-ink p-10 text-white lg:flex"
+          >
+            <span className="mb-6 text-lg font-bold tracking-[-0.02em]">LAWOL.mr</span>
+            <p className="mb-4 font-display text-3xl font-bold leading-[1.1] tracking-[-0.02em]">
+              Ton prochain stage t&apos;attend déjà sur WhatsApp.
+            </p>
+            <p className="mb-8 text-sm leading-relaxed text-white/70">
+              Retrouve ton espace en 10 secondes : pas de mot de passe, pas d&apos;application
+              à installer — juste ton numéro.
+            </p>
+            <ul className="space-y-3 text-sm text-white/80">
+              {[
+                "Les offres qui matchent ton profil, en direct",
+                "Ton score de profil et tes candidatures au même endroit",
+                "Opt-out en un clic, ton numéro reste privé",
+              ].map((point) => (
+                <li key={point} className="flex items-start gap-2">
+                  <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-white/50" />
+                  <span>{point}</span>
+                </li>
+              ))}
+            </ul>
+          </aside>
+          <div className="min-w-0 flex-1 p-8 sm:p-10">
           {/* Volet A — Étudiant */}
           <div className="mb-8 text-center">
             <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-lg bg-ink text-white">
@@ -149,6 +177,7 @@ export default function ConnexionPage() {
                 </Button>
               </Link>
             </div>
+          </div>
           </div>
         </div>
 

@@ -63,6 +63,48 @@ const STATUTS: Record<string, string> = {
   refuse: "Refusé",
 };
 
+/**
+ * Jauge « profil complété » — bloc 100 % présentational (aucun handler),
+ * rendu deux fois à des largeurs différentes pour conserver à l'identique
+ * l'ordre mobile d'origine : copie visible en colonne latérale desktop
+ * (`hidden lg:block`), copie d'origine dans le flux principal (`lg:hidden`).
+ * Un seul des deux nœuds est jamais affiché à un instant donné.
+ */
+function CarteScore({ dashboard, telephone }: { dashboard: Dashboard; telephone: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+        <span className="font-medium text-foreground">
+          Profil complété à{" "}
+          <span data-probe="score-valeur">{dashboard.profil.score_profil} %</span>
+        </span>
+        {dashboard.profil.score_profil < 100 && (
+          <Link
+            data-probe="score-lien"
+            href={`/profil/${telephone}/edit`}
+            className="font-medium text-signature transition-colors duration-150 hover:text-signature-deep"
+          >
+            Compléter mon profil
+          </Link>
+        )}
+      </div>
+      <div
+        role="progressbar"
+        aria-valuenow={dashboard.profil.score_profil}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Profil complété"
+        className="h-2 w-full overflow-hidden rounded-full bg-muted"
+      >
+        <div
+          className="h-full rounded-full bg-signature transition-all duration-500"
+          style={{ width: `${dashboard.profil.score_profil}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function ProfilPage() {
   const params = useParams();
   const telephone = params.telephone as string;
@@ -325,7 +367,14 @@ export default function ProfilPage() {
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
-      <div className="max-w-2xl mx-auto">
+      {/* Layout d'application desktop : colonne latérale profil (sticky) + flux principal.
+          En mobile/tablette : colonne unique, ordre d'origine strictement conservé. */}
+      <div
+        data-probe="espace-conteneur"
+        className="mx-auto flex max-w-2xl flex-col lg:max-w-7xl lg:flex-row lg:items-start lg:gap-8"
+      >
+        {/* Colonne gauche (desktop ≈300px, sticky) : identité + actions + score */}
+        <aside className="lg:sticky lg:top-6 lg:w-[300px] lg:shrink-0">
         {/* En-tête profil */}
         <div className="mb-6 overflow-hidden rounded-lg border border-border bg-card shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
           <div aria-hidden="true" className="h-1 w-full bg-signature" />
@@ -408,6 +457,17 @@ export default function ProfilPage() {
           )}
         </div>
 
+        {/* Score en colonne latérale (desktop uniquement — la copie du flux est masquée lg:hidden) */}
+        {dashboard && (
+          <div className="mt-4 hidden lg:block">
+            <CarteScore dashboard={dashboard} telephone={telephone} />
+          </div>
+        )}
+        </aside>
+
+        {/* Colonne droite (desktop, fluide) : résumé, marché, onglets, grille d'offres */}
+        <div className="min-w-0 flex-1">
+
         {/* Alerte éphémère 3 s (503 favoris/statut) : dégradation propre, jamais de crash */}
         {alerte && (
           <div
@@ -443,36 +503,9 @@ export default function ProfilPage() {
               ))}
             </div>
 
-            {/* Score de profil : jauge horizontale */}
-            <div className="rounded-lg border border-border bg-card p-4 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
-                <span className="font-medium text-foreground">
-                  Profil complété à{" "}
-                  <span data-probe="score-valeur">{dashboard.profil.score_profil} %</span>
-                </span>
-                {dashboard.profil.score_profil < 100 && (
-                  <Link
-                    data-probe="score-lien"
-                    href={`/profil/${telephone}/edit`}
-                    className="font-medium text-signature transition-colors duration-150 hover:text-signature-deep"
-                  >
-                    Compléter mon profil
-                  </Link>
-                )}
-              </div>
-              <div
-                role="progressbar"
-                aria-valuenow={dashboard.profil.score_profil}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label="Profil complété"
-                className="h-2 w-full overflow-hidden rounded-full bg-muted"
-              >
-                <div
-                  className="h-full rounded-full bg-signature transition-all duration-500"
-                  style={{ width: `${dashboard.profil.score_profil}%` }}
-                />
-              </div>
+            {/* Score de profil : jauge horizontale (desktop : copie en colonne latérale) */}
+            <div className="lg:hidden">
+              <CarteScore dashboard={dashboard} telephone={telephone} />
             </div>
 
             {/* Marché des postes — cette année (bloc vidé si tableau vide) */}
@@ -481,7 +514,7 @@ export default function ProfilPage() {
                 <h2 className="mb-2 text-sm font-semibold text-foreground">
                   Marché des postes — cette année
                 </h2>
-                <ul className="flex flex-wrap gap-2">
+                <ul className="flex flex-wrap gap-2 lg:grid lg:grid-cols-2">
                   {dashboard.postes_annee.map((p) => (
                     <li
                       key={p.poste}
@@ -608,7 +641,7 @@ export default function ProfilPage() {
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div data-probe="grille-offres" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {offresFiltrees.map((match) => (
                 <div
                   key={match.id}
@@ -726,6 +759,7 @@ export default function ProfilPage() {
               Retour à l&apos;accueil
             </Button>
           </Link>
+        </div>
         </div>
       </div>
 

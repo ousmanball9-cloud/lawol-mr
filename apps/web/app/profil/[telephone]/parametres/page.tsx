@@ -157,7 +157,7 @@ export default function ParametresPage() {
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
-      <div className="max-w-2xl mx-auto">
+      <div data-probe="params-conteneur" className="max-w-2xl mx-auto lg:max-w-4xl">
         {/* En-tête */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <h1 className="flex items-center gap-2 font-display text-2xl font-bold tracking-[-0.02em] text-foreground">
@@ -175,6 +175,10 @@ export default function ParametresPage() {
           </Link>
         </div>
 
+        {/* Sections en 2 colonnes sur desktop (col. gauche : profil + préférences,
+            col. droite : parrainage + à propos + désinscription) — colonne unique en mobile */}
+        <div data-probe="params-sections" className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-4">
+        <div className="min-w-0">
         {/* 1. Profil */}
         <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
           <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
@@ -296,7 +300,9 @@ export default function ParametresPage() {
             </div>
           </form>
         </section>
+        </div>
 
+        <div className="min-w-0">
         {/* 3. Parrainage */}
         <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
           <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
@@ -387,6 +393,8 @@ export default function ParametresPage() {
             {desinscriptionEnCours ? "Désinscription..." : "Se désinscrire définitivement"}
           </Button>
         </section>
+        </div>
+        </div>
       </div>
     </div>
   );
