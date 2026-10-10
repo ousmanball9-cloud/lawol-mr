@@ -205,11 +205,24 @@ export function formaterDescription(brut: string): BlocDescription[] {
   return blocs;
 }
 
+/** Libellés des statuts de candidature (valeurs enum backend StatutCandidature). */
+export const STATUTS: Record<string, string> = {
+  postule: "Postulé",
+  en_cours: "En cours",
+  reponse_recue: "Réponse reçue",
+  entretien: "Entretien",
+  accepte: "Accepté",
+  refuse: "Refusé",
+};
+
 type Props = {
   offre: OffreDetail;
   postule: boolean;
+  /** Statut courant du suivi (null = non renseigné, affiché « Postulé »). */
+  statut: string | null;
   enCours: boolean;
   onPostuler: () => void;
+  onStatut: (valeur: string) => void;
   onFermer: () => void;
 };
 
@@ -217,7 +230,7 @@ type Props = {
  * Vue détail d'une offre (modale légère, sans dépendance).
  * Fermeture : bouton ✕ + clic sur le fond + touche Échap.
  */
-export function OffreDetailModal({ offre, postule, enCours, onPostuler, onFermer }: Props) {
+export function OffreDetailModal({ offre, postule, statut, enCours, onPostuler, onStatut, onFermer }: Props) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onFermer();
@@ -424,6 +437,29 @@ export function OffreDetailModal({ offre, postule, enCours, onPostuler, onFermer
         >
           {postule ? "Postulé ✅" : enCours ? "Enregistrement..." : "J'ai postulé"}
         </Button>
+
+        {/* 8. Suivi de candidature — option avancée (Hick) : cachée tant que non postulée */}
+        {postule && (
+          <div className="mt-4 rounded-lg border border-border bg-muted/50 p-4">
+            <label htmlFor="suivi-statut" className="mb-2 block text-sm font-semibold text-foreground">
+              Suivi de ta candidature
+            </label>
+            <select
+              id="suivi-statut"
+              value={statut ?? "postule"}
+              onChange={(e) => onStatut(e.target.value)}
+              aria-label="Suivi de ta candidature"
+              data-probe="statut"
+              className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30"
+            >
+              {Object.entries(STATUTS).map(([valeur, libelle]) => (
+                <option key={valeur} value={valeur}>
+                  {libelle}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
     </div>
   );

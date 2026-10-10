@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import {
   OffreDetailModal,
+  STATUTS,
   TYPES_OFFRES,
   BADGES_TYPE,
   type OffreDetail,
@@ -53,18 +54,7 @@ type Dashboard = {
   postes_annee: { poste: string; count: number }[];
 };
 
-/** Libellés des statuts de candidature (valeurs enum backend StatutCandidature). */
-const STATUTS: Record<string, string> = {
-  postule: "Postulé",
-  en_cours: "En cours",
-  reponse_recue: "Réponse reçue",
-  entretien: "Entretien",
-  accepte: "Accepté",
-  refuse: "Refusé",
-};
-
-/**
- * Jauge « profil complété » — bloc 100 % présentational (aucun handler),
+/** Jauge « profil complété » — bloc 100 % présentational (aucun handler),
  * rendu deux fois à des largeurs différentes pour conserver à l'identique
  * l'ordre mobile d'origine : copie visible en colonne latérale desktop
  * (`hidden lg:block`), copie d'origine dans le flux principal (`lg:hidden`).
@@ -727,21 +717,15 @@ export default function ProfilPage() {
                       <Share2 className="mr-2 h-4 w-4" />
                       Partager
                     </Button>
-                    {/* P5 : suivi de candidature (offres postulées uniquement) */}
+                    {/* Suivi de candidature : info passive sur la carte (Hick) —
+                        le sélecteur vit dans la modale, une seule décision à la fois */}
                     {match.postule && (
-                      <select
-                        value={match.statut_candidature ?? "postule"}
-                        onChange={(e) => handleStatut(match, e.target.value)}
-                        aria-label={`Statut de candidature — ${match.offre.titre}`}
-                        data-probe="statut"
-                        className="rounded-lg border border-input bg-white px-3 py-2 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30"
+                      <span
+                        data-probe="statut-badge"
+                        className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground"
                       >
-                        {Object.entries(STATUTS).map(([valeur, libelle]) => (
-                          <option key={valeur} value={valeur}>
-                            {libelle}
-                          </option>
-                        ))}
-                      </select>
+                        {STATUTS[match.statut_candidature ?? "postule"] ?? "Postulé"}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -768,6 +752,8 @@ export default function ProfilPage() {
         <OffreDetailModal
           offre={matchOuvert.offre}
           postule={matchOuvert.postule}
+          statut={matchOuvert.statut_candidature ?? null}
+          onStatut={(valeur) => handleStatut(matchOuvert, valeur)}
           enCours={postulEnCours === matchOuvert.id}
           onPostuler={() => handlePostule(matchOuvert.id)}
           onFermer={fermerOffre}

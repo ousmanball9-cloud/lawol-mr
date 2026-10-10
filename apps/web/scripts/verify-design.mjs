@@ -317,15 +317,19 @@ const PAGES = [
     // son journal réseau n'est pas une régression — le probe vérifie la rétrograde.
     ignoreConsole: [/Failed to load resource.*status of 503.*\/favori/],
     action: `(() => {
-      const sel = document.querySelector('[data-probe="statut"]');
-      if (sel) {
-        sel.value = "entretien";
-        sel.dispatchEvent(new Event("change", { bubbles: true }));
-      }
+      // Ouvre la modale du match m2 (postulée) : le suivi vit dedans désormais.
+      document.querySelector('button[aria-label*="Data Analyst"]')?.click();
       return new Promise((resolve) =>
         setTimeout(() => {
-          document.querySelector('[data-probe="favori"]')?.click();
-          setTimeout(resolve, 300);
+          const sel = document.querySelector('[data-probe="statut"]');
+          if (sel) {
+            sel.value = "refuse";
+            sel.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+          setTimeout(() => {
+            document.querySelector('[data-probe="favori"]')?.click();
+            setTimeout(resolve, 300);
+          }, 400);
         }, 400)
       );
     })()`,
@@ -339,6 +343,7 @@ const PAGES = [
       etoiles: document.querySelectorAll('[data-probe="favori"]').length,
       etoileActive: document.querySelector('[data-probe="favori"][data-actif="true"]') !== null,
       statut: document.querySelector('[data-probe="statut"]')?.value ?? "",
+      statutBadge: document.querySelector('[data-probe="statut-badge"]')?.textContent?.trim() ?? "",
       onglets: document.querySelectorAll('[data-probe="onglet"]').length,
       alerte: document.querySelector('[data-probe="alerte"]')?.textContent?.trim() ?? "",
       parametres: !!document.querySelector('a[href="/profil/2221234567/parametres"]'),
@@ -357,7 +362,8 @@ const PAGES = [
       r.scoreLien &&
       r.etoiles === 5 &&
       r.etoileActive && // 503 favori : retour à l'état initial (true) — pas de crash
-      r.statut === "entretien" && // PATCH statut 200 : état optimiste conservé
+      r.statut === "refuse" && // PATCH statut 200 : état optimiste conservé (via la modale)
+      r.statutBadge === "Refusé" && // la carte reflète le changement (info passive, plus de choix)
       r.onglets === 2 &&
       r.alerte.includes("Favoris en cours d") &&
       r.parametres &&

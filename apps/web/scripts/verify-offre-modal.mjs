@@ -233,6 +233,7 @@ async function scenario(cdp) {
       waMe: d.querySelector('a[href*="wa.me"]')?.href ?? "",
       lienSourceRejete: lienSource === null || lienSource === undefined,
       boutonPostule: [...d.querySelectorAll("button")].some((b) => b.textContent.trim() === "J'ai postulé"),
+      statutAbsent: d.querySelector('[data-probe="statut"]') === null,
       scrollDialog: getComputedStyle(d).overflowY,
       scrollBody: document.body.style.overflow,
       rect: { h: Math.round(d.getBoundingClientRect().height), vh: window.innerHeight },
@@ -251,6 +252,7 @@ async function scenario(cdp) {
   check("WhatsApp nettoyé + préfixé 222", vue.waMe === "https://wa.me/22245678912", vue.waMe);
   check("source_url javascript: REJETÉ (garde http/https)", vue.lienSourceRejete);
   check("bouton « J'ai postulé » présent dans la modale", vue.boutonPostule);
+  check("offre non postulée → aucun bloc suivi (option avancée cachée)", vue.statutAbsent);
   check("modale scrollable (overflow-y auto)", vue.scrollDialog === "auto");
   check("scroll de la page bloqué derrière la modale", vue.scrollBody === "hidden");
   check("hauteur desktop ≤ 85vh", vue.rect.h <= vue.rect.vh * 0.85 + 2, `${vue.rect.h}px / ${vue.rect.vh}px`);
@@ -268,10 +270,12 @@ async function scenario(cdp) {
     return {
       modale: [...d.querySelectorAll("button")].some((b) => b.textContent.includes("Postulé")),
       carte: carte.textContent.includes("Postulé"),
+      suivi: !!d.querySelector('[data-probe="statut"]'),
     };
   })()`);
   check("clic « J'ai postulé » → modale passe en « Postulé ✅ »", apres.modale);
   check("état propagé à la carte de la liste", apres.carte);
+  check("après postulation → bloc « Suivi de ta candidature » apparaît", apres.suivi);
 
   // 3. Touche Échap ferme la modale
   await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
@@ -326,11 +330,30 @@ async function scenario(cdp) {
       messageAide: d.textContent.includes("Aucun canal de candidature indiqué"),
       aucunLien: d.querySelectorAll("a").length === 0,
       dejaPostule: [...d.querySelectorAll("button")].some((b) => b.textContent.includes("Postulé") && b.disabled),
+      statutSelect: !!d.querySelector('[data-probe="statut"]'),
     };
   })()`);
   check("aucun canal → message d'aide affiché", aide.messageAide);
   check("aucun canal → aucun lien de candidature", aide.aucunLien);
   check("offre déjà postulée → bouton désactivé « Postulé ✅ »", aide.dejaPostule);
+  check("offre postulée → bloc « Suivi de ta candidature » présent (dans la modale)", aide.statutSelect);
+
+  // Changement de statut depuis la modale → PATCH 200 tenu (optimiste) + badge carte
+  await evaluate(cdp, `(() => {
+    const sel = document.querySelector('[data-probe="statut"]');
+    sel.value = "entretien";
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+  })()`);
+  await sleep(600);
+  const suivi = await evaluate(cdp, `(() => ({
+    select: document.querySelector('[data-probe="statut"]')?.value ?? "",
+    // le badge de l'offre m2 (« Bourse d'études ») — m1 est aussi postulée, son badge est ailleurs dans le DOM
+    badge: [...document.querySelectorAll('[data-probe="statut-badge"]')]
+      .find((n) => n.closest(".group")?.textContent.includes("Bourse d'études"))
+      ?.textContent?.trim() ?? "",
+  }))()`);
+  check("changement de statut depuis la modale → valeur tenue (PATCH 200)", suivi.select === "entretien", suivi.select);
+  check("badge carte reflète « Entretien » (info passive, plus de sélecteur)", suivi.badge === "Entretien", suivi.badge);
 
   // 6. Zéro erreur console sur tout le scénario
   const erreurs = consoleErrors.filter((t) => !/facebook|favicon|404|Failed to load resource/i.test(t));
@@ -408,6 +431,12 @@ async function main() {
             body: Buffer.from(JSON.stringify(OFFRES_MOCK)).toString("base64"),
           });
         } else if (request.method === "POST" && url.includes("/postule")) {
+          await cdp.send("Fetch.fulfillRequest", {
+            requestId, responseCode: 200,
+            responseHeaders: [{ name: "Content-Type", value: "application/json" }],
+            body: Buffer.from(JSON.stringify({ ok: true })).toString("base64"),
+          });
+        } else if (request.method === "PATCH" && url.includes("/statut")) {
           await cdp.send("Fetch.fulfillRequest", {
             requestId, responseCode: 200,
             responseHeaders: [{ name: "Content-Type", value: "application/json" }],
