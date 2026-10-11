@@ -58,9 +58,14 @@ def main() -> int:
         from apps.api.app.core.config import settings
 
         if settings.META_WHATSAPP_TOKEN and settings.META_PHONE_NUMBER_ID:
-            from apps.api.app.modules.whatsapp.notifier import run_notification_job
+            from apps.api.app.modules.whatsapp.notifier import (
+                run_deadline_job,
+                run_notification_job,
+            )
 
             print(f"notifications: {run_notification_job()}")
+            # Lot C : rappels J-12/J-3 des bourses déjà matchées (2×/jour)
+            print(f"rappels deadline: {run_deadline_job()}")
         else:
             print("notifications: skip (cles META_WHATSAPP absentes — matches conserves en attente)")
 

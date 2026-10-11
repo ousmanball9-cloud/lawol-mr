@@ -250,6 +250,17 @@ async def trigger_notifications():
     return stats
 
 
+@app.post("/api/v1/notifications/deadlines")
+async def trigger_deadlines():
+    """Rappels J-12 / J-3 des bourses déjà matchées (Lot C).
+
+    Idempotent : chaque seuil ne part qu'une seule fois par match (état
+    persisté dans matches.metadata). Opt-out respecté (profils actif=false).
+    """
+    from apps.api.app.modules.whatsapp.notifier import run_deadline_job
+    return run_deadline_job()
+
+
 @app.get("/api/v1/matches")
 async def list_matches(profil_id: str | None = None, limit: int = 50):
     """Liste les matches, enrichis avec titre d'offre + prénom de l'étudiant."""

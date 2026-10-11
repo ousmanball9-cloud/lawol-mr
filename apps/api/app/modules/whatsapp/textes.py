@@ -38,3 +38,32 @@ def construire_texte_notification(offre: dict) -> str:
         f"📅 Date limite : {offre['date_limite']}\n\n"
         f"{appel}"
     )
+
+
+def construire_texte_rappel_deadline(offre: dict, jours_restants: int) -> str:
+    """Message WhatsApp de rappel J-12 / J-3 pour une offre déjà matchée.
+
+    `offre` : dict avec titre, entreprise, ville, date_limite et idéalement
+    type_offre ; `jours_restants` : écart date_limite - aujourd'hui.
+    """
+    type_offre = (offre.get("type_offre") or "").lower()
+    if type_offre == "bourse":
+        entete = "⏳ *Rappel : ta bourse se termine bientôt !*"
+        libelle_org = "🏦 Organisme financeur"
+    else:
+        entete = "⏳ *Rappel : l'offre se termine bientôt !*"
+        libelle_org = "🏢 Entreprise"
+    if jours_restants <= 0:
+        fin = "⚠️ Dernier jour pour postuler !"
+    elif jours_restants == 1:
+        fin = "⚠️ C'est demain la date limite !"
+    else:
+        fin = f"🔥 Plus que {jours_restants} jours pour postuler !"
+    return (
+        f"{entete}\n\n"
+        f"📌 {offre['titre']}\n"
+        f"{libelle_org} : {offre['entreprise']}\n"
+        f"📍 {offre['ville']}\n"
+        f"📅 Date limite : {offre['date_limite']}\n\n"
+        f"{fin}"
+    )

@@ -20,6 +20,15 @@ Préférences avancées P5 (profils.metadata['prefs_avancees']) :
   - types_masques     : ces types d'offre sont sautés
   - seuil_pertinence  : score minimal personnel (>= SCORE_MIN_PERTINENCE)
   Prefs absentes = comportement v1 inchangé.
+
+Lot D (bourses 100 %) : les scrapers de bourses remplissent toutes les
+filières par défaut → « bourses génériques » qui matchent tout le monde et
+saturent l'étudiant. Le moteur les traite à part :
+  - bonus filière réduit (BONUS_FILIERE_GENERIQUE au lieu de 50/30) →
+    elles rankent APRÈS les bourses réellement ciblées ;
+  - quota par profil (MAX_BOURSES_GENERIQUES_PAR_PROFIL, cumulé sur les
+    matches déjà en base) → jamais plus de N bourses toutes-filières ;
+  - stages/emplois inchangés (est_bourse_generique = False pour eux).
 """
 import hashlib
 import logging
@@ -27,7 +36,7 @@ from collections import Counter
 from datetime import date, timedelta
 
 from apps.api.app.core.database import supabase
-from apps.api.app.modules.shared.models import Filiere, Ville
+from apps.api.app.modules.shared.models import Filiere, TypeOffre, Ville
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +45,23 @@ MAX_MATCHES_PAR_SEMAINE = 5
 SCORE_MIN_PERTINENCE = 30
 FRAICHEUR_JOURS = 7
 DEADLINE_PROCHE_JOURS = 14
+
+# ---------- Lot D : bourses génériques (toutes filières) ----------
+MAX_BOURSES_GENERIQUES_PAR_PROFIL = 3
+BONUS_FILIERE_GENERIQUE = 15
+
+
+def est_bourse_generique(type_offre: str | None, filieres_cibles: list[str] | None) -> bool:
+    """Vrai si l'offre est une bourse « toutes filières » (Lot D).
+
+    Les scrapers de bourses remplissent toutes les filières par défaut
+    (repli `_filieres()` de bourses.py) : ces offres matchent tous les
+    profils et les saturent. Un stage/emploi n'est JAMAIS générique ici
+    (l'ancien comportement est préservé pour tous les autres types).
+    """
+    if (type_offre or "") != TypeOffre.BOURSE.value:
+        return False
+    return len(set(filieres_cibles or [])) >= len(Filiere)
 
 
 def match_regles(
@@ -89,6 +115,7 @@ def calculer_score_pertinence(
     ville_offre: str,
     date_scrape: date,
     date_limite: date,
+    bourse_generique: bool = False,
     aujourdhui: date | None = None,
 ) -> int:
     """Calcule le score de pertinence (0-100).
@@ -99,13 +126,20 @@ def calculer_score_pertinence(
     - Ville AUTRE (joker) : +10
     - Fraicheur (< 7 jours) : +10
     - Deadline proche (< 14 jours) : +10
+
+    Lot D : une bourse « toutes filières » (bourse_generique=True) ne
+    touche que BONUS_FILIERE_GENERIQUE pour la filière (quel que soit le
+    type de correspondance) — elle rank donc toujours APRÈS une bourse
+    réellement ciblant la filière du profil.
     """
     aujourdhui = aujourdhui or date.today()
     score = 0
     cibles = set(filieres_cibles)
 
     # Filiere
-    if filiere_profil in cibles:
+    if bourse_generique:
+        score += BONUS_FILIERE_GENERIQUE
+    elif filiere_profil in cibles:
         score += 50
     elif cibles & set(filieres_interet):
         score += 30
@@ -179,6 +213,38 @@ def _dedup_offres(offres: list[dict]) -> list[dict]:
     return list(vues.values())
 
 
+def selectionner_candidats(
+    candidats: list[dict],
+    *,
+    deja_semaine: int,
+    deja_generiques: int,
+) -> tuple[list[dict], int, int]:
+    """Sélectionne les matches à créer pour UN profil (règle pure, sans I/O).
+
+    Tri par score décroissant, anti-spam hebdomadaire (MAX_MATCHES_PAR_SEMAINE)
+    puis quota de bourses génériques cumulé sur la base (Lot D). Les bourses
+    ciblées, mieux notées, consomment les places en premier ; les génériques
+    (toutes filières) ne dépassent jamais MAX_BOURSES_GENERIQUES_PAR_PROFIL.
+
+    Retourne (retenus, ignores_spam, ignores_generiques).
+    """
+    triés = sorted(candidats, key=lambda x: x["score"], reverse=True)
+    retenus: list[dict] = []
+    ignores_spam = ignores_generiques = 0
+    generiques_ce_run = 0
+    for c in triés:
+        if deja_semaine + len(retenus) >= MAX_MATCHES_PAR_SEMAINE:
+            ignores_spam += 1
+            continue
+        if c["metadata"].get("bourse_generique"):
+            if deja_generiques + generiques_ce_run >= MAX_BOURSES_GENERIQUES_PAR_PROFIL:
+                ignores_generiques += 1
+                continue
+            generiques_ce_run += 1
+        retenus.append(c)
+    return retenus, ignores_spam, ignores_generiques
+
+
 def run_matching_job() -> dict:
     """Charge profils + offres, calcule les nouveaux matches, les insere."""
     # 1. Profils actifs
@@ -194,9 +260,19 @@ def run_matching_job() -> dict:
     # 3. Deduplication
     offres_dedup = _dedup_offres(offres_res.data)
 
-    # 4. Pairs deja matchees (eviter doublons)
-    matches_res = supabase.table("matches").select("offre_id, profil_id").execute()
+    # 4. Pairs deja matchees (eviter doublons) + bourses generiques deja
+    #    matchees par profil (quota Lot D cumule sur la base existante)
+    matches_res = (
+        supabase.table("matches")
+        .select("offre_id, profil_id, offre:offres(type_offre, filieres_cibles)")
+        .execute()
+    )
     deja_matchees = {(m["offre_id"], m["profil_id"]) for m in matches_res.data}
+    deja_generiques: Counter = Counter()
+    for m in matches_res.data:
+        o = m.get("offre") or {}
+        if est_bourse_generique(o.get("type_offre"), o.get("filieres_cibles")):
+            deja_generiques[m["profil_id"]] += 1
 
     # 5. Matches cette semaine (anti-spam)
     semaine_derniere = (date.today() - timedelta(days=7)).isoformat()
@@ -218,6 +294,7 @@ def run_matching_job() -> dict:
         "ignores_spam": 0,
         "ignores_prefs": 0,
         "ignores_hors_active": 0,
+        "ignores_generiques": 0,
     }
     for p in profils_res.data:
         # Préférences avancées du profil (P5) — dict vide si absentes
@@ -280,6 +357,9 @@ def run_matching_job() -> dict:
                 ville_offre=o["ville"],
                 date_scrape=date_scrape,
                 date_limite=date_limite,
+                bourse_generique=est_bourse_generique(
+                    o.get("type_offre"), o.get("filieres_cibles")
+                ),
             )
             if score < SCORE_MIN_PERTINENCE:
                 stats["ignores_score_faible"] += 1
@@ -298,16 +378,23 @@ def run_matching_job() -> dict:
                         "regle": "v1",
                         "raison": raison,
                         "content_hash": o.get("metadata", {}).get("content_hash", ""),
+                        # Lot D : trace pour l'UI/debug + quota du selectionneur
+                        "bourse_generique": est_bourse_generique(
+                            o.get("type_offre"), o.get("filieres_cibles")
+                        ),
                     },
                 }
             )
-        # Tri par score decroissant
-        candidats.sort(key=lambda x: x["score"], reverse=True)
-        # Anti-spam : garder les 5 meilleurs
-        for c in candidats:
-            if compte_semaine[p["id"]] >= MAX_MATCHES_PAR_SEMAINE:
-                stats["ignores_spam"] += 1
-                continue
+        # Tri + anti-spam + quota Lot D (bourses generiques) — regle partagee
+        # avec le harnais de preuve (selectionner_candidats, pure sans I/O)
+        retenus, spam, generiques = selectionner_candidats(
+            candidats,
+            deja_semaine=compte_semaine[p["id"]],
+            deja_generiques=deja_generiques[p["id"]],
+        )
+        stats["ignores_spam"] += spam
+        stats["ignores_generiques"] += generiques
+        for c in retenus:
             nouveaux.append(c)
             compte_semaine[p["id"]] += 1
 
