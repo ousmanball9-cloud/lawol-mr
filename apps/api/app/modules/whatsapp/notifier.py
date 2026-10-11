@@ -6,11 +6,16 @@ Lot C (alertes deadline) : run_deadline_job rappelle une bourse déjà matchée
 à J-12 puis J-3 de sa clôture, une seule fois par seuil (état persisté dans
 matches.metadata : clés deadline_j12_envoye / deadline_j3_envoye = date ISO).
 Opt-out respecté : seuls les profils actif=true reçoivent un rappel.
+
+Lot E (canal-agnostique) : les envois passent par notifications/canal.py —
+WhatsApp principal, email en filet de sécurité. L'injection `envoi`
+(signature (telephone, texte)) reste le chemin de preuve du harnais
+scripts/verify-lotcd.py : WhatsApp seul, zéro réseau.
 """
 from datetime import date
 
 from apps.api.app.core.database import supabase
-from apps.api.app.modules.whatsapp.sender import envoyer_message_texte
+from apps.api.app.modules.notifications.canal import envoyer_notification
 from apps.api.app.modules.whatsapp.textes import (
     construire_texte_notification,
     construire_texte_rappel_deadline,
@@ -38,10 +43,12 @@ def run_deadline_job(
     - Opt-out : un profil désactivé (actif=false, cf. /desinscription) ne
       reçoit jamais de rappel.
     - Échec d'envoi → le seuil n'est PAS marqué envoyé → retry au run suivant.
-    - `envoi` injectable pour le harnais de preuve (aucun appel réseau réel).
+    - `envoi` injectable pour le harnais de preuve (aucun appel réseau réel) :
+      signature (telephone, texte), WhatsApp seul, les exceptions remontent
+      telles quelles. Sans injection → dispatch canal-agnostique
+      (WhatsApp puis repli email, cf. notifications/canal.py).
     - `aujourdhui` injectable pour tester les seuils sans attendre J-12.
     """
-    envoi = envoi or envoyer_message_texte
     today = aujourdhui or date.today()
 
     # 1. Matches avec profil + offre — filtrage des seuils côté client
@@ -50,7 +57,7 @@ def run_deadline_job(
         supabase.table("matches")
         .select(
             "id, metadata, "
-            "profil:profils(id, telephone, prenom, actif), "
+            "profil:profils(id, telephone, email, prenom, actif), "
             "offre:offres(id, titre, entreprise, ville, date_limite, type_offre, active)"
         )
         .limit(1000)
@@ -99,7 +106,16 @@ def run_deadline_job(
             continue
 
         try:
-            envoi(profil["telephone"], construire_texte_rappel_deadline(offre, jours))
+            texte = construire_texte_rappel_deadline(offre, jours)
+            if envoi is not None:
+                # Chemin de preuve (harnais) : envoi injecté = WhatsApp seul,
+                # signature (telephone, texte) inchangée, exceptions propagées
+                envoi(profil["telephone"], texte)
+            else:
+                # Chemin prod : dispatch canal-agnostique WhatsApp → email
+                resultat = envoyer_notification(profil, texte)
+                if not resultat["ok"]:
+                    raise RuntimeError("aucun canal joignable (WhatsApp/email)")
         except Exception as e:  # noqa: BLE001 — canal down = retry au run suivant
             stats["erreurs"] += 1
             print(f"⚠️ rappel {intitule} échoué (match {m['id']}): {e}")
@@ -115,13 +131,17 @@ def run_deadline_job(
 
 
 def run_notification_job() -> dict:
-    """Envoie les matches non notifiés et les marque comme notifiés."""
+    """Envoie les matches non notifiés et les marque comme notifiés.
+
+    Envoi via le dispatch canal-agnostique (Lot E) : WhatsApp d'abord, repli
+    email. Un match n'est marqué notifié que si AU MOINS UN canal a réussi.
+    """
     # 1. Matches non notifiés, avec profil + offre
     res = (
         supabase.table("matches")
         .select(
             "id, score, "
-            "profil:profils(id, prenom, nom, telephone, filiere, niveau), "
+            "profil:profils(id, prenom, nom, telephone, email, filiere, niveau), "
             "offre:offres(id, titre, entreprise, ville, date_limite, type_offre)"
         )
         .eq("notifie", False)
@@ -141,7 +161,9 @@ def run_notification_job() -> dict:
             profil = m["profil"]
             offre = m["offre"]
             texte = construire_texte_notification(offre)
-            envoyer_message_texte(profil["telephone"], texte)
+            resultat = envoyer_notification(profil, texte)
+            if not resultat["ok"]:
+                raise RuntimeError("aucun canal joignable (WhatsApp/email)")
 
             # Marquer comme notifié
             supabase.table("matches").update({"notifie": True}).eq("id", m["id"]).execute()
