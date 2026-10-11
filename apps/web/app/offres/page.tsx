@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Briefcase, RefreshCw } from "lucide-react";
 import { BarreFiltres } from "@/components/offres/barre-filtres";
@@ -30,16 +31,48 @@ async function chargerBassin(): Promise<Offre[]> {
   return toutes;
 }
 
-/** Page publique /offres — recherche + filtres + grille paginée (12/page). */
+function IndicateurChargement() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4">
+      <div
+        aria-hidden="true"
+        className="h-10 w-10 animate-spin rounded-full border-2 border-signature border-t-transparent"
+      />
+      <p className="text-sm text-muted-foreground">Chargement des offres...</p>
+    </div>
+  );
+}
+
+/**
+ * Page publique /offres — recherche + filtres + grille paginée (12/page).
+ * useSearchParams lit `?recherche=` poussé par le hero : la barre de filtres
+ * est pré-remplie et le filtrage s'applique dès le chargement (Suspense
+ * obligatoire autour d'un Client Component qui lit les searchParams).
+ */
 export default function OffresPage() {
+  return (
+    <Suspense fallback={<IndicateurChargement />}>
+      <OffresContenu />
+    </Suspense>
+  );
+}
+
+function OffresContenu() {
+  const searchParams = useSearchParams();
+  const rechercheUrl = searchParams.get("recherche") ?? "";
   const [bassin, setBassin] = useState<Offre[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [motsCles, setMotsCles] = useState("");
+  const [motsCles, setMotsCles] = useState(rechercheUrl);
   const [typeFiltre, setTypeFiltre] = useState("tous");
   const [villeFiltre, setVilleFiltre] = useState("tous");
   const [filiereFiltre, setFiliereFiltre] = useState("tous");
   const [page, setPage] = useState(1);
+
+  // ?recherche= changé pendant la session (retour arrière, nouveau lien hero) → resynchronise
+  useEffect(() => {
+    setMotsCles(rechercheUrl);
+  }, [rechercheUrl]);
 
   const charger = useCallback(async () => {
     setLoading(true);
@@ -90,15 +123,7 @@ export default function OffresPage() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4">
-        <div
-          aria-hidden="true"
-          className="h-10 w-10 animate-spin rounded-full border-2 border-signature border-t-transparent"
-        />
-        <p className="text-sm text-muted-foreground">Chargement des offres...</p>
-      </div>
-    );
+    return <IndicateurChargement />;
   }
 
   if (error) {
@@ -123,13 +148,13 @@ export default function OffresPage() {
     <main className="bg-background px-4 py-10">
       <div className="mx-auto max-w-7xl">
         <header className="mb-8">
-          <p className="eyebrow text-signature">Stages · Emplois · Bourses</p>
+          <p className="eyebrow text-signature">Bourses · Stages · Emplois</p>
           <h1 className="mt-2 font-display text-3xl font-bold tracking-[-0.02em] text-foreground">
-            Toutes les offres
+            Bourses et offres pour ton profil
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Les offres de stage PFE, d&apos;emploi junior, d&apos;alternance et de bourse
-            actuellement ouvertes aux candidatures.
+            Les bourses d&apos;études, stages PFE, emplois juniors et alternances actuellement
+            ouverts aux candidatures.
           </p>
         </header>
 

@@ -35,7 +35,7 @@ export function HeroSearch() {
         type="search"
         value={valeur}
         onChange={(e) => setValeur(e.target.value)}
-        placeholder="Métier, entreprise, ville…"
+        placeholder="Bourse, métier, entreprise, ville…"
         className="h-12 w-full rounded-lg border border-white/25 bg-white/10 px-4 text-sm text-white placeholder:text-white/50 transition-colors duration-150 focus:border-white/60 focus:bg-white/15 focus:outline-none"
       />
       <Button

@@ -1,6 +1,6 @@
 import { Search } from "lucide-react";
 import { TYPES_OFFRES } from "@/components/offre-detail-modal";
-import { FILIERES, VILLES } from "./types";
+import { FILIERES, VILLES, TYPE_EN_TETE } from "./types";
 
 type Props = {
   motsCles: string;
@@ -17,6 +17,13 @@ type Props = {
 
 const SELECT =
   "rounded-lg border border-input bg-white px-3 py-2 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30";
+
+/** Types classés : la « Bourse » en vedette en tête, le reste dans l'ordre du dict. */
+const TYPES_TRIES = Object.entries(TYPES_OFFRES).sort(([a], [b]) => {
+  if (a === TYPE_EN_TETE) return -1;
+  if (b === TYPE_EN_TETE) return 1;
+  return 0;
+});
 
 /** Barre de recherche (mots-clés) + 3 selects (type, ville, filière) + compteur. */
 export function BarreFiltres({
@@ -40,7 +47,7 @@ export function BarreFiltres({
             type="search"
             value={motsCles}
             onChange={(e) => setMotsCles(e.target.value)}
-            placeholder="Rechercher un titre, une entreprise, un mot-clé…"
+            placeholder="Rechercher une bourse, un titre, une entreprise, un mot-clé…"
             aria-label="Rechercher dans les offres"
             className="w-full rounded-lg border border-input bg-white py-2 pl-9 pr-3 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30"
           />
@@ -53,7 +60,7 @@ export function BarreFiltres({
             className={SELECT}
           >
             <option value="tous">Tous les types</option>
-            {Object.entries(TYPES_OFFRES).map(([valeur, label]) => (
+            {TYPES_TRIES.map(([valeur, label]) => (
               <option key={valeur} value={valeur}>
                 {label}
               </option>

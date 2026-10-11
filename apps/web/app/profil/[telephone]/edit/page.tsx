@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GraduationCap } from "lucide-react";
+import { entetesSession, sessionValidePour } from "@/lib/session";
 
 const FILIERES = [
   { value: "informatique", label: "Informatique" },
@@ -61,6 +62,13 @@ export default function EditProfilPage() {
     ville: "nouakchott",
     types_recherches: [] as string[],
   });
+
+  // Garde session : sans token valide pour CE numéro → /connexion
+  useEffect(() => {
+    if (!sessionValidePour(telephone)) {
+      router.replace("/connexion");
+    }
+  }, [telephone, router]);
 
   useEffect(() => {
     async function load() {
@@ -133,13 +141,20 @@ export default function EditProfilPage() {
       };
       if (email) payload.email = email;
 
+      const entetes = entetesSession(telephone);
+      if (!entetes) {
+        router.replace("/connexion"); // session expirée entre-temps
+        return;
+      }
       const res = await fetch(`/api/v1/profils/${telephone}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...entetes },
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        router.replace("/connexion");
+      } else if (res.ok) {
         router.push(`/profil/${telephone}`);
       } else if (res.status === 404) {
         setError("Profil introuvable");

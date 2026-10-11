@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { entetesSession, sessionValidePour } from "@/lib/session";
 import {
   MapPin,
   Calendar,
@@ -105,6 +106,7 @@ function CarteScore({ dashboard, telephone }: { dashboard: Dashboard; telephone:
 
 export default function ProfilPage() {
   const params = useParams();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const telephone = params.telephone as string;
   const ongletParam = searchParams.get("onglet");
@@ -217,6 +219,14 @@ export default function ProfilPage() {
     charger();
   }, [charger]);
 
+  // Garde session : sans token valide pour CE numéro → /connexion
+  // (le middleware fait le même contrôle côté serveur : double filet)
+  useEffect(() => {
+    if (!sessionValidePour(telephone)) {
+      router.replace("/connexion");
+    }
+  }, [telephone, router]);
+
   const villesDisponibles = useMemo(() => {
     const villes = new Set(matches.map((m) => m.offre.ville));
     return Array.from(villes).sort();
@@ -328,7 +338,16 @@ export default function ProfilPage() {
     setDesinscriptionEnCours(true);
     setMessage(null);
     try {
-      const res = await fetch(`/api/v1/profils/${telephone}/desinscription`, { method: "POST" });
+      const entetes = entetesSession(telephone);
+      if (!entetes) throw new Error("session expirée"); // → catch : message + reconnexion
+      const res = await fetch(`/api/v1/profils/${telephone}/desinscription`, {
+        method: "POST",
+        headers: entetes,
+      });
+      if (res.status === 401 || res.status === 403) {
+        router.replace("/connexion");
+        return;
+      }
       if (!res.ok) throw new Error();
       setDesinscrit(true);
       setMessage({ ok: true, texte: "Profil désactivé : tu ne recevras plus d'offres. À bientôt !" });

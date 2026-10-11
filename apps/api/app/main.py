@@ -8,9 +8,6 @@ from apps.api.app.core.database import supabase
 from apps.api.app.modules.shared.models import (
     OffreStageCreate,
     OffreStagePublic,
-    ProfilEtudiantCreate,
-    ProfilEtudiantUpdate,
-    ProfilEtudiant,
     StatsResponse,
     Filiere,
     Ville,
@@ -18,7 +15,6 @@ from apps.api.app.modules.shared.models import (
     DashboardProfil,
     DashboardResponse,
     FavoriUpdate,
-    PreferencesAvanceesUpdate,
     ResumeHebdo,
     StatutUpdate,
 )
@@ -29,6 +25,7 @@ from apps.api.app.modules.dashboard.summary import (
 )
 from apps.api.app.modules.entreprises.routes import router as entreprises_router
 from apps.api.app.modules.matching.engine import run_matching_job
+from apps.api.app.modules.profils.routes import lire_matches_profil, router as profils_router
 from apps.api.app.modules.scraper.sources.catalogue import get_scrapers
 from datetime import date
 from uuid import UUID
@@ -68,6 +65,9 @@ app.include_router(whatsapp_router)
 
 # ---------- P6-A : entreprises (comptes, offres, candidatures, admin) ----------
 app.include_router(entreprises_router)
+
+# ---------- Profils (création, connexion PIN, consultation, mutations gardées) ----------
+app.include_router(profils_router)
 
 
 # ---------- Health ----------
@@ -141,58 +141,8 @@ async def create_offre(offre: OffreStageCreate):
     return {"id": res.data[0]["id"]}
 
 
-# ---------- Profils ----------
-@app.post("/api/v1/profils", response_model=ProfilEtudiant, status_code=201)
-async def create_profil(profil: ProfilEtudiantCreate):
-    if not profil.optin_texte or not profil.optin_texte.strip():
-        raise HTTPException(422, "L'opt-in est obligatoire pour recevoir les offres sur WhatsApp")
-    data = profil.model_dump(mode="json")
-    res = supabase.table("profils").upsert(data, on_conflict="telephone").execute()
-    if not res.data:
-        raise HTTPException(500, "Erreur lors de l'insertion du profil")
-    return ProfilEtudiant.model_validate(res.data[0])
-
-
-@app.get("/api/v1/profils/{telephone}", response_model=ProfilEtudiant)
-async def get_profil(telephone: str):
-    res = supabase.table("profils").select("*").eq("telephone", telephone).execute()
-    if not res.data:
-        raise HTTPException(404, "Profil non trouvé")
-    return ProfilEtudiant.model_validate(res.data[0])
-
-
-@app.put("/api/v1/profils/{telephone}", response_model=ProfilEtudiant)
-async def update_profil(telephone: str, update: ProfilEtudiantUpdate):
-    """Modifie les champs d'un profil existant (aucun champ obligatoire)."""
-    res = supabase.table("profils").select("*").eq("telephone", telephone).execute()
-    if not res.data:
-        raise HTTPException(404, "Profil non trouvé")
-
-    # Seuls les champs présents (non-null) sont modifiés
-    changes = update.model_dump(exclude_none=True, mode="json")
-    if not changes:
-        raise HTTPException(422, "Aucun champ à modifier")
-
-    res = (
-        supabase.table("profils")
-        .update(changes)
-        .eq("telephone", telephone)
-        .execute()
-    )
-    if not res.data:
-        raise HTTPException(500, "Erreur lors de la mise à jour du profil")
-    return ProfilEtudiant.model_validate(res.data[0])
-
-
-@app.post("/api/v1/profils/{telephone}/desinscription")
-async def desinscrire_profil(telephone: str):
-    """Désactive un profil (opt-out : plus aucune notification envoyée)."""
-    res = supabase.table("profils").select("id, actif").eq("telephone", telephone).execute()
-    if not res.data:
-        raise HTTPException(404, "Profil non trouvé")
-
-    supabase.table("profils").update({"actif": False}).eq("telephone", telephone).execute()
-    return {"telephone": telephone, "actif": False, "message": "Profil désactivé"}
+# ---------- Profils : routes déplacées dans modules/profils/routes.py ----------
+# (création, connexion par code PIN, consultation, mutations gardées par token)
 
 
 # ---------- Scraper ----------
@@ -302,63 +252,7 @@ async def marquer_postule(match_id: str):
     return {"id": match_id, "postule": True}
 
 
-# ---------- P5 : dashboard, favoris, statut, historique, préférences ----------
-_MATCHES_OFFRE_ETENDUE = (
-    "id, titre, entreprise, ville, type_offre, description, date_limite, "
-    "contact_email, contact_whatsapp, source_url, source_name, filieres_cibles, active"
-)
-_MATCHES_PROFIL_ETENDU = "id, prenom, nom, telephone, filiere, niveau"
-_MATCHES_BASE = (
-    "id, score, notifie, date_match, "
-    f"offre:offres({_MATCHES_OFFRE_ETENDUE}), "
-    f"profil:profils({_MATCHES_PROFIL_ETENDU})"
-)
-# Variantes du plus complet au plus sobre (repli D8 si une colonne manque)
-_MATCHES_VARIANTES = (
-    _MATCHES_BASE + ", postule, favori, statut_candidature",
-    _MATCHES_BASE + ", postule",
-    _MATCHES_BASE,
-)
-
-
-def _lire_matches_profil(profil_id: str, limit: int | None = None) -> list[dict]:
-    """Matches du profil (tri date_match desc) avec offre étendue (comme /matches).
-
-    Repli D8 : si `favori`/`statut_candidature` (voire `postule`) n'existent pas
-    encore, on retombe sur une sélection plus sobre et on complète les champs
-    manquants avec leur défaut (favori=false, statut_candidature=null).
-    Lecture = valeur par défaut, jamais de 500.
-    """
-    derniere_erreur: Exception | None = None
-    for colonnes in _MATCHES_VARIANTES:
-        try:
-            query = (
-                supabase.table("matches")
-                .select(colonnes)
-                .eq("profil_id", profil_id)
-                .order("date_match", desc=True)
-            )
-            if limit:
-                query = query.limit(limit)
-            res = query.execute()
-        except Exception as e:  # colonne absente (D8) ou souci réseau
-            derniere_erreur = e
-            continue
-        for row in res.data:
-            row.setdefault("postule", False)
-            row.setdefault("favori", False)
-            row.setdefault("statut_candidature", None)
-        return res.data
-
-    msg = str(derniere_erreur or "").lower()
-    if "column" in msg or "not exist" in msg or "schema-cache" in msg:
-        raise HTTPException(
-            503,
-            "Favoris/statuts indisponibles : migration 002_p5.sql non appliquée (règle D8)",
-        )
-    raise HTTPException(503, "Service momentanément indisponible, réessaie plus tard")
-
-
+# ---------- P5 : dashboard client ----------
 @app.get("/api/v1/dashboard/{telephone}", response_model=DashboardResponse)
 async def dashboard_client(telephone: str):
     """Résumé hebdo du client : profil + compteurs de la semaine + offres par poste."""
@@ -367,7 +261,7 @@ async def dashboard_client(telephone: str):
         raise HTTPException(404, "Profil non trouvé")
     profil = res.data[0]
 
-    matches = _lire_matches_profil(profil["id"])
+    matches = lire_matches_profil(profil["id"])
     return DashboardResponse(
         profil=DashboardProfil(
             id=profil["id"],
@@ -434,51 +328,6 @@ async def changer_statut_candidature(match_id: UUID, body: StatutUpdate):
     if not res.data:
         raise HTTPException(500, "Erreur lors de la mise à jour du match")
     return {"id": str(match_id), "statut_candidature": valeur}
-
-
-@app.get("/api/v1/profils/{telephone}/historique")
-async def historique_candidatures(telephone: str):
-    """Matches du profil (date_match desc) avec offre étendue + favori +
-    statut_candidature + postule (repli D8 si colonnes absentes)."""
-    res = supabase.table("profils").select("id").eq("telephone", telephone).execute()
-    if not res.data:
-        raise HTTPException(404, "Profil non trouvé")
-    return _lire_matches_profil(res.data[0]["id"])
-
-
-@app.patch("/api/v1/profils/{telephone}/preferences")
-async def maj_preferences_avancees(telephone: str, prefs: PreferencesAvanceesUpdate):
-    """Met à jour partiellement profils.metadata['prefs_avancees'] (jsonb, pas de migration).
-
-    Le matching engine applique ensuite ces préférences : villes exclues,
-    types masqués, seuil de pertinence minimal.
-    """
-    res = supabase.table("profils").select("id, metadata").eq("telephone", telephone).execute()
-    if not res.data:
-        raise HTTPException(404, "Profil non trouvé")
-
-    changements = prefs.model_dump(exclude_unset=True, mode="json")
-    if not changements:
-        raise HTTPException(422, "Aucune préférence à modifier")
-
-    metadata = res.data[0].get("metadata")
-    metadata = dict(metadata) if isinstance(metadata, dict) else {}
-    actuelles = metadata.get("prefs_avancees")
-    actuelles = dict(actuelles) if isinstance(actuelles, dict) else {}
-
-    # Fusion : seuls les champs présents dans le corps sont remplacés
-    fusion = {**actuelles, **changements}
-    metadata["prefs_avancees"] = fusion
-
-    maj = (
-        supabase.table("profils")
-        .update({"metadata": metadata})
-        .eq("telephone", telephone)
-        .execute()
-    )
-    if not maj.data:
-        raise HTTPException(500, "Erreur lors de la mise à jour des préférences")
-    return {"telephone": telephone, "prefs_avancees": fusion}
 
 
 # ---------- Stats ----------

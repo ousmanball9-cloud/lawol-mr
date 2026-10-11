@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
 const NAV = [
-  { href: "/offres", label: "Offres" },
+  { href: "/offres", label: "Bourses & offres" },
   { href: "/entreprises", label: "Entreprises" },
 ];
 

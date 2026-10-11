@@ -120,7 +120,28 @@ class ProfilEtudiantBase(BaseModel):
 
 
 class ProfilEtudiantCreate(ProfilEtudiantBase):
-    pass
+    """Création de profil.
+
+    `code_pin` (4-6 chiffres) est optionnel côté API mais exigé par le frontend :
+    il est hashé dans profils.metadata['code_pin_hash'], JAMAIS stocké en clair
+    et jamais renvoyé dans une réponse (ProfilEtudiant n'expose pas metadata).
+    """
+
+    code_pin: Optional[str] = Field(default=None, pattern=r"^\d{4,6}$")
+
+
+class ConnexionProfilRequete(BaseModel):
+    """POST /api/v1/profils/{tel}/connexion — vérification du code PIN."""
+
+    code_pin: str = Field(pattern=r"^\d{4,6}$")
+
+
+class SessionProfilReponse(BaseModel):
+    """Token de session signé (HMAC) + téléphone + durée restante en minutes."""
+
+    token: str
+    telephone: str
+    expires_in_minutes: int
 
 
 class ProfilEtudiantUpdate(BaseModel):

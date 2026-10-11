@@ -18,13 +18,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ tele
 }
 
 // Proxy PUT /api/v1/profils/[telephone] → API Railway
+// (endpoint MUTANT : le Bearer injecté par middleware.ts part vers l'API)
 export async function PUT(request: Request, { params }: { params: Promise<{ telephone: string }> }) {
   try {
     const { telephone } = await params;
     const body = await request.text();
+    const authorization = request.headers.get("authorization");
     const res = await fetch(`${API_URL}/api/v1/profils/${telephone}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(authorization ? { Authorization: authorization } : {}),
+      },
       body,
     });
     const data = await res.text();

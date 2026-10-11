@@ -10,19 +10,22 @@ export default function ConditionsPage() {
 
         <h2 className="text-xl font-semibold mt-8 mb-3">1. Service</h2>
         <p className="text-gray-600 mb-4">
-          LAWOL.mr envoie aux étudiants mauritaniens les offres de stage/PFE/emploi junior
-          correspondant à leur profil, via WhatsApp. Le service est gratuit.
+          LAWOL.mr est une plateforme de mise en relation qui présente aux étudiants mauritaniens
+          les bourses d&apos;études, stages/PFE, emplois juniors et alternances correspondant à
+          leur profil. Le service est gratuit.
         </p>
 
         <h2 className="text-xl font-semibold mt-8 mb-3">2. Inscription</h2>
         <p className="text-gray-600 mb-4">
-          L&apos;inscription se fait via WhatsApp en envoyant un message au bot. L&apos;étudiant accepte
-          de recevoir des offres correspondant à son profil.
+          L&apos;inscription se fait en ligne sur LAWOL.mr via un formulaire court. L&apos;étudiant
+          crée son profil (filière, niveau, ville, types d&apos;opportunités recherchés) et accepte
+          de recevoir des alertes correspondant à son profil.
         </p>
 
         <h2 className="text-xl font-semibold mt-8 mb-3">3. Désinscription</h2>
         <p className="text-gray-600 mb-4">
-          L&apos;étudiant peut se désinscrire à tout moment en envoyant &quot;STOP&quot; au bot WhatsApp.
+          L&apos;étudiant peut se désinscrire à tout moment depuis son espace personnel
+          (Paramètres → Désinscription). Son profil est alors désactivé.
         </p>
 
         <h2 className="text-xl font-semibold mt-8 mb-3">4. Responsabilité</h2>

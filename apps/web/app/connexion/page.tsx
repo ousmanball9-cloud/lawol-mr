@@ -1,22 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { LogIn, CheckCircle } from "lucide-react";
 import { Chrome } from "@/components/chrome/chrome";
+import { ecrireSession, sessionValidePour } from "@/lib/session";
 
 const inputClass =
   "w-full rounded-lg border border-input bg-white px-4 py-2.5 text-sm text-foreground transition-colors duration-150 placeholder:text-muted-foreground focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30";
 
+/** Numéro saisi (8 chiffres ou 222XXXXXXXX) → 222XXXXXXXX normalisé. */
+function normaliserTel(brut: string): string {
+  const chiffres = brut.replace(/\D/g, "");
+  return chiffres.length === 8 ? `222${chiffres}` : chiffres;
+}
+
 export default function ConnexionPage() {
   const router = useRouter();
   const [digits, setDigits] = useState("");
+  const [codePin, setCodePin] = useState("");
   const [loading, setLoading] = useState(false);
   const [erreur, setErreur] = useState("");
   // Numéro complet (222XXXXXXXX) quand le profil est introuvable → lien de création
   const [introuvable, setIntrouvable] = useState("");
+
+  // Pré-remplissage depuis /connexion?tel=222XXXXXXXX (repli après inscription)
+  useEffect(() => {
+    const tel = new URLSearchParams(window.location.search).get("tel");
+    if (tel && /^222\d{8}$/.test(tel)) setDigits(tel.slice(3));
+  }, []);
+
+  // Déjà connecté sur ce numéro → retour direct au profil
+  useEffect(() => {
+    const tel = normaliserTel(digits);
+    if (/^222\d{8}$/.test(tel) && codePin.length >= 4 && sessionValidePour(tel)) {
+      router.replace(`/profil/${tel}`);
+    }
+  }, [digits, codePin, router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -25,20 +47,33 @@ export default function ConnexionPage() {
 
     // Le « +222 » est un préfixe visuel : on ne saisit que les 8 chiffres
     // (une saisie collée en numéro complet reste acceptée).
-    const brut = digits.replace(/\D/g, "");
-    const tel = brut.length === 8 ? `222${brut}` : brut;
+    const tel = normaliserTel(digits);
     if (!/^222\d{8}$/.test(tel)) {
       setErreur("Numéro de téléphone invalide. Saisis les 8 chiffres après +222.");
+      return;
+    }
+    if (!/^\d{4,6}$/.test(codePin)) {
+      setErreur("Code PIN invalide : 4 à 6 chiffres.");
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/v1/profils/${tel}`);
+      const res = await fetch(`/api/v1/profils/${tel}/connexion`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code_pin: codePin }),
+      });
       if (res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data?.token) ecrireSession(data.token);
         router.push(`/profil/${tel}`);
+      } else if (res.status === 401) {
+        setErreur("Code PIN incorrect. Réessaie.");
       } else if (res.status === 404) {
         setIntrouvable(tel);
+      } else if (res.status === 503) {
+        setErreur("Connexion temporairement indisponible. Réessaie plus tard.");
       } else {
         setErreur("Erreur serveur. Veuillez réessayer plus tard.");
       }
@@ -65,8 +100,8 @@ export default function ConnexionPage() {
               Ton prochain stage t&apos;attend déjà sur WhatsApp.
             </p>
             <p className="mb-8 text-sm leading-relaxed text-white/70">
-              Retrouve ton espace en 10 secondes : pas de mot de passe, pas d&apos;application
-              à installer — juste ton numéro.
+              Retrouve ton espace en 10 secondes : pas d&apos;application à installer —
+              juste ton numéro et ton code PIN.
             </p>
             <ul className="space-y-3 text-sm text-white/80">
               {[
@@ -91,7 +126,7 @@ export default function ConnexionPage() {
               Connexion
             </h1>
             <p className="text-sm text-muted-foreground">
-              Accède à ton profil LAWOL.mr avec ton numéro de téléphone
+              Accède à ton profil LAWOL.mr avec ton numéro et ton code PIN
             </p>
           </div>
 
@@ -122,6 +157,28 @@ export default function ConnexionPage() {
                 />
               </div>
               <p className="text-xs text-muted-foreground mt-1">Format : +222 suivi de 8 chiffres</p>
+            </div>
+
+            {/* Code PIN */}
+            <div>
+              <label htmlFor="code-pin" className="mb-1.5 block text-sm font-medium text-foreground">
+                Code PIN <span className="text-destructive">*</span>
+              </label>
+              <input
+                id="code-pin"
+                type="password"
+                inputMode="numeric"
+                autoComplete="off"
+                value={codePin}
+                onChange={(e) => setCodePin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="4 à 6 chiffres"
+                maxLength={6}
+                className={inputClass}
+                required
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Le code choisi à l&apos;inscription protège ton profil
+              </p>
             </div>
 
             {/* Erreur */}

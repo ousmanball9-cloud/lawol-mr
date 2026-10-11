@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GraduationCap, MessageSquare, CheckCircle } from "lucide-react";
 import { Chrome } from "@/components/chrome/chrome";
+import { ecrireSession } from "@/lib/session";
 
 const FILIERES = [
   { value: "informatique", label: "Informatique" },
@@ -52,6 +53,7 @@ export default function InscriptionPage() {
   const [error, setError] = useState("");
   const [form, setForm] = useState({
     telephone: "",
+    code_pin: "",
     nom: "",
     prenom: "",
     universite: "",
@@ -100,6 +102,13 @@ export default function InscriptionPage() {
       return;
     }
 
+    // Validation code PIN (4-6 chiffres — il protègera le profil à la connexion)
+    const codePin = form.code_pin.replace(/\D/g, "");
+    if (!/^\d{4,6}$/.test(codePin)) {
+      setError("Code PIN invalide : choisis 4 à 6 chiffres");
+      return;
+    }
+
     if (!form.filiere || !form.niveau) {
       setError("Veuillez sélectionner votre filière et votre niveau");
       return;
@@ -118,6 +127,7 @@ export default function InscriptionPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           telephone: telephoneClean,
+          code_pin: codePin,
           nom: form.nom.trim(),
           prenom: form.prenom.trim(),
           universite: form.universite.trim(),
@@ -131,8 +141,20 @@ export default function InscriptionPage() {
       });
 
       if (res.ok) {
-        // Redirection directe vers le profil avec les offres matchées
-        router.push(`/profil/${telephoneClean}`);
+        // Connexion automatique (le PIN vient d'être créé) → session → profil.
+        // En cas d'échec : /connexion, jamais d'impasse (le profil existe déjà).
+        const connexion = await fetch(`/api/v1/profils/${telephoneClean}/connexion`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code_pin: codePin }),
+        });
+        const session = connexion.ok ? await connexion.json().catch(() => null) : null;
+        if (session?.token) {
+          ecrireSession(session.token);
+          router.push(`/profil/${telephoneClean}`);
+        } else {
+          router.push(`/connexion?tel=${telephoneClean}`);
+        }
       } else if (res.status === 409) {
         setError("Ce numéro de téléphone est déjà inscrit");
       } else if (res.status === 422) {
@@ -207,6 +229,28 @@ export default function InscriptionPage() {
                 required
               />
               <p className="text-xs text-muted-foreground mt-1">Format : +222 suivi de 8 chiffres</p>
+            </div>
+
+            {/* Code PIN (identifiant d'accès au profil — jamais dû par WhatsApp/email) */}
+            <div>
+              <label htmlFor="code_pin" className="mb-1.5 block text-sm font-medium text-foreground">
+                Code PIN <span className="text-destructive">*</span>
+              </label>
+              <input
+                id="code_pin"
+                type="password"
+                inputMode="numeric"
+                autoComplete="new-password"
+                value={form.code_pin}
+                onChange={(e) => update("code_pin", e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="4 à 6 chiffres"
+                maxLength={6}
+                className={inputClass}
+                required
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Il protège ton profil : garde-le précieusement, aucun SMS ne te le rappellera.
+              </p>
             </div>
 
             {/* Nom */}

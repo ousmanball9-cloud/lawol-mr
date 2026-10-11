@@ -15,6 +15,9 @@ export type Offre = {
   active: boolean;
 };
 
+/** Clé du type mis en vedette (« Bourse » en tête des filtres et sélections). */
+export const TYPE_EN_TETE = "bourse";
+
 /** Enum Filiere de l'apps/api (ordre d'affichage du filtre). */
 export const FILIERES: { valeur: string; label: string }[] = [
   { valeur: "informatique", label: "Informatique" },

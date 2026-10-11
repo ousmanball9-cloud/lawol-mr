@@ -5,14 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { TYPES_OFFRES } from "@/components/offre-detail-modal";
-import { Check, Copy, MessageCircle, UserMinus } from "lucide-react";
+import { ArrowRight, Check, Copy, UserMinus } from "lucide-react";
 
 /** Enum Ville du backend (ordre SQL), même liste que le schéma. */
 const VILLES = ["nouakchott", "nouadhibou", "kaedi", "rosso", "aleg", "autre"];
-
-/** Lien WhatsApp du site (texte existant de la landing, réutilisé tel quel). */
-const WHATSAPP_PARRAINAGE =
-  "https://wa.me/222XXXXXXXX?text=Bonjour%20LAWOL%2C%20je%20veux%20recevoir%20les%20offres%20qui%20matchent%20mon%20profil.";
 
 type Prefs = {
   villes_exclues: string[];
@@ -107,7 +103,7 @@ export function FormPrefs({ telephone }: { telephone: string }) {
 
   async function handleDesinscrire() {
     const confirme = window.confirm(
-      "Vraiment te désinscrire ? Tu ne recevras plus aucune offre sur WhatsApp."
+      "Vraiment te désinscrire ? Tu ne recevras plus aucune alerte d'offre ni de bourse."
     );
     if (!confirme) return;
     setDesinscriptionEnCours(true);
@@ -233,19 +229,17 @@ export function FormPrefs({ telephone }: { telephone: string }) {
           Parrainage
         </h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          Tu connais un camarade qui cherche un stage, une alternance ou un emploi ?
-          Invitation sur WhatsApp et partage de ton lien.
+          Tu connais un camarade qui cherche une bourse, un stage, une alternance ou un emploi ?
+          Partage-lui ton lien de profil et les opportunités du moment.
         </p>
         <div className="flex flex-wrap gap-2">
-          <a
-            href={WHATSAPP_PARRAINAGE}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/offres"
             className="inline-flex h-9 items-center gap-2 rounded-lg bg-signature px-4 text-sm font-medium text-white transition-colors duration-150 hover:bg-signature-deep"
           >
-            <MessageCircle className="h-4 w-4" />
-            Recommander à un camarade
-          </a>
+            Voir les bourses et offres
+            <ArrowRight className="h-4 w-4" />
+          </Link>
           <Button
             variant="outline"
             size="sm"
@@ -303,7 +297,7 @@ export function FormPrefs({ telephone }: { telephone: string }) {
           Désinscription
         </h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          Désactive ton profil : tu ne recevras plus aucune offre sur WhatsApp.
+          Désactive ton profil : tu ne recevras plus aucune alerte d&apos;offre ni de bourse.
         </p>
         <Button
           variant="outline"

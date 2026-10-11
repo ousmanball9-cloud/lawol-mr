@@ -4,31 +4,29 @@ import { HeroSearch } from "@/components/landing/hero-search"
 import { Header } from "@/components/chrome/header"
 import { Footer } from "@/components/chrome/footer"
 import {
-  MessageSquare, CheckCircle, Clock, Shield,
+  CheckCircle, Clock, Shield,
   GraduationCap, Briefcase, Zap, ArrowRight, Award,
   Sparkles, Target, Users, Bell,
 } from "lucide-react"
-
-const WHATSAPP_URL = "https://wa.me/222XXXXXXXX?text=Bonjour%20LAWOL%2C%20je%20veux%20recevoir%20les%20offres%20qui%20matchent%20mon%20profil."
 
 const STEPS = [
   {
     num: "01",
     icon: GraduationCap,
     title: "Crée ton profil",
-    desc: "Remplis un court formulaire : filière, niveau, ville, type d'offre recherché. 2 minutes chrono.",
+    desc: "Remplis un court formulaire : filière, niveau, ville, type d'opportunité recherché. 2 minutes chrono.",
   },
   {
     num: "02",
     icon: Zap,
     title: "On trouve pour toi",
-    desc: "Nos robots scannent LinkedIn, sites entreprises, ANPE et universités. Le matching est automatique et instantané.",
+    desc: "Nos robots scannent les portails de bourses, LinkedIn, sites entreprises, ANPE et universités. Le matching est automatique et instantané.",
   },
   {
     num: "03",
-    icon: MessageSquare,
-    title: "Reçois sur WhatsApp",
-    desc: "Seules les offres qui matchent ton profil arrivent sur ton WhatsApp. Tu postules en un clic.",
+    icon: Bell,
+    title: "Postule en un clic",
+    desc: "Une alerte arrive dès qu'une bourse ou une offre matche ton profil, puis tu postules directement depuis la plateforme.",
   },
 ]
 
@@ -36,17 +34,17 @@ const AVANTAGES = [
   {
     icon: Target,
     title: "Uniquement le pertinent",
-    desc: "Chaque offre est filtrée selon ta filière, ton niveau et ta ville. Aucun bruit, aucune perte de temps.",
+    desc: "Chaque bourse et chaque offre est filtrée selon ta filière, ton niveau et ta ville. Aucun bruit, aucune perte de temps.",
   },
   {
     icon: Bell,
     title: "Alerte immédiate",
-    desc: "Les offres fraîches arrivent en quelques minutes, avant que les groupes ne soient saturés.",
+    desc: "Les bourses et offres fraîches arrivent en quelques minutes, avant même que les sites ne soient saturés.",
   },
   {
     icon: Shield,
     title: "Données protégées",
-    desc: "Ton numéro reste privé, opt-in clair et désinscription en un clic. Respectueux du RGPD.",
+    desc: "Ton profil reste privé, opt-in clair et désinscription en un clic. Respectueux du RGPD.",
   },
   {
     icon: Clock,
@@ -61,17 +59,18 @@ const AVANTAGES = [
   {
     icon: Sparkles,
     title: "Sources fiables",
-    desc: "Sites officiels des entreprises, portails d'emploi et portails de bourses : uniquement des sources vérifiées.",
+    desc: "Portails de bourses officiels, sites des entreprises et portails d'emploi : uniquement des sources vérifiées.",
   },
 ]
 
 // Badges d'icônes monochromes : zéro rainbow, la couleur signature reste rare.
+// La « Bourse » en vedette en tête de liste.
 const TYPES_OFFRES = [
+  { icon: Award, label: "Bourse d'études", desc: "Masters, PhD et séjours financés" },
   { icon: GraduationCap, label: "Stage PFE", desc: "Fin d'études, 3-6 mois" },
   { icon: Briefcase, label: "Emploi Junior", desc: "Premier job, 0-2 ans exp." },
   { icon: Zap, label: "Alternance", desc: "Études + travail en entreprise" },
   { icon: Clock, label: "Stage Été", desc: "2-3 mois pendant les vacances" },
-  { icon: Award, label: "Bourse d'études", desc: "Masters, PhD et séjours financés" },
 ]
 
 const SOURCES = [
@@ -107,20 +106,21 @@ export default function HomePage() {
           <div data-probe="hero-conteneur" className="mx-auto max-w-3xl text-center lg:max-w-6xl">
             <div className="entree-douce mb-8 inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
               <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-surlignage" />
-              <span>Nouveau : offres PFE directement sur WhatsApp</span>
+              <span>Nouveau : bourses d&apos;études mises à jour chaque semaine</span>
             </div>
 
             <h1 className="entree-douce mb-6 font-display text-[clamp(2.5rem,6vw,4rem)] font-bold leading-[1.06] tracking-[-0.03em] lg:text-[clamp(4rem,6vw,5.5rem)]">
-              Ton stage PFE, <br />
+              Ta bourse d&apos;études, <br />
               <span className="box-decoration-clone rounded bg-surlignage px-2 pb-1 text-ink">
                 sans le stress
               </span>
             </h1>
 
             <p className="entree-douce mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-white/70 lg:max-w-3xl">
-              LAWOL.mr t&apos;envoie uniquement les offres de stage, emploi junior, alternance et bourse
-              qui correspondent à <strong className="font-semibold text-white">ton profil</strong> —
-              directement sur WhatsApp. Fini la veille quotidienne, les groupes saturés et les offres
+              LAWOL.mr t&apos;envoie uniquement les bourses d&apos;études, offres de stage, emploi
+              junior et alternance qui correspondent à{" "}
+              <strong className="font-semibold text-white">ton profil</strong> — sur une seule
+              plateforme. Fini la veille quotidienne, les sites éparpillés et les opportunités
               ratées.
             </p>
 
@@ -128,19 +128,19 @@ export default function HomePage() {
             <HeroSearch />
 
             <div className="mb-4 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto">
+              <Link href="/inscription" className="w-full sm:w-auto">
                 <Button
                   size="lg"
                   className="h-12 w-full rounded-lg bg-signature px-6 text-base text-white hover:bg-signature-deep sm:w-auto"
                   asChild
                 >
                   <span className="flex items-center gap-2">
-                    <MessageSquare className="h-5 w-5" />
-                    Recevoir les offres sur WhatsApp
+                    <GraduationCap className="h-5 w-5" />
+                    Créer mon profil gratuitement
                     <ArrowRight className="h-5 w-5" />
                   </span>
                 </Button>
-              </a>
+              </Link>
               <Link href="#comment-ca-marche" className="w-full sm:w-auto">
                 <Button
                   size="lg"
@@ -190,7 +190,7 @@ export default function HomePage() {
               Comment ça marche en <span className="text-signature">3 étapes</span>
             </h2>
             <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-              De l&apos;inscription à la première offre, tout se passe sur WhatsApp.
+              De l&apos;inscription à la première opportunité, tout se passe sur LAWOL.mr.
             </p>
           </div>
 
@@ -219,13 +219,13 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="mb-16 text-center">
             <p className="eyebrow mb-4 text-signature">
-              Veille d&apos;offres automatique
+              Veille d&apos;opportunités automatique
             </p>
             <h2 className="mb-4 font-display text-3xl font-bold tracking-[-0.02em] text-ink lg:text-4xl">
               Pourquoi <span className="text-signature">LAWOL.mr</span> ?
             </h2>
             <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-              Une veille d&apos;offres qui travaille à ta place, chaque jour.
+              Une veille de bourses et d&apos;offres qui travaille à ta place, chaque jour.
             </p>
           </div>
 
@@ -251,10 +251,10 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="mb-16 text-center">
             <p className="eyebrow mb-4 text-signature">
-              Tous les formats
+              Bourses en tête, tous les formats
             </p>
             <h2 className="mb-4 font-display text-3xl font-bold tracking-[-0.02em] text-ink lg:text-4xl">
-              Tous types d&apos;opportunités pour <span className="text-signature">ton profil</span>
+              Des bourses aux premiers emplois, tout pour <span className="text-signature">ton profil</span>
             </h2>
           </div>
 
@@ -359,8 +359,8 @@ export default function HomePage() {
                 Votre université ?
               </h3>
               <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
-                Offrez à vos étudiants un accès privilégié aux offres qui correspondent à leur
-                filière, directement sur leur WhatsApp.
+                Offrez à vos étudiants un accès privilégié aux bourses et offres qui correspondent
+                à leur filière, directement depuis leur profil LAWOL.mr.
               </p>
               <Link href="/contact">
                 <Button
@@ -381,28 +381,27 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="mx-auto max-w-3xl rounded-lg fond-nuit px-8 py-12 text-center lg:max-w-5xl lg:px-14 lg:py-16">
             <h2 className="mb-4 font-display text-3xl font-bold tracking-[-0.02em] text-white lg:text-4xl">
-              Prêt à ne plus rater aucune offre ?
+              Prêt à ne plus rater aucune bourse ni offre ?
             </h2>
             <p className="mx-auto mb-8 max-w-xl text-lg text-white/70">
-              Rejoins des centaines d&apos;étudiants mauritaniens qui reçoivent déjà leurs offres
-              matchées sur WhatsApp.
+              Rejoins des centaines d&apos;étudiants mauritaniens qui reçoivent déjà leurs bourses
+              et offres matchées, chaque jour.
             </p>
-            <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="inline-block w-full sm:w-auto">
+            <Link href="/inscription" className="inline-block w-full sm:w-auto">
               <Button
                 size="lg"
                 className="h-12 w-full rounded-lg bg-signature px-6 text-base text-white hover:bg-signature-deep sm:w-auto"
                 asChild
               >
                 <span className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  Commencer gratuitement sur WhatsApp
+                  <GraduationCap className="h-5 w-5" />
+                  Commencer gratuitement
                   <ArrowRight className="h-5 w-5" />
                 </span>
               </Button>
-            </a>
+            </Link>
             <p className="mt-5 text-sm text-white/60">
-              En cliquant, tu ouvres WhatsApp avec un message pré-rempli. Aucune donnée
-              n&apos;est collectée avant ton accord.
+              Inscription en 30 secondes — gratuit, sans engagement, désinscription en un clic.
             </p>
           </div>
         </div>
