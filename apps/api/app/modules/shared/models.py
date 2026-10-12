@@ -189,9 +189,13 @@ class Match(BaseModel):
 class StatutCandidature(str, Enum):
     """Statut de candidature attendu (pas de CHECK côté SQL, validation Pydantic)."""
 
+    # Pipeline bourses (audit 2026-10) : à préparer → postulé → en cours →
+    # réponse → présélection → entretien → obtenue/refusée.
+    A_PREPARER = "a_preparer"
     POSTULE = "postule"
     EN_COURS = "en_cours"
     REPONSE_RECUE = "reponse_recue"
+    PRES_SELECTION = "pres_selection"
     ENTRETIEN = "entretien"
     ACCEPTE = "accepte"
     REFUSE = "refuse"

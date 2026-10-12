@@ -306,9 +306,11 @@ export function formaterDescription(brut: string): BlocDescription[] {
 
 /** Libellés des statuts de candidature (valeurs enum backend StatutCandidature). */
 export const STATUTS: Record<string, string> = {
+  a_preparer: "À préparer",
   postule: "Postulé",
   en_cours: "En cours",
   reponse_recue: "Réponse reçue",
+  pres_selection: "Présélection",
   entretien: "Entretien",
   accepte: "Accepté",
   refuse: "Refusé",
@@ -537,15 +539,16 @@ export function OffreDetailModal({ offre, postule, statut, enCours, onPostuler, 
           {postule ? "Postulé ✅" : enCours ? "Enregistrement..." : "J'ai postulé"}
         </Button>
 
-        {/* 8. Suivi de candidature — option avancée (Hick) : cachée tant que non postulée */}
-        {postule && (
-          <div className="mt-4 rounded-lg border border-border bg-muted/50 p-4">
+        {/* 8. Pipeline de candidature — accessible dès l'intention (« à préparer »)
+            pour les bourses ; la transition vers « postulé » est faite par le backend
+            au moment de « J'ai postulé ». */}
+        <div className="mt-4 rounded-lg border border-border bg-muted/50 p-4">
             <label htmlFor="suivi-statut" className="mb-2 block text-sm font-semibold text-foreground">
               Suivi de ta candidature
             </label>
             <select
               id="suivi-statut"
-              value={statut ?? "postule"}
+              value={statut ?? (postule ? "postule" : "a_preparer")}
               onChange={(e) => onStatut(e.target.value)}
               aria-label="Suivi de ta candidature"
               data-probe="statut"
@@ -558,7 +561,6 @@ export function OffreDetailModal({ offre, postule, statut, enCours, onPostuler, 
               ))}
             </select>
           </div>
-        )}
       </div>
     </div>
   );

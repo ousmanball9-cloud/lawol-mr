@@ -249,6 +249,17 @@ async def marquer_postule(match_id: str):
         raise HTTPException(503, "Fonctionnalité en cours d'activation, réessaie plus tard")
     if not res.data:
         raise HTTPException(500, "Erreur lors de la mise à jour du match")
+    # Pipeline bourses : « à préparer » → « postulé » au dépôt réel.
+    # Best-effort : colonne absente (règle D8) → postule reste true,
+    # l'UI retombe sur « Postulé » via son fallback.
+    statut_avant = (res.data[0] or {}).get("statut_candidature")
+    if statut_avant == "a_preparer":
+        try:
+            supabase.table("matches").update({"statut_candidature": "postule"}).eq(
+                "id", match_id
+            ).execute()
+        except Exception:
+            pass
     return {"id": match_id, "postule": True}
 
 

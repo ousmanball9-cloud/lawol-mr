@@ -257,7 +257,19 @@ export default function ProfilPage() {
     try {
       const res = await fetch(`/api/v1/matches/${matchId}/postule`, { method: "POST" });
       if (!res.ok) throw new Error();
-      setMatches((prev) => prev.map((m) => (m.id === matchId ? { ...m, postule: true } : m)));
+      setMatches((prev) =>
+        prev.map((m) =>
+          m.id === matchId
+            ? {
+                ...m,
+                postule: true,
+                // Pipeline : « à préparer » → « postulé » (même transition que le backend)
+                statut_candidature:
+                  m.statut_candidature === "a_preparer" ? "postule" : m.statut_candidature,
+              }
+            : m
+        )
+      );
       setMessage({ ok: true, texte: "Candidature enregistrée, bonne chance !" });
     } catch {
       setMessage({ ok: false, texte: "Impossible d'enregistrer ta candidature. Réessaie." });
