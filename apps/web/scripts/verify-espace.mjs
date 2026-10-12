@@ -18,6 +18,7 @@ import { mkdir, rm } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { poserCookieSession } from "./lib/session-factice.mjs";
 
 const WEB_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_DIR = path.join(WEB_ROOT, ".verify-espace");
@@ -266,6 +267,8 @@ async function main() {
     await cdp.send("Page.enable");
     await cdp.send("Runtime.enable");
     await cdp.send("Log.enable");
+    // Session factice : /profil/* est désormais protégé par middleware.ts
+    await poserCookieSession(cdp, "2221234567", PORT);
 
     await cdp.send("Fetch.enable", { patterns: [{ urlPattern: "*api/v1*", requestStage: "Request" }] });
     const consoleErrors = [];

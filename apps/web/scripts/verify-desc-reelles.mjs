@@ -19,6 +19,7 @@ import { mkdir, rm } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { poserCookieSession } from "./lib/session-factice.mjs";
 
 const WEB_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_DIR = path.join(WEB_ROOT, ".verify-desc-reelles");
@@ -264,6 +265,8 @@ async function main() {
     const cdp = await connectCdp(target.webSocketDebuggerUrl);
     await cdp.send("Page.enable");
     await cdp.send("Runtime.enable");
+    // Session factice : /profil/* est désormais protégé par middleware.ts
+    await poserCookieSession(cdp, "2221234567", PORT);
 
     const MATCHES = familles.map((f, i) => ({
       id: `r${i}`, postule: false,

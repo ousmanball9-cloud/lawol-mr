@@ -25,6 +25,7 @@ import { existsSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { poserCookieSession } from "./lib/session-factice.mjs";
 
 const WEB_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_DIR = path.join(WEB_ROOT, ".verify");
@@ -791,6 +792,10 @@ async function runMatrix() {
           deviceScaleFactor: 1,
           mobile: vp.mobile,
         });
+        // Session factice par route : /profil/* est protégé par middleware.ts,
+        // et le token doit porter LE tel de l'URL (2221234567 ou 0000000000).
+        const telRoute = pageDef.route.match(/^\/profil\/([^/]+)/);
+        if (telRoute) await poserCookieSession(cdp, decodeURIComponent(telRoute[1]), PORT);
         await cdp.send("Page.navigate", { url: `http://127.0.0.1:${PORT}${pageDef.route}` });
         await sleep(2600);
 
