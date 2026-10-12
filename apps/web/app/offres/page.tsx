@@ -9,12 +9,24 @@ import { BarreFiltres } from "@/components/offres/barre-filtres";
 import { Chrome } from "@/components/chrome/chrome";
 import { CarteOffre } from "@/components/offres/carte-offre";
 import { PaginationOffres } from "@/components/offres/pagination-offres";
-import type { Offre } from "@/components/offres/types";
+import { joursRestants, parserDateLimite } from "@/components/offres/date-limite";
+import type { Offre, TriOffres } from "@/components/offres/types";
 
 const PAR_PAGE = 12;
 /** Supabase plafonne une requête à 1 000 lignes : on charge le bassin par lots de 500. */
 const BATCH = 500;
 const MAX_OFFSET = 5000;
+/** Seuil du filtre « Clôture dans moins de 30 jours ». */
+const SEUIL_30_JOURS = 30;
+
+/** Offre enrichie de son échéance : jours restants (null = date illisible). */
+type Echeance = { offre: Offre; jours: number | null };
+
+/** Rang du tri « plus urgentes » : 0 = encore ouvert, 1 = expirée, 2 = sans date lisible. */
+function rangEcheance(jours: number | null): number {
+  if (jours === null) return 2;
+  return jours < 0 ? 1 : 0;
+}
 
 /** Charge toutes les offres actives (bassin complet, pagination 100 % côté client
  *  pour que la recherche mots-clés porte bien sur l'ensemble du catalogue). */
@@ -67,6 +79,11 @@ function OffresContenu() {
   const [typeFiltre, setTypeFiltre] = useState("tous");
   const [villeFiltre, setVilleFiltre] = useState("tous");
   const [filiereFiltre, setFiliereFiltre] = useState("tous");
+  const [tri, setTri] = useState<TriOffres>("urgent");
+  const [cloture30, setCloture30] = useState(false);
+  // Les offres expirées sont masquées par défaut — mais jamais invisibles :
+  // l'état « Afficher les expirées » de la barre de filtres les révèle.
+  const [expireesVisibles, setExpireesVisibles] = useState(false);
   const [page, setPage] = useState(1);
 
   // ?recherche= changé pendant la session (retour arrière, nouveau lien hero) → resynchronise
@@ -90,36 +107,96 @@ function OffresContenu() {
     charger();
   }, [charger]);
 
-  // Tout changement de critère ramène à la première page
+  // Tout changement de critère (dont tri et échéance) ramène à la première page
   useEffect(() => {
     setPage(1);
-  }, [motsCles, typeFiltre, villeFiltre, filiereFiltre]);
+  }, [motsCles, typeFiltre, villeFiltre, filiereFiltre, tri, cloture30, expireesVisibles]);
 
-  const filtrees = useMemo(() => {
+  /** Échéance recalculée une seule fois par offre (parse + jours restants). */
+  const echeances = useMemo<Echeance[]>(
+    () =>
+      bassin.map((offre) => ({
+        offre,
+        jours: joursRestants(parserDateLimite(offre.date_limite)),
+      })),
+    [bassin],
+  );
+
+  const { liste: filtrees, nbExpirees } = useMemo(() => {
     const q = motsCles.trim().toLowerCase();
-    return bassin.filter((o) => {
-      if (typeFiltre !== "tous" && o.type_offre !== typeFiltre) return false;
-      if (villeFiltre !== "tous" && o.ville !== villeFiltre) return false;
-      if (filiereFiltre !== "tous" && !(o.filieres_cibles ?? []).includes(filiereFiltre))
+    const correspond = (offre: Offre) => {
+      if (typeFiltre !== "tous" && offre.type_offre !== typeFiltre) return false;
+      if (villeFiltre !== "tous" && offre.ville !== villeFiltre) return false;
+      if (filiereFiltre !== "tous" && !(offre.filieres_cibles ?? []).includes(filiereFiltre))
         return false;
       if (
         q &&
-        !`${o.titre} ${o.entreprise} ${o.description} ${o.ville}`.toLowerCase().includes(q)
+        !`${offre.titre} ${offre.entreprise} ${offre.description} ${offre.ville}`
+          .toLowerCase()
+          .includes(q)
       )
         return false;
       return true;
-    });
-  }, [bassin, motsCles, typeFiltre, villeFiltre, filiereFiltre]);
+    };
+
+    const retenues: Echeance[] = [];
+    let expirees = 0;
+    for (const e of echeances) {
+      if (!correspond(e.offre)) continue;
+      const expiree = e.jours !== null && e.jours < 0;
+      // Comptées même masquées : l'état « Afficher les expirées » les révèle.
+      if (expiree) expirees += 1;
+      if (cloture30) {
+        // « Clôture dans moins de 30 jours » = fenêtre À VENIR : ni offre déjà
+        // close, ni date illisible, ni échéance ≥ 30 j. Le motif est rappelé par
+        // le compteur de la barre de filtres (« fenêtre 30 j : offres closes
+        // exclues »).
+        if (expiree || e.jours === null || e.jours >= SEUIL_30_JOURS) continue;
+      } else if (expiree && !expireesVisibles) {
+        continue; // masquées par défaut, jamais supprimées : bascule explicite
+      }
+      retenues.push(e);
+    }
+
+    if (tri === "urgent") {
+      // Échéance proche d'abord ; sans date lisible au dernier rang ; expirées
+      // (si affichées) en toute fin, la plus récemment close en tête.
+      // Sort stable : à rang égal, l'ordre du bassin (API) est conservé.
+      retenues.sort((a, b) => {
+        const rang = rangEcheance(a.jours) - rangEcheance(b.jours);
+        if (rang !== 0) return rang;
+        if (a.jours !== null && a.jours < 0) return (b.jours ?? 0) - (a.jours ?? 0);
+        return (a.jours ?? 0) - (b.jours ?? 0);
+      });
+    }
+    // tri « recentes » : aucun réordonnancement — l'API renvoie déjà
+    // `date_scrape DESC` (offres les plus fraîches en tête).
+    return { liste: retenues, nbExpirees: expirees };
+  }, [
+    echeances,
+    motsCles,
+    typeFiltre,
+    villeFiltre,
+    filiereFiltre,
+    cloture30,
+    expireesVisibles,
+    tri,
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(filtrees.length / PAR_PAGE));
   const pageNum = Math.min(page, totalPages);
-  const pageCourante = filtrees.slice((pageNum - 1) * PAR_PAGE, pageNum * PAR_PAGE);
+  const pageCourante = filtrees
+    .slice((pageNum - 1) * PAR_PAGE, pageNum * PAR_PAGE)
+    .map((e) => e.offre);
 
   const reinitialiserFiltres = useCallback(() => {
     setMotsCles("");
     setTypeFiltre("tous");
     setVilleFiltre("tous");
     setFiliereFiltre("tous");
+    setTri("urgent");
+    setCloture30(false);
+    setExpireesVisibles(false);
   }, []);
 
   if (loading) {
@@ -167,6 +244,13 @@ function OffresContenu() {
           setVilleFiltre={setVilleFiltre}
           filiereFiltre={filiereFiltre}
           setFiliereFiltre={setFiliereFiltre}
+          tri={tri}
+          setTri={setTri}
+          cloture30={cloture30}
+          setCloture30={setCloture30}
+          expireesVisibles={expireesVisibles}
+          setExpireesVisibles={setExpireesVisibles}
+          nbExpirees={nbExpirees}
           nbResultats={filtrees.length}
           nbTotal={bassin.length}
         />

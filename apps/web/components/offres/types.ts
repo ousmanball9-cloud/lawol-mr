@@ -18,6 +18,15 @@ export type Offre = {
 /** Clé du type mis en vedette (« Bourse » en tête des filtres et sélections). */
 export const TYPE_EN_TETE = "bourse";
 
+/**
+ * Ordre d'affichage du catalogue /offres :
+ *  · « urgent »   (défaut) → échéance la plus proche d'abord (bourses sans date
+ *    exploitable en dernier ; expirées rejetées en fin de liste).
+ *  · « recentes » → ordre naturel de l'API, qui renvoie déjà `date_scrape DESC`
+ *    (offres les plus fraîches en tête) : aucun réordonnancement.
+ */
+export type TriOffres = "urgent" | "recentes";
+
 /** Enum Filiere de l'apps/api (ordre d'affichage du filtre). */
 export const FILIERES: { valeur: string; label: string }[] = [
   { valeur: "informatique", label: "Informatique" },

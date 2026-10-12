@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { MobileMenu } from "@/components/chrome/mobile-menu";
 
 const NAV = [
   { href: "/offres", label: "Bourses & offres" },
@@ -50,6 +51,8 @@ export function Header() {
               S&apos;inscrire
             </Button>
           </Link>
+          {/* Burger : uniquement < md (la nav desktop reste telle quelle) */}
+          <MobileMenu />
         </div>
       </div>
     </header>

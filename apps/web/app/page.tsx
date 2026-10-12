@@ -384,8 +384,8 @@ export default function HomePage() {
               Prêt à ne plus rater aucune bourse ni offre ?
             </h2>
             <p className="mx-auto mb-8 max-w-xl text-lg text-white/70">
-              Rejoins des centaines d&apos;étudiants mauritaniens qui reçoivent déjà leurs bourses
-              et offres matchées, chaque jour.
+              Rejoins la plateforme pensée pour les étudiants mauritaniens et reçois tes bourses
+              et offres matchées avec ton profil.
             </p>
             <Link href="/inscription" className="inline-block w-full sm:w-auto">
               <Button

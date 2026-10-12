@@ -1,6 +1,6 @@
 import { Search } from "lucide-react";
 import { TYPES_OFFRES } from "@/components/offre-detail-modal";
-import { FILIERES, VILLES, TYPE_EN_TETE } from "./types";
+import { FILIERES, VILLES, TYPE_EN_TETE, type TriOffres } from "./types";
 
 type Props = {
   motsCles: string;
@@ -11,12 +11,31 @@ type Props = {
   setVilleFiltre: (valeur: string) => void;
   filiereFiltre: string;
   setFiliereFiltre: (valeur: string) => void;
+  /** Tri catalogue : « urgent » (défaut) ou « recentes ». */
+  tri: TriOffres;
+  setTri: (valeur: TriOffres) => void;
+  /** Filtre « Clôture dans moins de 30 jours ». */
+  cloture30: boolean;
+  setCloture30: (valeur: boolean) => void;
+  /** État explicite des offres expirées (masquées par défaut, jamais perdues). */
+  expireesVisibles: boolean;
+  setExpireesVisibles: (valeur: boolean) => void;
+  /** Nombre d'offres expirées correspondant aux autres critères. */
+  nbExpirees: number;
   nbResultats: number;
   nbTotal: number;
 };
 
 const SELECT =
   "rounded-lg border border-input bg-white px-3 py-2 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30";
+
+/** Basculante (filtre/état) : repos bordure fine, active en signature. */
+const bascule = (actif: boolean) =>
+  `rounded-lg border px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature/60 ${
+    actif
+      ? "border-signature bg-signature text-white"
+      : "border-input bg-white text-foreground hover:border-signature hover:text-signature"
+  }`;
 
 /** Types classés : la « Bourse » en vedette en tête, le reste dans l'ordre du dict. */
 const TYPES_TRIES = Object.entries(TYPES_OFFRES).sort(([a], [b]) => {
@@ -25,7 +44,7 @@ const TYPES_TRIES = Object.entries(TYPES_OFFRES).sort(([a], [b]) => {
   return 0;
 });
 
-/** Barre de recherche (mots-clés) + 3 selects (type, ville, filière) + compteur. */
+/** Barre de recherche (mots-clés) + 3 selects (type, ville, filière) + tri & échéance. */
 export function BarreFiltres({
   motsCles,
   setMotsCles,
@@ -35,6 +54,13 @@ export function BarreFiltres({
   setVilleFiltre,
   filiereFiltre,
   setFiliereFiltre,
+  tri,
+  setTri,
+  cloture30,
+  setCloture30,
+  expireesVisibles,
+  setExpireesVisibles,
+  nbExpirees,
   nbResultats,
   nbTotal,
 }: Props) {
@@ -94,10 +120,52 @@ export function BarreFiltres({
           </select>
         </div>
       </div>
+
+      {/* Deadline au centre : tri par urgence + fenêtre 30 j + état des expirées */}
+      <div
+        data-probe="offres-echeance"
+        className="mt-3 flex flex-wrap items-center gap-3 border-t border-border pt-3"
+      >
+        <select
+          value={tri}
+          onChange={(e) => setTri(e.target.value as TriOffres)}
+          aria-label="Trier les offres"
+          data-probe="offres-tri"
+          className={SELECT}
+        >
+          <option value="urgent">Plus urgentes</option>
+          <option value="recentes">Plus récentes</option>
+        </select>
+        <button
+          type="button"
+          aria-pressed={cloture30}
+          onClick={() => setCloture30(!cloture30)}
+          className={bascule(cloture30)}
+          data-probe="offres-cloture30"
+        >
+          Clôture dans moins de 30 jours
+        </button>
+        <button
+          type="button"
+          aria-pressed={expireesVisibles}
+          onClick={() => setExpireesVisibles(!expireesVisibles)}
+          className={bascule(expireesVisibles)}
+          data-probe="offres-expirees"
+        >
+          {expireesVisibles ? "Masquer" : "Afficher"} les expirées ({nbExpirees})
+        </button>
+      </div>
+
       <p role="status" className="mt-3 text-sm text-muted-foreground">
         <span data-probe="offres-compteur">{nbResultats}</span> offre{nbResultats > 1 ? "s" : ""}{" "}
         affichée{nbResultats > 1 ? "s" : ""}
         {nbResultats !== nbTotal ? ` sur ${nbTotal}` : ""}
+        {!expireesVisibles && nbExpirees > 0 && !cloture30
+          ? ` · ${nbExpirees} expirée${nbExpirees > 1 ? "s" : ""} masquée${nbExpirees > 1 ? "s" : ""} (affichables ci-dessus)`
+          : ""}
+        {cloture30 && nbExpirees > 0
+          ? " · fenêtre 30 j : offres closes exclues (désactive le filtre pour les afficher)"
+          : ""}
       </p>
     </div>
   );

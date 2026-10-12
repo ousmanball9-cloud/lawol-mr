@@ -173,14 +173,24 @@ export default function OffreDetailPage() {
                 <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
                   Clôturée
                 </span>
-              ) : jours === 0 ? (
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900">
-                  Dernier jour
-                </span>
               ) : (
-                <span className="inline-flex items-center gap-1 rounded-full bg-nuit px-2.5 py-1 text-xs font-semibold text-white">
-                  <Clock className="h-3 w-3" />
-                  J-{jours}
+                // Même échelle que la carte du catalogue : ≤ 7 j = urgent (ambre),
+                // J-0 = « Dernier jour », au-delà = pastille indigo.
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                    jours <= 7
+                      ? "border border-amber-200 bg-amber-50 text-amber-900"
+                      : "bg-nuit text-white"
+                  }`}
+                >
+                  {jours === 0 ? (
+                    "Dernier jour"
+                  ) : (
+                    <>
+                      <Clock className="h-3 w-3" />
+                      J-{jours}
+                    </>
+                  )}
                 </span>
               ))}
           </div>
