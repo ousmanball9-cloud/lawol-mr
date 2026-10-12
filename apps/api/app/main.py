@@ -1,23 +1,10 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 import sys
+from contextlib import asynccontextmanager
+from datetime import date
+from uuid import UUID
 
 from apps.api.app.core.config import settings
 from apps.api.app.core.database import supabase
-from apps.api.app.modules.shared.models import (
-    OffreStageCreate,
-    OffreStagePublic,
-    StatsResponse,
-    Filiere,
-    Ville,
-    TypeOffre,
-    DashboardProfil,
-    DashboardResponse,
-    FavoriUpdate,
-    ResumeHebdo,
-    StatutUpdate,
-)
 from apps.api.app.modules.dashboard.summary import (
     calculer_resume,
     calculer_score_profil,
@@ -27,10 +14,25 @@ from apps.api.app.modules.documents.routes import router as documents_router
 from apps.api.app.modules.entreprises.routes import router as entreprises_router
 from apps.api.app.modules.matching.engine import run_matching_job
 from apps.api.app.modules.notifications.routes import router as notifications_router
-from apps.api.app.modules.profils.routes import lire_matches_profil, router as profils_router
+from apps.api.app.modules.profils.routes import lire_matches_profil
+from apps.api.app.modules.profils.routes import router as profils_router
 from apps.api.app.modules.scraper.sources.catalogue import get_scrapers
-from datetime import date
-from uuid import UUID
+from apps.api.app.modules.shared.models import (
+    DashboardProfil,
+    DashboardResponse,
+    FavoriUpdate,
+    Filiere,
+    OffreStageCreate,
+    OffreStagePublic,
+    ResumeHebdo,
+    StatsResponse,
+    StatutUpdate,
+    TypeOffre,
+    Ville,
+)
+from apps.api.app.modules.whatsapp.webhook import router as whatsapp_router
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 
 @asynccontextmanager
@@ -62,7 +64,6 @@ app.add_middleware(
 )
 
 # ---------- WhatsApp ----------
-from apps.api.app.modules.whatsapp.webhook import router as whatsapp_router
 app.include_router(whatsapp_router)
 
 # ---------- P6-A : entreprises (comptes, offres, candidatures, admin) ----------
@@ -161,7 +162,6 @@ async def trigger_scraper(source: str | None = None, run_matching: bool = False)
     Si run_matching=True, le matching est recalculé juste après le scraping
     et ses stats sont ajoutées à la réponse.
     """
-    from apps.api.app.modules.scraper.sources.catalogue import get_scrapers
 
     scrapers = get_scrapers()
     if source:

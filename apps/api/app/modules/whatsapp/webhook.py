@@ -3,10 +3,10 @@
 Meta envoie un POST à chaque message reçu par le numéro WhatsApp Business.
 """
 import logging
-from fastapi import APIRouter, Request, HTTPException, Query
 
 from apps.api.app.core.config import settings
 from apps.api.app.modules.whatsapp.security import verifier_signature
+from fastapi import APIRouter, HTTPException, Query, Request
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

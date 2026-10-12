@@ -10,20 +10,17 @@ from typing import Iterable
 
 import certifi
 import httpx
-from bs4 import BeautifulSoup
-
-from apps.api.app.modules.shared.models import (
-    Filiere,
-    OffreStageCreate,
-    SourceType,
-    TypeOffre,
-    Ville,
-)
 from apps.api.app.modules.scraper.sources.base import BaseScraper
 from apps.api.app.modules.scraper.sources.entreprises import (
     _detect_filieres,
     _detect_ville,
 )
+from apps.api.app.modules.shared.models import (
+    OffreStageCreate,
+    SourceType,
+    TypeOffre,
+)
+from bs4 import BeautifulSoup
 
 MOIS_FR = {
     'janvier': 1, 'février': 2, 'mars': 3, 'avril': 4, 'mai': 5, 'juin': 6,

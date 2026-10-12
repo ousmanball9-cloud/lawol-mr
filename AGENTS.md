@@ -32,3 +32,10 @@ Charte : « Nuit d'Indigo » (voir skill `design-system`) — zéro noir, tokens
   `null` sans session (cookie `lawol_token`, helper `lib/session.ts`).
 - Prod : Vercel (front) + Railway (API) — vars `SESSION_SECRET`, `SMTP_*`,
   `APP_ENV` à définir dans les dashboards (jamais committées).
+
+## Identité (immuable — ne jamais inventer d'URL)
+
+- Site public : `https://lawol-mr.vercel.app` (projet Vercel `lawol-mr`).
+- **PAS de nom de domaine actif** : ne JAMAIS présenter `lawol.mr` comme URL
+  fonctionnelle (DNS public = NXDOMAIN ; ne résout qu'en IP privée locale).
+- API : `https://lawol-mr-production.up.railway.app`.

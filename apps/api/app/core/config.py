@@ -1,7 +1,8 @@
-from pydantic_settings import BaseSettings
 from functools import lru_cache
 from pathlib import Path
+
 from dotenv import load_dotenv
+from pydantic_settings import BaseSettings
 
 # Charge le .env à la racine du projet (lawol-mr/.env)
 # config.py est dans apps/api/app/core/ → 4 niveaux au-dessus = racine

@@ -1,5 +1,5 @@
-from supabase import create_client, Client
 from apps.api.app.core.config import settings
+from supabase import Client, create_client
 
 # Client service_role (backend) — contourne les policies RLS
 supabase: Client = create_client(

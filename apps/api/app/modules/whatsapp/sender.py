@@ -3,8 +3,8 @@
 Docs : https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages
 """
 import httpx
-
 from apps.api.app.core.config import settings
+from apps.api.app.modules.whatsapp.textes import construire_texte_notification
 
 GRAPH_URL = "https://graph.facebook.com/v21.0"
 

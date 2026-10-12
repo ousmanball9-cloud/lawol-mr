@@ -12,8 +12,7 @@ from urllib.parse import urljoin
 
 import certifi
 import httpx
-from bs4 import BeautifulSoup
-
+from apps.api.app.modules.scraper.sources.base import BaseScraper
 from apps.api.app.modules.shared.models import (
     Filiere,
     OffreStageCreate,
@@ -21,7 +20,7 @@ from apps.api.app.modules.shared.models import (
     TypeOffre,
     Ville,
 )
-from apps.api.app.modules.scraper.sources.base import BaseScraper
+from bs4 import BeautifulSoup
 
 # Mots-clés → critère de pertinence d'un lien
 LIEN_MOTS_CLES = (

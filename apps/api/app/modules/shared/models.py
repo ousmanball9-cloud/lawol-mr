@@ -1,9 +1,10 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import date, datetime
 from enum import Enum
 from typing import Literal, Optional
-from uuid import UUID, uuid4
+from uuid import UUID
+
 import bleach
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 # ---------- Enums (mêmes valeurs que le schéma SQL) ----------

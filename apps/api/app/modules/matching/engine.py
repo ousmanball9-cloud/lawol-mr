@@ -100,7 +100,11 @@ def match_regles(
         return False, "filiere_non_matchee"
 
     # Ville
-    if ville_profil != ville_offre and ville_profil != Ville.AUTRE.value and ville_offre != Ville.AUTRE.value:
+    if (
+        ville_profil != ville_offre
+        and ville_profil != Ville.AUTRE.value
+        and ville_offre != Ville.AUTRE.value
+    ):
         return False, "ville_non_matchee"
 
     return True, "match"
