@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { HeroSearch } from "@/components/landing/hero-search"
+import { Compteurs, Organisations } from "@/components/landing/compteurs"
 import { Header } from "@/components/chrome/header"
 import { Footer } from "@/components/chrome/footer"
 import {
@@ -14,19 +15,19 @@ const STEPS = [
     num: "01",
     icon: GraduationCap,
     title: "Crée ton profil",
-    desc: "Remplis un court formulaire : filière, niveau, ville, type d'opportunité recherché. 2 minutes chrono.",
+    desc: "Remplis un court formulaire : filière, niveau, ville, type d'opportunité recherché.",
   },
   {
     num: "02",
     icon: Zap,
     title: "On trouve pour toi",
-    desc: "Nos robots scannent les portails de bourses, LinkedIn, sites entreprises, ANPE et universités. Le matching est automatique et instantané.",
+    desc: "On suit les portails de bourses, les sites d'annonces et les publications d'entreprises. Le matching avec ton profil est automatique.",
   },
   {
     num: "03",
     icon: Bell,
-    title: "Postule en un clic",
-    desc: "Une alerte arrive dès qu'une bourse ou une offre matche ton profil, puis tu postules directement depuis la plateforme.",
+    title: "Postule depuis l'alerte",
+    desc: "Une alerte arrive quand une bourse ou une offre correspond à ton profil, et tu postules depuis la plateforme.",
   },
 ]
 
@@ -34,22 +35,22 @@ const AVANTAGES = [
   {
     icon: Target,
     title: "Uniquement le pertinent",
-    desc: "Chaque bourse et chaque offre est filtrée selon ta filière, ton niveau et ta ville. Aucun bruit, aucune perte de temps.",
+    desc: "Chaque bourse et chaque offre est rapprochée de ta filière, de ta ville et de tes centres d'intérêt. Aucun bruit, aucune perte de temps.",
   },
   {
     icon: Bell,
-    title: "Alerte immédiate",
-    desc: "Les bourses et offres fraîches arrivent en quelques minutes, avant même que les sites ne soient saturés.",
+    title: "Alerte quand ça correspond",
+    desc: "Une alerte part dès qu'une nouvelle bourse ou offre correspond à ton profil — pas de veille à faire à la main.",
   },
   {
     icon: Shield,
     title: "Données protégées",
-    desc: "Ton profil reste privé, opt-in clair et désinscription en un clic. Respectueux du RGPD.",
+    desc: "Ton profil reste privé, opt-in clair et désinscription en un clic depuis tes paramètres.",
   },
   {
     icon: Clock,
-    title: "30 secondes d'inscription",
-    desc: "Pas d'application à installer, pas de mot de passe. Un formulaire court et c'est parti.",
+    title: "Inscription sans friction",
+    desc: "Pas d'application à installer, pas de parcours à rallonge : un formulaire court et c'est parti.",
   },
   {
     icon: Users,
@@ -58,8 +59,8 @@ const AVANTAGES = [
   },
   {
     icon: Sparkles,
-    title: "Sources fiables",
-    desc: "Portails de bourses officiels, sites des entreprises et portails d'emploi : uniquement des sources vérifiées.",
+    title: "Sources affichées",
+    desc: "Chaque offre indique d'où elle provient et renvoie vers la page d'origine : tu peux vérifier avant de postuler.",
   },
 ]
 
@@ -73,17 +74,11 @@ const TYPES_OFFRES = [
   { icon: Clock, label: "Stage Été", desc: "2-3 mois pendant les vacances" },
 ]
 
+// Sources d'offres réellement observées dans GET /api/v1/offres (source_name) :
+// liste tenue à jour à la main, aucune prétention de « partenariat ».
 const SOURCES = [
-  "Mauritel", "SNIM", "BNM", "TotalEnergies",
-  "Beta.mr", "Scholar Africa", "Opportunity for Africa",
-  "et de nouvelles sources chaque mois",
-]
-
-// Entreprises mauritaniennes — grille « Ils recrutent » (pattern Jobteaser).
-const ENTREPRISES_LOGOS = [
-  "Mauritel", "SNIM", "BNM", "Ooredoo",
-  "ANPE", "CNASS", "Air Mauritanie", "Port Autonome",
-  "Total Mauritania", "BOM", "Groupe Nouakchott", "SOMELEC",
+  "Beta.mr", "Scholar Africa", "AfterSchool Africa", "Opportunities for Youth",
+  "Opportunity Desk", "LinkedIn", "Mauritel", "SNIM",
 ]
 
 export default function HomePage() {
@@ -106,7 +101,7 @@ export default function HomePage() {
           <div data-probe="hero-conteneur" className="mx-auto max-w-3xl text-center lg:max-w-6xl">
             <div className="entree-douce mb-8 inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
               <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-surlignage" />
-              <span>Nouveau : bourses d&apos;études mises à jour chaque semaine</span>
+              <span>Bourses, stages, emplois juniors et alternance au même endroit</span>
             </div>
 
             <h1 className="entree-douce mb-6 font-display text-[clamp(2.5rem,6vw,4rem)] font-bold leading-[1.06] tracking-[-0.03em] lg:text-[clamp(4rem,6vw,5.5rem)]">
@@ -162,17 +157,19 @@ export default function HomePage() {
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-white/70">
+              {/* Chiffres réels (relevés à la volée) — rendus null si le relevé échoue */}
+              <Compteurs />
               <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2">
                 <CheckCircle className="h-4 w-4 text-white/60" />
                 <span>100% gratuit pour les étudiants</span>
               </div>
               <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2">
                 <Shield className="h-4 w-4 text-white/60" />
-                <span>Données protégées (RGPD)</span>
+                <span>Profil privé, désinscription en un clic</span>
               </div>
               <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2">
                 <Clock className="h-4 w-4 text-white/60" />
-                <span>Inscription en 30 secondes</span>
+                <span>Inscription simple, sans application</span>
               </div>
             </div>
           </div>
@@ -225,7 +222,7 @@ export default function HomePage() {
               Pourquoi <span className="text-signature">LAWOL.mr</span> ?
             </h2>
             <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-              Une veille de bourses et d&apos;offres qui travaille à ta place, chaque jour.
+              Une veille de bourses et d&apos;offres qui travaille à ta place.
             </p>
           </div>
 
@@ -280,13 +277,14 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="mb-12 text-center">
             <p className="eyebrow mb-4 text-signature">
-              Partenaires &amp; sources officielles
+              D&apos;où viennent les offres
             </p>
             <h2 className="mb-4 font-display text-3xl font-bold tracking-[-0.02em] text-ink lg:text-4xl">
-              Nos sources <span className="text-signature">fiables &amp; officielles</span>
+              Des canaux <span className="text-signature">identifiés, pas déclarés</span>
             </h2>
             <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-              Des canaux vérifiés, mis à jour automatiquement.
+              Les sources observées sur les offres publiées — chacune reste affichée sur
+              la fiche, avec lien vers la page d&apos;origine.
             </p>
           </div>
 
@@ -303,37 +301,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Ils recrutent en Mauritanie — grille logos (pattern Jobteaser) */}
-      <section className="bg-background py-24 lg:py-32">
-        <div className="container mx-auto px-4">
-          <div className="mb-12 text-center">
-            <p className="eyebrow mb-4 text-signature">
-              Ils recrutent en Mauritanie
-            </p>
-            <h2 className="mb-4 font-display text-3xl font-bold tracking-[-0.02em] text-ink lg:text-4xl">
-              Les entreprises qui <span className="text-signature">recrutent</span> via LAWOL.mr
-            </h2>
-            <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-              Opérateurs télécom, banques, mines, institutions : les plus grandes organisations
-              du pays publient leurs offres ici.
-            </p>
-          </div>
-
-          <div className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2 md:grid-cols-3 lg:max-w-6xl lg:grid-cols-4">
-            {ENTREPRISES_LOGOS.map((ent) => (
-              <div
-                key={ent}
-                data-probe="entreprise-logo"
-                className="flex items-center justify-center rounded-lg border border-border bg-card px-4 py-6 text-center transition-colors duration-200 hover:border-signature"
-              >
-                <span className="text-sm font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                  {ent}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Qui publie les offres — logos codés en dur remplacés par un classement réel
+          (composant client ; section entière rendue null si le relevé échoue) */}
+      <Organisations />
 
       {/* Bannières CTA — recruteurs / universités (pattern Jobteaser) */}
       <section className="border-y border-border bg-card py-16">
@@ -401,7 +371,7 @@ export default function HomePage() {
               </Button>
             </Link>
             <p className="mt-5 text-sm text-white/60">
-              Inscription en 30 secondes — gratuit, sans engagement, désinscription en un clic.
+              Gratuit, sans engagement, désinscription en un clic.
             </p>
           </div>
         </div>

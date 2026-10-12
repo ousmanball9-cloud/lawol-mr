@@ -27,3 +27,18 @@ export function joursRestants(date: Date | null): number | null {
   const jourLimite = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   return Math.round((jourLimite.getTime() - debutAujourdhui.getTime()) / 86_400_000);
 }
+
+/**
+ * Phrase d'échéance pour la fiche détail (bloc ÉCHÉANCE) :
+ * « Il reste X jours pour postuler » · « Dernier jour… » · « Clôturée depuis X jours ».
+ * `null` = date non parsable → on n'affiche rien (la date brute reste visible).
+ */
+export function texteJoursRestants(jours: number | null): string | null {
+  if (jours === null) return null;
+  if (jours < 0) {
+    const n = Math.abs(jours);
+    return `Clôturée depuis ${n} jour${n > 1 ? "s" : ""}`;
+  }
+  if (jours === 0) return "Dernier jour pour postuler";
+  return `Il reste ${jours} jour${jours > 1 ? "s" : ""} pour postuler`;
+}

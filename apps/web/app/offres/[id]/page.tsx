@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   Building2,
   Calendar,
-  Clock,
   MapPin,
   RefreshCw,
   SearchX,
@@ -16,9 +15,15 @@ import {
 import { BADGES_TYPE, TYPES_OFFRES } from "@/components/offre-detail-modal";
 import { Chrome } from "@/components/chrome/chrome";
 import { BlocDescription } from "@/components/offres/bloc-description";
+import { BadgeEcheance } from "@/components/offres/badge-echeance";
 import { CtaCandidater } from "@/components/offres/cta-candidater";
 import { CarteOffre } from "@/components/offres/carte-offre";
-import { joursRestants, labelAvantLe, parserDateLimite } from "@/components/offres/date-limite";
+import {
+  joursRestants,
+  labelAvantLe,
+  parserDateLimite,
+  texteJoursRestants,
+} from "@/components/offres/date-limite";
 import { labelFiliere, type Offre } from "@/components/offres/types";
 
 type Etat = "chargement" | "charge" | "erreur" | "introuvable";
@@ -119,6 +124,10 @@ export default function OffreDetailPage() {
   const date = parserDateLimite(offre.date_limite);
   const jours = joursRestants(date);
   const filieres = offre.filieres_cibles ?? [];
+  const typeLabel = TYPES_OFFRES[offre.type_offre] || offre.type_offre;
+  const typeBadge =
+    BADGES_TYPE[offre.type_offre] ?? "border border-border bg-muted text-muted-foreground";
+  const resumeJours = texteJoursRestants(jours);
 
   return (
     <Chrome>
@@ -133,96 +142,128 @@ export default function OffreDetailPage() {
         </Link>
 
         <article className="rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
-          <span
-            className={`badge-offre inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${
-              BADGES_TYPE[offre.type_offre] ?? "border border-border bg-muted text-muted-foreground"
-            }`}
-          >
-            {TYPES_OFFRES[offre.type_offre] || offre.type_offre}
-          </span>
+          {/* 1 · EN-TÊTE — titre, entreprise, ville, badges type + échéance */}
+          <header data-probe="detail-en-tete">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`badge-offre inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${typeBadge}`}
+              >
+                {typeLabel}
+              </span>
+              <BadgeEcheance jours={jours} />
+            </div>
 
-          <h1
-            data-probe="detail-titre"
-            className="mt-3 font-display text-2xl font-bold leading-snug tracking-[-0.01em] text-foreground"
-          >
-            {offre.titre}
-          </h1>
+            <h1
+              data-probe="detail-titre"
+              className="mt-3 font-display text-2xl font-bold leading-snug tracking-[-0.01em] text-foreground"
+            >
+              {offre.titre}
+            </h1>
 
-          <div
-            data-probe="detail-entreprise"
-            className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground"
-          >
-            <span className="flex items-center gap-1.5">
-              <Building2 className="h-4 w-4" />
-              {offre.entreprise}
-            </span>
-            {offre.source_name && <span>Source : {offre.source_name}</span>}
-          </div>
+            <div
+              data-probe="detail-entreprise"
+              className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground"
+            >
+              <span className="flex items-center gap-1.5">
+                <Building2 className="h-4 w-4" aria-hidden="true" />
+                {offre.entreprise}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <MapPin className="h-4 w-4" aria-hidden="true" />
+                {offre.ville}
+              </span>
+            </div>
+          </header>
 
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-            <span className="flex items-center gap-1.5 text-muted-foreground">
-              <MapPin className="h-4 w-4" />
-              {offre.ville}
-            </span>
-            <span className="flex items-center gap-1.5 text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              {labelAvantLe(date, offre.date_limite)}
-            </span>
-            {jours !== null &&
-              (jours < 0 ? (
-                <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
-                  Clôturée
-                </span>
-              ) : (
-                // Même échelle que la carte du catalogue : ≤ 7 j = urgent (ambre),
-                // J-0 = « Dernier jour », au-delà = pastille indigo.
-                <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                    jours <= 7
-                      ? "border border-amber-200 bg-amber-50 text-amber-900"
-                      : "bg-nuit text-white"
-                  }`}
-                >
-                  {jours === 0 ? (
-                    "Dernier jour"
+          {/* 2 · ÉLIGIBILITÉ — filières cibles + type d'offre */}
+          <section
+            data-probe="detail-eligibilite"
+            className="mt-6 rounded-lg border border-border bg-muted/40 px-4 py-3"
+          >
+            <h2 className="eyebrow mb-3 text-muted-foreground">Éligibilité</h2>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-8">
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                  Filières cibles
+                </p>
+                <div className="mt-1.5 flex flex-wrap gap-2">
+                  {filieres.length > 0 ? (
+                    filieres.map((filiere) => (
+                      <span
+                        key={filiere}
+                        data-probe="detail-filiere"
+                        className="inline-flex items-center rounded-full border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground"
+                      >
+                        {labelFiliere(filiere)}
+                      </span>
+                    ))
                   ) : (
-                    <>
-                      <Clock className="h-3 w-3" />
-                      J-{jours}
-                    </>
+                    <span
+                      data-probe="detail-filiere"
+                      className="inline-flex items-center rounded-full border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground"
+                    >
+                      Toutes filières
+                    </span>
                   )}
-                </span>
-              ))}
-          </div>
-
-          {offre.description && (
-            <div className="mt-5">
-              <h2 className="mb-2 text-sm font-semibold text-foreground">Description</h2>
-              <div data-probe="detail-description">
-                <BlocDescription description={offre.description} />
+                </div>
               </div>
-            </div>
-          )}
-
-          {filieres.length > 0 && (
-            <div className="mt-5">
-              <h2 className="mb-2 text-sm font-semibold text-foreground">Filières cibles</h2>
-              <div className="flex flex-wrap gap-2">
-                {filieres.map((filiere) => (
+              <div className="shrink-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                  Type d&apos;offre
+                </p>
+                <div className="mt-1.5">
                   <span
-                    key={filiere}
-                    className="inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground"
+                    className={`badge-offre inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${typeBadge}`}
                   >
-                    {labelFiliere(filiere)}
+                    {typeLabel}
                   </span>
-                ))}
+                </div>
               </div>
             </div>
-          )}
+          </section>
 
-          <div className="mt-6">
+          {/* 3 · ÉCHÉANCE — date_limite + jours restants, au-dessus de la description */}
+          <section
+            data-probe="detail-echeance"
+            className="mt-4 rounded-lg border border-border bg-muted/40 px-4 py-3"
+          >
+            <h2 className="eyebrow mb-3 text-muted-foreground">Échéance</h2>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                <Calendar className="h-4 w-4 text-signature" aria-hidden="true" />
+                {labelAvantLe(date, offre.date_limite)}
+              </span>
+            </div>
+            {resumeJours && (
+              <p className="mt-2 text-sm text-muted-foreground">{resumeJours}</p>
+            )}
+          </section>
+
+          {/* 4 · DESCRIPTION — texte brut découpé en blocs lisibles */}
+          <section className="mt-6">
+            <h2 className="eyebrow mb-3 text-muted-foreground">Description</h2>
+            <div data-probe="detail-description">
+              {offre.description ? (
+                <BlocDescription description={offre.description} />
+              ) : (
+                <p className="text-sm leading-relaxed text-foreground/80">
+                  Aucune description fournie pour cette offre.
+                </p>
+              )}
+            </div>
+          </section>
+
+          {/* 5 · SOURCE & POSTULER — source_name + CTA « Voir l'offre originale » */}
+          <section data-probe="detail-source" className="mt-6">
+            <h2 className="eyebrow mb-3 text-muted-foreground">Source &amp; postuler</h2>
+            {offre.source_name && (
+              <p className="mb-3 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+                Source :
+                <span className="font-medium text-foreground">{offre.source_name}</span>
+              </p>
+            )}
             <CtaCandidater offre={offre} />
-          </div>
+          </section>
         </article>
 
         {similaires.length > 0 && (
