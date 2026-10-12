@@ -23,6 +23,7 @@ from apps.api.app.modules.dashboard.summary import (
     calculer_score_profil,
     offres_par_poste,
 )
+from apps.api.app.modules.documents.routes import router as documents_router
 from apps.api.app.modules.entreprises.routes import router as entreprises_router
 from apps.api.app.modules.matching.engine import run_matching_job
 from apps.api.app.modules.profils.routes import lire_matches_profil, router as profils_router
@@ -68,6 +69,9 @@ app.include_router(entreprises_router)
 
 # ---------- Profils (création, connexion PIN, consultation, mutations gardées) ----------
 app.include_router(profils_router)
+
+# ---------- Coffre-fort de documents de l'étudiant (CV, relevés, lettres) ----------
+app.include_router(documents_router)
 
 
 # ---------- Health ----------

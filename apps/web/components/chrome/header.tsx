@@ -8,6 +8,7 @@ import { MobileMenu } from "@/components/chrome/mobile-menu";
 const NAV = [
   { href: "/offres", label: "Bourses & offres" },
   { href: "/entreprises", label: "Entreprises" },
+  { href: "/conseils", label: "Conseils" },
 ];
 
 /** Header global — pattern Jobteaser : blanc, logo gauche, nav centre,

@@ -798,6 +798,7 @@ export default function ProfilPage() {
 
           {/* Actions */}
           <div className="mt-6 text-center">
+            <Link href={`/profil/${telephone}/documents`} className="mr-3 inline-flex h-11 items-center rounded-lg border border-border bg-background px-6 text-sm font-medium transition-colors duration-150 hover:border-signature hover:text-signature">Mon coffre-fort</Link>
             <Link href="/">
               <Button variant="outline" className="h-11 rounded-lg border-border px-6 transition-colors duration-150 hover:border-signature hover:text-signature">
                 Retour à l&apos;accueil

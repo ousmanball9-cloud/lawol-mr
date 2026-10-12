@@ -14,6 +14,7 @@ const COLONNES = [
     titre: "Ressources",
     liens: [
       { href: "/contact", label: "Contact" },
+      { href: "/conseils", label: "Conseils bourses" },
       { href: "/mentions", label: "Mentions légales" },
       { href: "/conditions", label: "Conditions" },
       { href: "/confidentialite", label: "Confidentialité" },
