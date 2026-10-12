@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { MobileMenu } from "@/components/chrome/mobile-menu";
+import { NotificationsCloche } from "@/components/chrome/notifications-cloche";
 
 const NAV = [
   { href: "/offres", label: "Bourses & offres" },
@@ -52,6 +53,8 @@ export function Header() {
               S&apos;inscrire
             </Button>
           </Link>
+          {/* Cloche notifications : rend null sans session (cookie absent) */}
+          <NotificationsCloche />
           {/* Burger : uniquement < md (la nav desktop reste telle quelle) */}
           <MobileMenu />
         </div>
