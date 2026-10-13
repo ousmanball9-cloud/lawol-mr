@@ -101,6 +101,7 @@ def envoyer_email_api(destinataire: str, sujet: str, corps: str) -> dict:
     ou erreur réseau/API → retry au run suivant du notifier.
     """
     cible = str(destinataire or "").strip()
+    print(f"🔍 DEBUG email_sender_api: destinataire='{cible}', provider={_provider()}, api_key_len={len(_api_key())}")
     if not valider_email(cible):
         raise ValueError(f"destinataire email invalide : {destinataire!r}")
 
@@ -109,6 +110,7 @@ def envoyer_email_api(destinataire: str, sujet: str, corps: str) -> dict:
 
     expediteur = (os.getenv("EMAIL_FROM") or "").strip()
     nom = (os.getenv("EMAIL_FROM_NAME") or NOM_EXPEDITEUR_DEFAUT).strip()
+    print(f"🔍 DEBUG email_sender_api: expediteur='{expediteur}', nom='{nom}'")
 
     print(f"📧 Envoi email via API ({_provider().upper()}) vers {cible}...")
 

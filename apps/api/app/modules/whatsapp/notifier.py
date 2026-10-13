@@ -153,6 +153,9 @@ def run_notification_job() -> dict:
     )
 
     matches = res.data
+    print(f"🔍 DEBUG notifier: {len(matches)} matches à traiter")
+    for i, m in enumerate(matches):
+        print(f"  Match {i}: id={m['id']}, profil={m.get('profil')}")
     if not matches:
         return {"matches_trouves": 0, "notifies": 0, "erreurs": 0}
 
@@ -163,6 +166,7 @@ def run_notification_job() -> dict:
         try:
             profil = m["profil"]
             offre = m["offre"]
+            print(f"🔍 DEBUG notifier: traitement match {m['id']}, profil telephone={profil.get('telephone')}, email={profil.get('email')}")
             texte = construire_texte_notification(offre)
             resultat = envoyer_notification(profil, texte)
             if not resultat["ok"]:
