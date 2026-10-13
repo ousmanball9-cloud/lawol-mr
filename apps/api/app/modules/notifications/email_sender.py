@@ -116,7 +116,8 @@ def envoyer_email(destinataire: str, sujet: str, corps: str) -> dict:
         return _essayer_smtp(hote, port_config, use_ssl=False, expediteur=expediteur,
                              nom=nom, utilisateur=utilisateur, motdepasse=motdepasse,
                              message=message, timeout=SMTP_TIMEOUT_S)
-    except (OSError, smtplib.SMTPException) as e:
+    except Exception as e:
+        print(f"🔍 DEBUG envoyer_email: exception type={type(e).__name__}, errno={getattr(e, 'errno', None)}, msg={e}")
         # Si erreur réseau (pas auth) → fallback 465 SSL
         if isinstance(e, OSError) and e.errno in (101, 110, 111, 113):  # Network unreachable, timeout, connection refused, no route
             print(f"⚠️ SMTP {port_config} injoignable ({e}) → fallback 465 SSL")
