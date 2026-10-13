@@ -55,22 +55,33 @@ def email_configure() -> bool:
 def _essayer_smtp(hote: str, port: int, use_ssl: bool, expediteur: str, nom: str,
                   utilisateur: str, motdepasse: str, message: EmailMessage,
                   timeout: int) -> dict:
-    """Tente une connexion SMTP (STARTTLS ou SSL implicite)."""
-    if use_ssl:
-        contexte = ssl.create_default_context()
-        with smtplib.SMTP_SSL(hote, port, timeout=timeout, context=contexte) as serveur:
+    """Tente une connexion SMTP (STARTTLS ou SSL implicite).
+    
+    La connexion est créée DANS le try/except pour attraper les erreurs
+    réseau (ex: [Errno 101] Network is unreachable) qui surviennent
+    lors de l'établissement de la connexion TCP.
+    """
+    serveur = None
+    try:
+        if use_ssl:
+            contexte = ssl.create_default_context()
+            serveur = smtplib.SMTP_SSL(hote, port, timeout=timeout, context=contexte)
+        else:
+            serveur = smtplib.SMTP(hote, port, timeout=timeout)
+        
+        with serveur:
+            if not use_ssl:
+                serveur.ehlo()
+                serveur.starttls()
+                serveur.ehlo()
             if utilisateur and motdepasse:
                 serveur.login(utilisateur, motdepasse)
             serveur.send_message(message)
-    else:
-        with smtplib.SMTP(hote, port, timeout=timeout) as serveur:
-            serveur.ehlo()
-            serveur.starttls()
-            serveur.ehlo()
-            if utilisateur and motdepasse:
-                serveur.login(utilisateur, motdepasse)
-            serveur.send_message(message)
-    return {"destinataire": message["To"], "hote": hote, "port": port, "ssl": use_ssl}
+        
+        return {"destinataire": message["To"], "hote": hote, "port": port, "ssl": use_ssl}
+    except Exception as e:
+        print(f"🔍 DEBUG _essayer_smtp: {type(e).__name__}: {e} (port={port}, ssl={use_ssl})")
+        raise
 
 
 def envoyer_email(destinataire: str, sujet: str, corps: str) -> dict:
