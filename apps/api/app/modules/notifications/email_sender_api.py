@@ -17,15 +17,23 @@ Usage : importé par canal.py comme fallback ultime si SMTP échoue.
 import os
 import json
 import urllib.request
+import urllib.error
 from email.utils import formataddr
+import re
 
 # Config
 API_TIMEOUT_S = 10
-PROVIDER = (os.getenv("EMAIL_API_PROVIDER") or "brevo").strip().lower()
-API_KEY = os.getenv("EMAIL_API_KEY") or ""
 NOM_EXPEDITEUR_DEFAUT = "LAWOL.mr"
 
-_REGEX_EMAIL = __import__("re").compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
+_REGEX_EMAIL = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
+
+
+def _provider() -> str:
+    return (os.getenv("EMAIL_API_PROVIDER") or "brevo").strip().lower()
+
+
+def _api_key() -> str:
+    return os.getenv("EMAIL_API_KEY") or ""
 
 
 def valider_email(adresse) -> bool:
@@ -36,7 +44,7 @@ def valider_email(adresse) -> bool:
 
 def email_api_configure() -> bool:
     """API email exploitable ? (clé + expéditeur — sans connexion)."""
-    return bool(API_KEY.strip() and valider_email(os.getenv("EMAIL_FROM")))
+    return bool(_api_key().strip() and valider_email(os.getenv("EMAIL_FROM")))
 
 
 def _envoyer_brevo(destinataire: str, sujet: str, corps: str, expediteur: str, nom: str) -> dict:
@@ -44,7 +52,7 @@ def _envoyer_brevo(destinataire: str, sujet: str, corps: str, expediteur: str, n
     url = "https://api.brevo.com/v3/smtp/email"
     headers = {
         "accept": "application/json",
-        "api-key": API_KEY,
+        "api-key": _api_key(),
         "content-type": "application/json",
     }
     payload = {
@@ -65,7 +73,7 @@ def _envoyer_sendgrid(destinataire: str, sujet: str, corps: str, expediteur: str
     """Envoi via SendGrid API (https://api.sendgrid.com/v3/mail/send)."""
     url = "https://api.sendgrid.com/v3/mail/send"
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "Authorization": f"Bearer {_api_key()}",
         "Content-Type": "application/json",
     }
     payload = {
@@ -98,10 +106,10 @@ def envoyer_email_api(destinataire: str, sujet: str, corps: str) -> dict:
     expediteur = (os.getenv("EMAIL_FROM") or "").strip()
     nom = (os.getenv("EMAIL_FROM_NAME") or NOM_EXPEDITEUR_DEFAUT).strip()
 
-    print(f"📧 Envoi email via API ({PROVIDER.upper()}) vers {cible}...")
+    print(f"📧 Envoi email via API ({_provider().upper()}) vers {cible}...")
 
     try:
-        if PROVIDER == "sendgrid":
+        if _provider() == "sendgrid":
             return _envoyer_sendgrid(cible, sujet, corps, expediteur, nom)
         else:
             return _envoyer_brevo(cible, sujet, corps, expediteur, nom)
@@ -114,5 +122,10 @@ def envoyer_email_api(destinataire: str, sujet: str, corps: str) -> dict:
         raise RuntimeError(f"API email échec: {e}") from e
 
 
-# Import os at module level for email_api_configure
-import os
+def _provider() -> str:
+    return (os.getenv("EMAIL_API_PROVIDER") or "brevo").strip().lower()
+
+
+# Config
+API_TIMEOUT_S = 10
+NOM_EXPEDITEUR_DEFAUT = "LAWOL.mr"
