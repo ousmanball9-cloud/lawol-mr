@@ -5,7 +5,6 @@ const COLONNES = [
     titre: "Étudiants",
     liens: [
       { href: "/offres", label: "Offres" },
-      { href: "/entreprises", label: "Entreprises" },
       { href: "/inscription", label: "S'inscrire" },
       { href: "/connexion", label: "Se connecter" },
     ],
@@ -18,14 +17,6 @@ const COLONNES = [
       { href: "/mentions", label: "Mentions légales" },
       { href: "/conditions", label: "Conditions" },
       { href: "/confidentialite", label: "Confidentialité" },
-    ],
-  },
-  {
-    titre: "Entreprises",
-    liens: [
-      { href: "/entreprise/login", label: "Espace entreprise" },
-      { href: "/entreprise/login", label: "Publier une offre" },
-      { href: "/contact", label: "Partenariat" },
     ],
   },
   {
@@ -43,7 +34,7 @@ export function Footer() {
   return (
     <footer className="border-t border-border fond-nuit text-white">
       <div className="container mx-auto px-4 py-14">
-        <div className="mb-10 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-10 grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
           {COLONNES.map((col) => (
             <div key={col.titre}>
               <h4 className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-white/60">

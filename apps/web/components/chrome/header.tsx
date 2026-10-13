@@ -8,7 +8,6 @@ import { NotificationsCloche } from "@/components/chrome/notifications-cloche";
 
 const NAV = [
   { href: "/offres", label: "Bourses & offres" },
-  { href: "/entreprises", label: "Entreprises" },
   { href: "/conseils", label: "Conseils" },
 ];
 

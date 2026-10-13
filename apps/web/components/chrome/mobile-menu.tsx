@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 /** Liens de navigation — même source que la nav desktop du header. */
 const NAV = [
   { href: "/offres", label: "Bourses & offres" },
-  { href: "/entreprises", label: "Entreprises" },
 ];
 
 const CONNEXION = { href: "/connexion", label: "Connexion" };

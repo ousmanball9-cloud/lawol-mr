@@ -126,6 +126,9 @@ function OffresContenu() {
     const q = motsCles.trim().toLowerCase();
     const correspond = (offre: Offre) => {
       if (typeFiltre !== "tous" && offre.type_offre !== typeFiltre) return false;
+      // Pivot 100 % bourses (13/10, masquage doux) : emploi/alternance gardés
+      // en base mais jamais affichés (réversible : supprimer ces 2 lignes).
+      if (offre.type_offre === "emploi_junior" || offre.type_offre === "alternance") return false;
       if (villeFiltre !== "tous" && offre.ville !== villeFiltre) return false;
       if (filiereFiltre !== "tous" && !(offre.filieres_cibles ?? []).includes(filiereFiltre))
         return false;
@@ -225,12 +228,12 @@ function OffresContenu() {
     <main className="bg-background px-4 py-10">
       <div className="mx-auto max-w-7xl">
         <header className="mb-8">
-          <p className="eyebrow text-signature">Bourses · Stages · Emplois</p>
+          <p className="eyebrow text-signature">Bourses · Stages</p>
           <h1 className="mt-2 font-display text-3xl font-bold tracking-[-0.02em] text-foreground">
-            Bourses et offres pour ton profil
+            Bourses pour ton profil
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Les bourses d&apos;études, stages PFE, emplois juniors et alternances actuellement
+            Les bourses d&apos;études et stages (PFE, été) actuellement
             ouverts aux candidatures.
           </p>
         </header>

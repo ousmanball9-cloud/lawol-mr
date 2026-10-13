@@ -73,7 +73,7 @@ export function BarreFiltres({
             type="search"
             value={motsCles}
             onChange={(e) => setMotsCles(e.target.value)}
-            placeholder="Rechercher une bourse, un titre, une entreprise, un mot-clé…"
+            placeholder="Rechercher une bourse, un titre, une ville, un mot-clé…"
             aria-label="Rechercher dans les offres"
             className="w-full rounded-lg border border-input bg-white py-2 pl-9 pr-3 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30"
           />
@@ -86,7 +86,9 @@ export function BarreFiltres({
             className={SELECT}
           >
             <option value="tous">Tous les types</option>
-            {TYPES_TRIES.map(([valeur, label]) => (
+            {TYPES_TRIES.filter(
+              ([valeur]) => valeur !== "emploi_junior" && valeur !== "alternance",
+            ).map(([valeur, label]) => (
               <option key={valeur} value={valeur}>
                 {label}
               </option>

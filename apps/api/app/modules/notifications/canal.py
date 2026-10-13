@@ -11,6 +11,11 @@ Sécurité (anti relais ouvert) :
       configuré (env SMTP_* — aucun secret en dur) ;
     - aucun réseau si WhatsApp est OK : le repli ne se déclenche qu'en échec.
 
+Stratégie email (ordre de fallback) :
+    1. SMTP (port configuré 587 STARTTLS)
+    2. SMTP fallback (port 465 SSL implicite)
+    3. API HTTP (Brevo/SendGrid via HTTPS 443) — fonctionne sur Railway
+
 Contrat : {"whatsapp": bool, "email": bool, "ok": bool}
     ok=False ⇒ aucun canal n'a passé → le notifier ne persiste pas l'envoi →
     retry au run suivant.
@@ -20,6 +25,10 @@ from apps.api.app.modules.notifications.email_sender import (
     email_configure,
     envoyer_email,
     valider_email,
+)
+from apps.api.app.modules.notifications.email_sender_api import (
+    email_api_configure,
+    envoyer_email_api,
 )
 from apps.api.app.modules.whatsapp.sender import envoyer_message_texte
 
@@ -44,7 +53,10 @@ def envoyer_notification(
       dispo — ou si un envoi factice est injecté (`envoi_whatsapp`, preuve
       hors-ligne : signature (telephone, texte)).
     - Email : repli UNIQUEMENT, si le WhatsApp a échoué/était indisponible et
-      que le profil porte une adresse valide avec un SMTP configuré.
+      que le profil porte une adresse valide.
+      Ordre de fallback email :
+        1. SMTP (port configuré + fallback 465 auto dans email_sender)
+        2. API HTTP (Brevo/SendGrid via HTTPS 443) — Railway-friendly
     """
     profil = profil or {}
     telephone = str(profil.get("telephone") or "").strip()
@@ -63,13 +75,25 @@ def envoyer_notification(
     # 2. Repli — email (jamais si WhatsApp a réussi : zéro doublon)
     email_ok = False
     if not whatsapp_ok and adresse and valider_email(adresse):
+        # 2a. Tentative SMTP (avec fallback 465 interne)
         if email_configure():
             try:
                 envoyer_email(adresse, sujet, texte)
                 email_ok = True
-            except Exception as exc:  # noqa: BLE001 — échec → ok=False → retry
-                print(f"⚠️ email en échec ({adresse}) : {exc}")
+            except Exception as exc:  # noqa: BLE001
+                print(f"⚠️ SMTP email en échec ({adresse}) : {exc}")
         else:
-            print("ℹ️ SMTP non configuré — repli email impossible")
+            print("ℹ️ SMTP non configuré — tentative API email...")
+
+        # 2b. Fallback API HTTP (Brevo/SendGrid) si SMTP a échoué ou non configuré
+        if not email_ok and email_api_configure():
+            try:
+                envoyer_email_api(adresse, sujet, texte)
+                email_ok = True
+                print(f"✅ Email envoyé via API ({adresse})")
+            except Exception as exc:  # noqa: BLE001
+                print(f"⚠️ API email en échec ({adresse}) : {exc}")
+        elif not email_ok:
+            print("ℹ️ Aucun canal email configuré (ni SMTP ni API)")
 
     return {"whatsapp": whatsapp_ok, "email": email_ok, "ok": whatsapp_ok or email_ok}

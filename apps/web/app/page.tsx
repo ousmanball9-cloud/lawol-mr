@@ -6,7 +6,7 @@ import { Header } from "@/components/chrome/header"
 import { Footer } from "@/components/chrome/footer"
 import {
   CheckCircle, Clock, Shield,
-  GraduationCap, Briefcase, Zap, ArrowRight, Award,
+  GraduationCap, Zap, ArrowRight, Award,
   Sparkles, Target, Users, Bell,
 } from "lucide-react"
 
@@ -21,13 +21,13 @@ const STEPS = [
     num: "02",
     icon: Zap,
     title: "On trouve pour toi",
-    desc: "On suit les portails de bourses, les sites d'annonces et les publications d'entreprises. Le matching avec ton profil est automatique.",
+    desc: "On suit les portails de bourses et les sites d'annonces. Le matching avec ton profil est automatique.",
   },
   {
     num: "03",
     icon: Bell,
     title: "Postule depuis l'alerte",
-    desc: "Une alerte arrive quand une bourse ou une offre correspond à ton profil, et tu postules depuis la plateforme.",
+    desc: "Une alerte arrive quand une bourse correspond à ton profil, et tu postules depuis la plateforme.",
   },
 ]
 
@@ -35,12 +35,12 @@ const AVANTAGES = [
   {
     icon: Target,
     title: "Uniquement le pertinent",
-    desc: "Chaque bourse et chaque offre est rapprochée de ta filière, de ta ville et de tes centres d'intérêt. Aucun bruit, aucune perte de temps.",
+    desc: "Chaque bourse est rapprochée de ta filière, de ta ville et de tes centres d'intérêt. Aucun bruit, aucune perte de temps.",
   },
   {
     icon: Bell,
     title: "Alerte quand ça correspond",
-    desc: "Une alerte part dès qu'une nouvelle bourse ou offre correspond à ton profil — pas de veille à faire à la main.",
+    desc: "Une alerte part dès qu'une nouvelle bourse correspond à ton profil — pas de veille à faire à la main.",
   },
   {
     icon: Shield,
@@ -69,8 +69,6 @@ const AVANTAGES = [
 const TYPES_OFFRES = [
   { icon: Award, label: "Bourse d'études", desc: "Masters, PhD et séjours financés" },
   { icon: GraduationCap, label: "Stage PFE", desc: "Fin d'études, 3-6 mois" },
-  { icon: Briefcase, label: "Emploi Junior", desc: "Premier job, 0-2 ans exp." },
-  { icon: Zap, label: "Alternance", desc: "Études + travail en entreprise" },
   { icon: Clock, label: "Stage Été", desc: "2-3 mois pendant les vacances" },
 ]
 
@@ -101,7 +99,7 @@ export default function HomePage() {
           <div data-probe="hero-conteneur" className="mx-auto max-w-3xl text-center lg:max-w-6xl">
             <div className="entree-douce mb-8 inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
               <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-surlignage" />
-              <span>Bourses, stages, emplois juniors et alternance au même endroit</span>
+              <span>Bourses et stages au même endroit</span>
             </div>
 
             <h1 className="entree-douce mb-6 font-display text-[clamp(2.5rem,6vw,4rem)] font-bold leading-[1.06] tracking-[-0.03em] lg:text-[clamp(4rem,6vw,5.5rem)]">
@@ -112,8 +110,8 @@ export default function HomePage() {
             </h1>
 
             <p className="entree-douce mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-white/70 lg:max-w-3xl">
-              LAWOL.mr t&apos;envoie uniquement les bourses d&apos;études, offres de stage, emploi
-              junior et alternance qui correspondent à{" "}
+              LAWOL.mr t&apos;envoie uniquement les bourses d&apos;études et offres de stage
+              qui correspondent à{" "}
               <strong className="font-semibold text-white">ton profil</strong> — sur une seule
               plateforme. Fini la veille quotidienne, les sites éparpillés et les opportunités
               ratées.
@@ -248,14 +246,14 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="mb-16 text-center">
             <p className="eyebrow mb-4 text-signature">
-              Bourses en tête, tous les formats
+              Bourses en tête, 100 % bourses
             </p>
             <h2 className="mb-4 font-display text-3xl font-bold tracking-[-0.02em] text-ink lg:text-4xl">
-              Des bourses aux premiers emplois, tout pour <span className="text-signature">ton profil</span>
+              Que des bourses, pour <span className="text-signature">ton profil</span>
             </h2>
           </div>
 
-          <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 md:grid-cols-3 lg:max-w-6xl lg:grid-cols-5">
+          <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 md:grid-cols-3 lg:max-w-6xl lg:grid-cols-3">
             {TYPES_OFFRES.map((item) => (
               <div
                 key={item.label}
@@ -308,22 +306,7 @@ export default function HomePage() {
       {/* Bannières CTA — recruteurs / universités (pattern Jobteaser) */}
       <section className="border-y border-border bg-card py-16">
         <div className="container mx-auto px-4">
-          <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2">
-            <div className="rounded-lg border border-border bg-background p-8 text-center">
-              <h3 className="mb-2 font-display text-2xl font-bold tracking-[-0.02em] text-ink">
-                Vous recrutez ?
-              </h3>
-              <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
-                Publiez vos offres de stage, d&apos;emploi junior ou d&apos;alternance et touchez
-                les étudiants mauritaniens qui matchent avec vos besoins.
-              </p>
-              <Link href="/entreprise/login">
-                <Button className="h-11 rounded-lg bg-signature px-6 text-white hover:bg-signature-deep">
-                  Espace entreprise
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
+          <div className="mx-auto grid max-w-2xl gap-6 md:grid-cols-1">
             <div className="rounded-lg border border-border bg-background p-8 text-center">
               <h3 className="mb-2 font-display text-2xl font-bold tracking-[-0.02em] text-ink">
                 Votre université ?
@@ -351,11 +334,11 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="mx-auto max-w-3xl rounded-lg fond-nuit px-8 py-12 text-center lg:max-w-5xl lg:px-14 lg:py-16">
             <h2 className="mb-4 font-display text-3xl font-bold tracking-[-0.02em] text-white lg:text-4xl">
-              Prêt à ne plus rater aucune bourse ni offre ?
+              Prêt à ne plus rater aucune bourse ?
             </h2>
             <p className="mx-auto mb-8 max-w-xl text-lg text-white/70">
               Rejoins la plateforme pensée pour les étudiants mauritaniens et reçois tes bourses
-              et offres matchées avec ton profil.
+              matchées avec ton profil.
             </p>
             <Link href="/inscription" className="inline-block w-full sm:w-auto">
               <Button
