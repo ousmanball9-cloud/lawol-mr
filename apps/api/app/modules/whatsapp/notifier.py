@@ -137,7 +137,8 @@ def run_notification_job() -> dict:
     Envoi via le dispatch canal-agnostique (Lot E) : WhatsApp d'abord, repli
     email. Un match n'est marqué notifié que si AU MOINS UN canal a réussi.
 
-    Optimisation Railway : lot limité à 10 pour éviter timeout (SMTP lent).
+    Optimisation Railway : lot limité à 20 pour éviter timeout (SMTP lent)
+    et pour inclure plus de profils variés (certains sans email).
     """
     # 1. Matches non notifiés, avec profil + offre — LOT RÉDUIT
     res = (
@@ -148,7 +149,7 @@ def run_notification_job() -> dict:
             "offre:offres(id, titre, entreprise, ville, date_limite, type_offre)"
         )
         .eq("notifie", False)
-        .limit(10)  # Réduit de 50 à 10 pour éviter timeout Railway
+        .limit(20)  # Augmenté de 10 à 20 pour inclure plus de profils variés
         .execute()
     )
 
