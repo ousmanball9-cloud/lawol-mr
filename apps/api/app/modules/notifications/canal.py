@@ -86,14 +86,16 @@ def envoyer_notification(
             print("ℹ️ SMTP non configuré — tentative API email...")
 
         # 2b. Fallback API HTTP (Brevo/SendGrid) si SMTP a échoué ou non configuré
-        if not email_ok and email_api_configure():
-            try:
-                envoyer_email_api(adresse, sujet, texte)
-                email_ok = True
-                print(f"✅ Email envoyé via API ({adresse})")
-            except Exception as exc:  # noqa: BLE001
-                print(f"⚠️ API email en échec ({adresse}) : {exc}")
-        elif not email_ok:
-            print("ℹ️ Aucun canal email configuré (ni SMTP ni API)")
+        if not email_ok:
+            print(f"🔍 DEBUG canal: email_ok={email_ok}, checking email_api_configure()...")
+            if email_api_configure():
+                try:
+                    envoyer_email_api(adresse, sujet, texte)
+                    email_ok = True
+                    print(f"✅ Email envoyé via API ({adresse})")
+                except Exception as exc:  # noqa: BLE001
+                    print(f"⚠️ API email en échec ({adresse}) : {exc}")
+            else:
+                print("ℹ️ Aucun canal email configuré (ni SMTP ni API)")
 
     return {"whatsapp": whatsapp_ok, "email": email_ok, "ok": whatsapp_ok or email_ok}

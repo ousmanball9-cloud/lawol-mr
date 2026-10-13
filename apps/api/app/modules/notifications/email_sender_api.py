@@ -44,7 +44,11 @@ def valider_email(adresse) -> bool:
 
 def email_api_configure() -> bool:
     """API email exploitable ? (clé + expéditeur — sans connexion)."""
-    return bool(_api_key().strip() and valider_email(os.getenv("EMAIL_FROM")))
+    key = _api_key().strip()
+    from_email = valider_email(os.getenv("EMAIL_FROM"))
+    result = bool(key and from_email)
+    print(f"🔍 DEBUG email_api_configure: key_len={len(key)}, from_email={from_email}, result={result}")
+    return result
 
 
 def _envoyer_brevo(destinataire: str, sujet: str, corps: str, expediteur: str, nom: str) -> dict:
