@@ -55,13 +55,7 @@ def email_configure() -> bool:
 def _essayer_smtp(hote: str, port: int, use_ssl: bool, expediteur: str, nom: str,
                   utilisateur: str, motdepasse: str, message: EmailMessage,
                   timeout: int) -> dict:
-    """Tente une connexion SMTP (STARTTLS ou SSL implicite).
-    
-    La connexion est créée DANS le try/except pour attraper les erreurs
-    réseau (ex: [Errno 101] Network is unreachable) qui surviennent
-    lors de l'établissement de la connexion TCP.
-    """
-    serveur = None
+    """Tente une connexion SMTP (STARTTLS ou SSL implicite)."""
     try:
         if use_ssl:
             contexte = ssl.create_default_context()
@@ -80,6 +74,7 @@ def _essayer_smtp(hote: str, port: int, use_ssl: bool, expediteur: str, nom: str
         
         return {"destinataire": message["To"], "hote": hote, "port": port, "ssl": use_ssl}
     except Exception as e:
+        # Log pour debug mais on ne propage pas ici - le caller gère le fallback
         print(f"🔍 DEBUG _essayer_smtp: {type(e).__name__}: {e} (port={port}, ssl={use_ssl})")
         raise
 
@@ -87,11 +82,13 @@ def _essayer_smtp(hote: str, port: int, use_ssl: bool, expediteur: str, nom: str
 def envoyer_email(destinataire: str, sujet: str, corps: str) -> dict:
     """Envoie un email texte en clair au destinataire validé.
 
-    - Essaie d'abord le port configuré (587 STARTTLS par défaut)
-    - Si échec réseau → fallback auto sur 465 (SSL implicite)
-    - Lève ValueError si destinataire invalide (avant toute connexion)
-    - Lève RuntimeError si config manquante, OSError/smtplib sur échec réseau
-      → ces exceptions remontent au dispatch pour déclencher un retry.
+    Stratégie Railway-friendly :
+    1. Essaie port configuré (587 STARTTLS par défaut)
+    2. Si ÉCHEC QUELLE QU'EN SOIT LA RAISON (réseau, timeout, auth, etc.) → fallback 465 SSL
+    3. Si fallback 465 échoue aussi → lève l'erreur pour retry
+    
+    Rationale : sur Railway, le port 587 est souvent bloqué (pas de sortie TCP).
+    Le fallback doit être AGRESSIF - on essaie 465 dès que 587 échoue.
     """
     cible = str(destinataire or "").strip()
     if not valider_email(cible):
@@ -122,21 +119,22 @@ def envoyer_email(destinataire: str, sujet: str, corps: str) -> dict:
     message["Subject"] = sujet or "Notification LAWOL.mr"
     message.set_content(corps)
 
-    # 1. Tentative port configuré (STARTTLS)
+    # Tentative 1 : port configuré (587 STARTTLS)
     try:
         return _essayer_smtp(hote, port_config, use_ssl=False, expediteur=expediteur,
                              nom=nom, utilisateur=utilisateur, motdepasse=motdepasse,
                              message=message, timeout=SMTP_TIMEOUT_S)
-    except Exception as e:
-        print(f"🔍 DEBUG envoyer_email: exception type={type(e).__name__}, errno={getattr(e, 'errno', None)}, msg={e}")
-        # Si erreur réseau (pas auth) → fallback 465 SSL
-        if isinstance(e, OSError) and e.errno in (101, 110, 111, 113):  # Network unreachable, timeout, connection refused, no route
-            print(f"⚠️ SMTP {port_config} injoignable ({e}) → fallback 465 SSL")
-            try:
-                return _essayer_smtp(hote, SMTP_PORT_SSL, use_ssl=True, expediteur=expediteur,
-                                     nom=nom, utilisateur=utilisateur, motdepasse=motdepasse,
-                                     message=message, timeout=SMTP_TIMEOUT_S)
-            except Exception as e2:
-                raise RuntimeError(f"Échec SMTP {port_config} + fallback 465 : {e2}") from e2
-        # Autre erreur (auth, etc.) → on propage
-        raise
+    except Exception as e1:
+        # LOG forcé pour Railway
+        print(f"⚠️ SMTP {port_config} (STARTTLS) ÉCHEC: {type(e1).__name__}: {e1}")
+        print(f"   → Tentative fallback 465 (SSL implicite)...")
+        
+        # Tentative 2 : fallback 465 SSL implicite - TOUJOURS essayé
+        try:
+            return _essayer_smtp(hote, SMTP_PORT_SSL, use_ssl=True, expediteur=expediteur,
+                                 nom=nom, utilisateur=utilisateur, motdepasse=motdepasse,
+                                 message=message, timeout=SMTP_TIMEOUT_S)
+        except Exception as e2:
+            print(f"❌ SMTP 465 (SSL) ÉCHEC aussi: {type(e2).__name__}: {e2}")
+            # On lève la dernière erreur pour retry
+            raise RuntimeError(f"Échec complet email: 587={e1} / 465={e2}") from e2
