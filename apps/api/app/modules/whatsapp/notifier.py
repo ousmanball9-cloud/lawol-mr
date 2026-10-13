@@ -53,6 +53,7 @@ def run_deadline_job(
 
     # 1. Matches avec profil + offre — filtrage des seuils côté client
     #    (zéro dépendance à la syntaxe !inner de PostgREST, façon D8)
+    # LOT RÉDUIT pour éviter timeout Railway
     res = (
         supabase.table("matches")
         .select(
@@ -60,7 +61,7 @@ def run_deadline_job(
             "profil:profils(id, telephone, email, prenom, actif), "
             "offre:offres(id, titre, entreprise, ville, date_limite, type_offre, active)"
         )
-        .limit(1000)
+        .limit(50)  # Réduit de 1000 à 50 pour éviter timeout Railway
         .execute()
     )
 
@@ -135,8 +136,10 @@ def run_notification_job() -> dict:
 
     Envoi via le dispatch canal-agnostique (Lot E) : WhatsApp d'abord, repli
     email. Un match n'est marqué notifié que si AU MOINS UN canal a réussi.
+
+    Optimisation Railway : lot limité à 10 pour éviter timeout (SMTP lent).
     """
-    # 1. Matches non notifiés, avec profil + offre
+    # 1. Matches non notifiés, avec profil + offre — LOT RÉDUIT
     res = (
         supabase.table("matches")
         .select(
@@ -145,7 +148,7 @@ def run_notification_job() -> dict:
             "offre:offres(id, titre, entreprise, ville, date_limite, type_offre)"
         )
         .eq("notifie", False)
-        .limit(50)
+        .limit(10)  # Réduit de 50 à 10 pour éviter timeout Railway
         .execute()
     )
 
