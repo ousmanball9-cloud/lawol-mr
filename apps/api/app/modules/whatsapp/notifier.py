@@ -137,19 +137,21 @@ def run_notification_job() -> dict:
     Envoi via le dispatch canal-agnostique (Lot E) : WhatsApp d'abord, repli
     email. Un match n'est marqué notifié que si AU MOINS UN canal a réussi.
 
-    Optimisation Railway : lot limité à 20 pour éviter timeout (SMTP lent)
-    et pour inclure plus de profils variés (certains sans email).
+    Optimisation Railway : lot limité à 20 pour éviter timeout.
+    Filtre : seulement profils AVEC email (pour que le fallback email fonctionne).
     """
     # 1. Matches non notifiés, avec profil + offre — LOT RÉDUIT
+    # Filtre : profil.email non nul
     res = (
         supabase.table("matches")
         .select(
             "id, score, "
-            "profil:profils(id, prenom, nom, telephone, email, filiere, niveau), "
+            "profil:profils!inner(id, prenom, nom, telephone, email, filiere, niveau), "
             "offre:offres(id, titre, entreprise, ville, date_limite, type_offre)"
         )
         .eq("notifie", False)
-        .limit(20)  # Augmenté de 10 à 20 pour inclure plus de profils variés
+        .not_.is_("profil.email", "null")
+        .limit(20)
         .execute()
     )
 
