@@ -271,20 +271,6 @@ async def marquer_postule(match_id: str):
     return {"id": match_id, "postule": True}
 
 
-# ---------- TEMP: reset notification status for testing ----------
-@app.patch("/api/v1/matches/{match_id}/reset-notification")
-async def reset_match_notification(match_id: str):
-    """Remet notifie=false pour tester le notifier (TEMPORAIRE)."""
-    res = supabase.table("matches").select("id, notifie").eq("id", match_id).execute()
-    if not res.data:
-        raise HTTPException(404, "Match non trouvé")
-    
-    res = supabase.table("matches").update({"notifie": False}).eq("id", match_id).execute()
-    if not res.data:
-        raise HTTPException(500, "Erreur lors de la mise à jour")
-    return {"id": match_id, "notifie": False}
-
-
 # ---------- P5 : dashboard client ----------
 @app.get("/api/v1/dashboard/{telephone}", response_model=DashboardResponse)
 async def dashboard_client(telephone: str):

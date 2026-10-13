@@ -9,12 +9,15 @@ from apps.api.app.modules.scraper.sources.base import BaseScraper
 from apps.api.app.modules.scraper.sources.beta_mr import BetaMrScraper
 from apps.api.app.modules.scraper.sources.bourses import (
     AfterSchoolAfricaScraper,
+    DaadScholarshipScraper,
+    FullyFundedScholarshipsScraper,
     OpportunitiesCornersScraper,
     OpportunitiesForAfricansScraper,
     OpportunitiesForYouthScraper,
     OpportunityAfricaScraper,
     OpportunityDeskScraper,
     ScholarAfricaScraper,
+    Scholars4DevScraper,
 )
 from apps.api.app.modules.scraper.sources.entreprises import EntrepriseScraper
 from apps.api.app.modules.shared.models import Ville
@@ -37,6 +40,9 @@ SPECIFIQUES: list[BaseScraper] = [
     OpportunityDeskScraper(),
     OpportunitiesForYouthScraper(),
     AfterSchoolAfricaScraper(),
+    Scholars4DevScraper(),
+    DaadScholarshipScraper(),
+    FullyFundedScholarshipsScraper(),
 ]
 
 

@@ -630,3 +630,80 @@ class AfterSchoolAfricaScraper(WpBourseScraper):
         if self.TITRES_DIGEST.search(titre or ""):
             return True
         return len(re.findall(r"deadlines?\s*:", texte, re.I)) >= 3
+
+
+# ---------- Source 8 : scholars4dev.com (API REST WordPress) ----------
+class Scholars4DevScraper(WpBourseScraper):
+    """« Africans » (46) : fiches bourses individuelles pour étudiants africains,
+    chacune ouvrant par « Deadline: <date> » (vérifié en réel 2026-10-13 : 5/5
+    posts récents avec deadline directe). Les variantes sans jour (« Dec
+    2026/Jan 2027 ») sont écartées par le contrat strict. Listes « Top N »
+    exclues par titre et par comptage (motif OpportunityDesk)."""
+
+    source_name = "scholars4dev"
+    API = "https://www.scholars4dev.com/wp-json/wp/v2/posts"
+    CATEGORIES = "46"  # Africans (vérifiée via /wp/v2/categories)
+    TITRES_DIGEST = re.compile(r"closing|currently open|apply for now|top\s*\d+|list of", re.I)
+
+    def __init__(self, limite: int = 100):
+        self.NB_ARTICLES = limite
+
+    def _exclus(self, titre: str, texte: str) -> bool:
+        if self.TITRES_DIGEST.search(titre or ""):
+            return True
+        return len(re.findall(r"deadlines?\s*:", texte, re.I)) >= 3
+
+
+# ---------- Source 9 : daadscholarship.com (API REST WordPress) ----------
+class DaadScholarshipScraper(WpBourseScraper):
+    """« Fully-funded Scholarships » (353) : guides par bourse, intake 2027
+    (vérifié en réel 2026-10-13 : 9/10 posts récents avec deadline directe —
+    « Scholarship deadline: 4 January 2027 », « Deadline: 10 January 2027 »,
+    « deadline of 20 December 2026 »). Variante maison « The last date to
+    apply … is <date> » couverte par `_RE_DL` étendu (ancre « is <date> »,
+    barrière `:.;` anti-faux-positifs : un article sans date « rolling » reste
+    écarté). REMPLACE scholarshipunion.com (403 WAF persistant, 2026-10-13).
+    Garde anti-digest héritée du motif OpportunityDesk."""
+
+    source_name = "daad-scholarship"
+    API = "https://daadscholarship.com/wp-json/wp/v2/posts"
+    CATEGORIES = "353"  # Fully-funded Scholarships (vérifiée via /wp/v2/categories)
+    TITRES_DIGEST = re.compile(r"closing|currently open|apply for now|top\s*\d+|list of", re.I)
+    # Branche « last/closing date … is <date> » (120 car. max, ancre stricte) :
+    # « The last date to apply for … is 31 October 2026 » ✓, mais « There is no
+    # last date … : applications … throughout the year » ✗ (pas de « is <date> »).
+    _RE_DL = (
+        rf"(?:deadlines?\b[^:.;]{{0,40}}:?\s*"
+        rf"|(?:last|closing) dates?\b[^:.;]{{0,160}}?\bis\s*)"
+        rf"(?P<date>{_PERIODE})"
+    )
+
+    def __init__(self, limite: int = 100):
+        self.NB_ARTICLES = limite
+
+    def _exclus(self, titre: str, texte: str) -> bool:
+        if self.TITRES_DIGEST.search(titre or ""):
+            return True
+        return len(re.findall(r"deadlines?\s*:", texte, re.I)) >= 3
+
+
+# ---------- Source 10 : fullyfundedscholarships.org (API REST WordPress) ----------
+class FullyFundedScholarshipsScraper(WpBourseScraper):
+    """« fully funded scholarships » (2) : bourses intégralement financées
+    monde entier (vérifié en réel 2026-10-13 : 5/5 posts récents avec deadline
+    directe — « Deadline: 12 July 2026 », « Deadline is November 1, 2026 »).
+    Les guides multi-deadlines (type fiche Purdue, 8 mentions) sont exclus par
+    comptage (motif OpportunityDesk) : une bourse = une date."""
+
+    source_name = "fully-funded-scholarships"
+    API = "https://fullyfundedscholarships.org/wp-json/wp/v2/posts"
+    CATEGORIES = "2"  # fully funded scholarships (vérifiée via /wp/v2/categories)
+    TITRES_DIGEST = re.compile(r"closing|currently open|apply for now|top\s*\d+|list of", re.I)
+
+    def __init__(self, limite: int = 100):
+        self.NB_ARTICLES = limite
+
+    def _exclus(self, titre: str, texte: str) -> bool:
+        if self.TITRES_DIGEST.search(titre or ""):
+            return True
+        return len(re.findall(r"deadlines?\s*:", texte, re.I)) >= 3
