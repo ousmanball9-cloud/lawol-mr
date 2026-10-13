@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
+    # Email (Lot E — fallback canal-agnostique)
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    EMAIL_FROM: str = ""
+    EMAIL_FROM_NAME: str = "LAWOL.mr"
+
     model_config = {"env_file": str(ENV_PATH), "extra": "ignore"}
 
 
