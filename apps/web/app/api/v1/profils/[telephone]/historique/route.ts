@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://lawol-mr-production.up.railway.app";
 
 // Proxy GET /api/v1/profils/[telephone]/historique → API Railway
+// (GET ouvert : pas de Bearer requis)
 export async function GET(request: Request, { params }: { params: Promise<{ telephone: string }> }) {
   try {
     const { telephone } = await params;

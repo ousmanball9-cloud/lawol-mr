@@ -2,13 +2,16 @@ import { NextResponse } from "next/server";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://lawol-mr-production.up.railway.app";
 
-// Proxy GET /api/v1/offres/{id} → API publique (détail d'une offre)
+// Proxy GET /api/v1/offres/[id] → API publique (détail d'une offre active)
 export const dynamic = "force-dynamic";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const { id } = await params;
-    const res = await fetch(`${API_URL}/api/v1/offres/${encodeURIComponent(id)}`);
+    const res = await fetch(`${API_URL}/api/v1/offres/${id}`);
     const data = await res.text();
     return new NextResponse(data, {
       status: res.status,

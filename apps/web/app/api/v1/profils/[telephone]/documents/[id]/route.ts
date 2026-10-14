@@ -3,8 +3,7 @@ import { NextResponse } from "next/server";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://lawol-mr-production.up.railway.app";
 
 // Proxy DELETE /api/v1/profils/[telephone]/documents/[id] → API Railway
-// (mutant : le Bearer injecté par middleware.ts part vers l'API ; le backend
-//  vérifie que le document appartient bien au téléphone du token.)
+// (endpoint MUTANT : le Bearer injecté par middleware.ts part vers l'API)
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ telephone: string; id: string }> }
@@ -12,7 +11,7 @@ export async function DELETE(
   try {
     const { telephone, id } = await params;
     const authorization = request.headers.get("authorization");
-    const res = await fetch(`${API_URL}/api/v1/profils/${telephone}/documents/${id}`, {
+    const res = await fetch(`${API_URL}/api/v1/profils/${telephone}/documents/${encodeURIComponent(id)}`, {
       method: "DELETE",
       headers: authorization ? { Authorization: authorization } : {},
     });

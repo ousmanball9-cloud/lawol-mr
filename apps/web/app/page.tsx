@@ -2,6 +2,9 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { HeroSearch } from "@/components/landing/hero-search"
 import { Compteurs, Organisations } from "@/components/landing/compteurs"
+import PartnerLogos from "@/components/landing/partner-logos"
+import TestimonialCarousel from "@/components/landing/testimonial-carousel"
+import TrustBadges from "@/components/landing/trust-badges"
 import { Header } from "@/components/chrome/header"
 import { Footer } from "@/components/chrome/footer"
 import {
@@ -174,6 +177,13 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Partenaires & sources — logos identifiés (probe: partenaires-logos) */}
+      <section className="border-y border-border bg-background py-16">
+        <div className="container mx-auto px-4">
+          <PartnerLogos />
+        </div>
+      </section>
+
       {/* Comment ça marche */}
       <section id="comment-ca-marche" className="bg-background py-24 lg:py-32">
         <div className="container mx-auto px-4">
@@ -296,6 +306,20 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Témoignages d'étudiants (probe: temoignages) */}
+      <section className="bg-background py-24 lg:py-32">
+        <div className="container mx-auto px-4">
+          <TestimonialCarousel />
+        </div>
+      </section>
+
+      {/* Badges de confiance (probe: trust-badges) */}
+      <section className="border-y border-border bg-card py-16">
+        <div className="container mx-auto px-4">
+          <TrustBadges />
         </div>
       </section>
 

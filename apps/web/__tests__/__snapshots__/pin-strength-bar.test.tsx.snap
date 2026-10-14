@@ -1,0 +1,75 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`PinStrengthBar > matches snapshot for strong pin 1`] = `
+<div>
+  <div
+    class="space-y-1.5"
+    data-probe="pin-strength"
+  >
+    <div
+      class="flex items-center justify-between"
+    >
+      <div
+        class="flex items-center gap-1.5 h-2"
+      >
+        <div
+          class="flex-1 h-full rounded transition-colors duration-300 bg-emerald-500"
+        />
+        <div
+          class="flex-1 h-full rounded transition-colors duration-300 bg-emerald-500"
+        />
+        <div
+          class="flex-1 h-full rounded transition-colors duration-300 bg-emerald-500"
+        />
+      </div>
+      <span
+        class="text-xs font-medium transition-colors duration-300 text-emerald-600"
+      >
+        Fort
+      </span>
+    </div>
+    <p
+      class="text-xs transition-colors duration-300 text-muted-foreground"
+    >
+      PIN fort ✓
+    </p>
+  </div>
+</div>
+`;
+
+exports[`PinStrengthBar > matches snapshot for weak pin 1`] = `
+<div>
+  <div
+    class="space-y-1.5"
+    data-probe="pin-strength"
+  >
+    <div
+      class="flex items-center justify-between"
+    >
+      <div
+        class="flex items-center gap-1.5 h-2"
+      >
+        <div
+          class="flex-1 h-full rounded transition-colors duration-300 bg-destructive"
+        />
+        <div
+          class="flex-1 h-full rounded transition-colors duration-300 bg-muted"
+        />
+        <div
+          class="flex-1 h-full rounded transition-colors duration-300 bg-muted"
+        />
+      </div>
+      <span
+        class="text-xs font-medium transition-colors duration-300 text-destructive"
+      >
+        Faible
+      </span>
+    </div>
+    <p
+      class="text-xs transition-colors duration-300 text-destructive"
+    >
+      Évite les répétitions (ex: 1111, 0000)
+    </p>
+  </div>
+</div>
+`;

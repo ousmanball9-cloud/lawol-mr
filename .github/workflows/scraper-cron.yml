@@ -1,0 +1,23 @@
+name: Scraper Quotidien Bourses
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # 6h UTC = 6h Mauritanie (UTC+0)
+  workflow_dispatch:  # bouton "Run workflow" dans l'onglet Actions
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Déclencher scraper + matching
+        run: |
+          curl -X POST "https://lawol-mr-production.up.railway.app/api/v1/scraper/run" \
+            -H "Content-Type: application/json" \
+            -d '{"run_matching": true}' \
+            --max-time 600 \
+            --fail \
+            --silent --show-error
+        env:
+          # Optionnel : si tu veux protéger l'endpoint plus tard
+          # SCRAPER_TOKEN: ${{ secrets.SCRAPER_TOKEN }}

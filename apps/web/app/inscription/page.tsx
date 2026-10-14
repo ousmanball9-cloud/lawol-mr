@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { GraduationCap, MessageSquare, CheckCircle } from "lucide-react";
 import { Chrome } from "@/components/chrome/chrome";
 import { ecrireSession } from "@/lib/session";
+import { Skeleton, SkeletonText } from "@/components/ui/skeleton";
+import { PinStrengthBar } from "@/components/ui/pin-strength-bar";
+import { validatePin } from "@/hooks/use-pin-validation";
 
 const FILIERES = [
   { value: "informatique", label: "Informatique" },
@@ -42,15 +45,21 @@ const TYPES_OFFRES = [
 
 const OPTIN_TEXTE = "J'accepte de recevoir les offres correspondant à mon profil sur WhatsApp";
 
+const focusVisibleRing = "focus-visible:border-signature focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature/60";
+
 const inputClass =
-  "w-full rounded-lg border border-input bg-white px-4 py-2.5 text-sm text-foreground transition-colors duration-150 placeholder:text-muted-foreground focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30";
+  `w-full rounded-lg border border-input bg-white px-4 py-2.5 text-sm text-foreground transition-colors duration-150 placeholder:text-muted-foreground ${focusVisibleRing}`;
 
 const selectClass = `${inputClass} bg-background`;
 
+const checkboxClass = `rounded border-gray-300 text-signature ${focusVisibleRing}`;
+
 export default function InscriptionPage() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [pinError, setPinError] = useState("");
   const [form, setForm] = useState({
     telephone: "",
     code_pin: "",
@@ -72,6 +81,10 @@ export default function InscriptionPage() {
   useEffect(() => {
     const tel = new URLSearchParams(window.location.search).get("tel");
     if (tel) setForm((f) => (f.telephone ? f : { ...f, telephone: tel }));
+  }, []);
+
+  useEffect(() => {
+    setMounted(true);
   }, []);
 
   function toggleTypeOffre(value: string) {
@@ -104,8 +117,10 @@ export default function InscriptionPage() {
 
     // Validation code PIN (4-6 chiffres — il protègera le profil à la connexion)
     const codePin = form.code_pin.replace(/\D/g, "");
-    if (!/^\d{4,6}$/.test(codePin)) {
-      setError("Code PIN invalide : choisis 4 à 6 chiffres");
+    const pinValidation = validatePin(codePin);
+    if (!pinValidation.isValid) {
+      setError(`Code PIN invalide : ${pinValidation.message}`);
+      setPinError(pinValidation.message);
       return;
     }
 
@@ -202,7 +217,59 @@ export default function InscriptionPage() {
               ))}
             </ul>
           </aside>
-          <div className="min-w-0 flex-1 p-8 sm:p-10">
+          {!mounted ? (
+            <div className="min-w-0 flex-1 p-8 sm:p-10">
+              <div className="mb-8 text-center">
+                <Skeleton variant="circular" className="mb-4 mx-auto" />
+                <Skeleton variant="text" width="60%" className="mx-auto mb-2" />
+                <Skeleton variant="text" width="40%" className="mx-auto" />
+              </div>
+              <form className="space-y-5">
+                <div>
+                  <Skeleton variant="text" width="30%" className="mb-1.5" />
+                  <Skeleton variant="rectangular" />
+                </div>
+                <div>
+                  <Skeleton variant="text" width="30%" className="mb-1.5" />
+                  <Skeleton variant="rectangular" />
+                  <Skeleton variant="text" width="100%" />
+                </div>
+                <div>
+                  <Skeleton variant="text" width="30%" className="mb-1.5" />
+                  <Skeleton variant="rectangular" />
+                </div>
+                <div>
+                  <Skeleton variant="text" width="30%" className="mb-1.5" />
+                  <Skeleton variant="rectangular" />
+                </div>
+                <div>
+                  <Skeleton variant="text" width="30%" className="mb-1.5" />
+                  <Skeleton variant="rectangular" />
+                </div>
+                <div>
+                  <Skeleton variant="text" width="30%" className="mb-1.5" />
+                  <Skeleton variant="rectangular" />
+                </div>
+                <div>
+                  <Skeleton variant="text" width="30%" className="mb-1.5" />
+                  <Skeleton variant="rectangular" />
+                </div>
+                <div>
+                  <Skeleton variant="text" width="40%" className="mb-2" />
+                  <div className="grid grid-cols-2 gap-2">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <Skeleton key={i} variant="rectangular" height={50} />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Skeleton variant="rectangular" height={100} />
+                </div>
+                <Skeleton variant="rectangular" height={52} className="w-full" />
+              </form>
+            </div>
+          ) : (
+            <div className="min-w-0 flex-1 p-8 sm:p-10">
           <div className="mb-8 text-center">
             <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-lg bg-nuit text-white">
               <GraduationCap className="h-7 w-7" />
@@ -242,15 +309,26 @@ export default function InscriptionPage() {
                 inputMode="numeric"
                 autoComplete="new-password"
                 value={form.code_pin}
-                onChange={(e) => update("code_pin", e.target.value.replace(/\D/g, "").slice(0, 6))}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, "").slice(0, 6);
+                  update("code_pin", value);
+                  // Validation temps réel
+                  const { isValid, message } = validatePin(value);
+                  setPinError(isValid ? "" : message);
+                }}
                 placeholder="4 à 6 chiffres"
                 maxLength={6}
                 className={inputClass}
                 required
+                aria-describedby="pin-strength-help"
               />
-              <p className="text-xs text-muted-foreground mt-1">
+              <PinStrengthBar pin={form.code_pin} />
+              <p id="pin-strength-help" className="text-xs text-muted-foreground mt-1">
                 Il protège ton profil : garde-le précieusement, aucun SMS ne te le rappellera.
               </p>
+              {pinError && (
+                <p className="text-xs text-destructive mt-1" role="alert">{pinError}</p>
+              )}
             </div>
 
             {/* Nom */}
@@ -374,7 +452,7 @@ export default function InscriptionPage() {
                       type="checkbox"
                       checked={form.types_recherches.includes(t.value)}
                       onChange={() => toggleTypeOffre(t.value)}
-                      className="rounded border-gray-300 text-signature focus:ring-signature"
+                      className={checkboxClass}
                     />
                     <span className="text-sm">{t.label}</span>
                   </label>
@@ -389,7 +467,7 @@ export default function InscriptionPage() {
                   type="checkbox"
                   checked={form.optin}
                   onChange={(e) => update("optin", e.target.checked)}
-                  className="mt-1 rounded border-gray-300 text-signature focus:ring-signature"
+                  className={checkboxClass}
                   required
                 />
                 <span className="text-sm text-foreground">
@@ -410,13 +488,14 @@ export default function InscriptionPage() {
             <Button
               type="submit"
               disabled={loading}
-              className="h-12 w-full rounded-lg bg-signature text-base text-white hover:bg-signature-deep"
+              className="h-12 w-full rounded-lg bg-signature text-base text-white hover:bg-signature-deep focus-visible:ring-signature/60"
               size="lg"
             >
               {loading ? "Inscription en cours..." : "S'inscrire"}
             </Button>
           </form>
-          </div>
+            </div>
+          )}
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-4">
