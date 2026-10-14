@@ -18,6 +18,3 @@ jobs:
             --max-time 600 \
             --fail \
             --silent --show-error
-        env:
-          # Optionnel : si tu veux protéger l'endpoint plus tard
-          # SCRAPER_TOKEN: ${{ secrets.SCRAPER_TOKEN }}
