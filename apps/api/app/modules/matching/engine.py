@@ -1,13 +1,13 @@
 """Moteur de matching — règle PURE, sans I/O, testable unitairement.
 
-Règle (v1) :
+Règle (v1) — Bourses 100% :
   un match existe si :
     1. profil.actif ET offre.active
     2. offre non expirée (date_limite >= aujourd'hui)
-    3. offre.type_offre ∈ profil.types_recherches
+    3. offre.type_offre = BOURSE (unique)
     4. filière : profil.filiere ∈ offre.filieres_cibles
        OU profil.filieres_interet ∩ offre.filieres_cibles ≠ ∅
-    5. ville : même ville OU profil.ville = AUTRE OU offre.ville = AUTRE
+    5. pays : pays_etudes_offre ∈ profil.pays_favoris (si défini, sauf AUTRE)
 
 Améliorations P3 :
   - Score de pertinence (0-100) au lieu de 100 hardcodé
@@ -15,11 +15,11 @@ Améliorations P3 :
   - Déduplication par content_hash (titre + entreprise + date_limite)
   - Tri par score décroissant, ignores si score < 30
 
-Préférences avancées P5 (profils.metadata['prefs_avancees']) :
-  - villes_exclues    : aucune offre de ces villes n'est matchée
-  - types_masques     : ces types d'offre sont sautés
+Préférences avancées P7 (profils.metadata['prefs_avancees']) :
+  - pays_favoris      : aucune offre hors de ces pays n'est matchée (sauf AUTRE)
+  - financement_min   : financement offre doit être >= minimum
   - seuil_pertinence  : score minimal personnel (>= SCORE_MIN_PERTINENCE)
-  Prefs absentes = comportement v1 inchangé.
+  Prefs absentes = comportement inchangé.
 
 Lot D (bourses 100 %) : les scrapers de bourses remplissent toutes les
 filières par défaut → « bourses génériques » qui matchent tout le monde et
@@ -27,8 +27,7 @@ saturent l'étudiant. Le moteur les traite à part :
   - bonus filière réduit (BONUS_FILIERE_GENERIQUE au lieu de 50/30) →
     elles rankent APRÈS les bourses réellement ciblées ;
   - quota par profil (MAX_BOURSES_GENERIQUES_PAR_PROFIL, cumulé sur les
-    matches déjà en base) → jamais plus de N bourses toutes-filières ;
-  - stages/emplois inchangés (est_bourse_generique = False pour eux).
+    matches déjà en base) → jamais plus de N bourses toutes-filières.
 """
 import hashlib
 import logging
@@ -36,7 +35,7 @@ from collections import Counter
 from datetime import date, timedelta
 
 from apps.api.app.core.database import supabase
-from apps.api.app.modules.shared.models import Filiere, TypeOffre, Ville, PaysEtudes, TypeFinancement
+from apps.api.app.modules.shared.models import Filiere, TypeOffre, PaysEtudes, TypeFinancement
 
 logger = logging.getLogger(__name__)
 

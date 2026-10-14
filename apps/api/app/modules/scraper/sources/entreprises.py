@@ -55,10 +55,10 @@ VILLE_MOTS_CLES: dict[Ville, tuple[str, ...]] = {
 }
 
 TYPE_MOTS_CLES: dict[TypeOffre, tuple[str, ...]] = {
-    TypeOffre.STAGE_PFE: ("pfe", "fin d'etudes", "fin d'études", "stage de fin", "memoire", "mémoire"),
-    TypeOffre.STAGE_ETE: ("stage d'ete", "stage d'été", "stage ete", "vacances"),
-    TypeOffre.ALTERNANCE: ("alternance", "apprentissage", "contrat de professionnalisation"),
-    TypeOffre.EMPLOI_JUNIOR: ("jeune diplome", "jeune diplômé", "junior", "premier emploi", "0-2 ans", "debutant", "débutant"),
+    TypeOffre.BOURSE: ("pfe", "fin d'etudes", "fin d'études", "stage de fin", "memoire", "mémoire",
+                       "stage d'ete", "stage d'été", "stage ete", "vacances",
+                       "alternance", "apprentissage", "contrat de professionnalisation",
+                       "jeune diplome", "jeune diplômé", "junior", "premier emploi", "0-2 ans", "debutant", "débutant"),
 }
 
 
@@ -81,7 +81,7 @@ def _detect_type(texte: str) -> TypeOffre:
     for typ, mots in TYPE_MOTS_CLES.items():
         if any(m in t for m in mots):
             return typ
-    return TypeOffre.STAGE_PFE  # défaut cible du produit
+    return TypeOffre.BOURSE  # défaut cible du produit
 
 
 class EntrepriseScraper(BaseScraper):
@@ -158,7 +158,7 @@ class EntrepriseScraper(BaseScraper):
                     contexte += " " + parent.get_text(" ", strip=True).lower()[:400]
 
                 # Type de contrat
-                type_offre = TypeOffre.STAGE_PFE
+                type_offre = TypeOffre.BOURSE
                 for typ, mots in TYPE_MOTS_CLES.items():
                     if any(m in contexte for m in mots):
                         type_offre = typ

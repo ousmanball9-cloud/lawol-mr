@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Calendar, Clock, MapPin } from "lucide-react";
 import { BADGES_TYPE, TYPES_OFFRES } from "@/components/offre-detail-modal";
+import { labelPays } from "./types";
 import { joursRestants, parserDateLimite } from "./date-limite";
 import type { Offre } from "./types";
 
@@ -38,7 +39,7 @@ export function CarteOffre({ offre }: { offre: Offre }) {
       <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <MapPin className="h-4 w-4" />
-          {offre.ville}
+          {offre.pays_etudes ? labelPays(offre.pays_etudes) : "Non précisé"}
         </span>
         <span aria-hidden="true">·</span>
         <span className="flex items-center gap-1.5">

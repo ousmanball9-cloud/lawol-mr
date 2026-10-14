@@ -9,10 +9,6 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 # ---------- Enums (mêmes valeurs que le schéma SQL) ----------
 class TypeOffre(str, Enum):
-    STAGE_PFE = "stage_pfe"
-    STAGE_ETE = "stage_ete"
-    EMPLOI_JUNIOR = "emploi_junior"
-    ALTERNANCE = "alternance"
     BOURSE = "bourse"
 
 
@@ -110,6 +106,14 @@ class SourceType(str, Enum):
     AUTRE = "autre"
 
 
+class StatutPublication(str, Enum):
+    """Statut de publication d'une offre entreprise (migration 003_p6.sql)."""
+
+    ACTIVE = "active"
+    PENDING_REVIEW = "pending_review"
+    REJETEE = "rejetee"
+
+
 # ---------- Sanitisation (anti-XSS) ----------
 def _sanitize(v: str) -> str:
     if isinstance(v, str):
@@ -127,7 +131,7 @@ class OffreStageBase(BaseModel):
     ville: Ville = Ville.NOUAKCHOTT
     pays_etudes: Optional[PaysEtudes] = None
     filieres_cibles: list[Filiere] = Field(default_factory=list)
-    type_offre: TypeOffre = TypeOffre.STAGE_PFE
+    type_offre: TypeOffre = TypeOffre.BOURSE
     type_financement: TypeFinancement = TypeFinancement.INCONNU
     description: str = ""
     date_limite: date
@@ -148,7 +152,6 @@ class OffreStagePublic(BaseModel):
     id: UUID
     titre: str
     entreprise: str
-    ville: Ville
     pays_etudes: Optional[PaysEtudes] = None
     filieres_cibles: list[Filiere]
     type_offre: TypeOffre
@@ -159,8 +162,6 @@ class OffreStagePublic(BaseModel):
     contact_whatsapp: Optional[str] = None
     source_name: Optional[str] = None
     source_url: Optional[str] = None
-    # Arbitrage 2026-10-10 : la colonne « Active » de l'admin lit offre.active —
-    # l'exposer ici (additif, select * le ramène) au lieu de la retirer.
     active: bool = True
 
     model_config = {"from_attributes": True}
@@ -175,8 +176,8 @@ class ProfilEtudiantBase(BaseModel):
     universite: str = Field(min_length=2, max_length=200)
     filiere: Filiere
     niveau: str = Field(min_length=1, max_length=50)
-    ville: Ville = Ville.NOUAKCHOTT
-    types_recherches: list[TypeOffre] = Field(default_factory=lambda: [TypeOffre.STAGE_PFE])
+    pays_etudes: Optional[PaysEtudes] = None
+    types_recherches: list[TypeOffre] = Field(default_factory=lambda: [TypeOffre.BOURSE])
     filieres_interet: list[Filiere] = Field(default_factory=list)
     optin_at: Optional[datetime] = None
     optin_texte: Optional[str] = None
@@ -221,8 +222,7 @@ class ProfilEtudiantUpdate(BaseModel):
     universite: Optional[str] = Field(default=None, min_length=2, max_length=200)
     filiere: Optional[Filiere] = None
     niveau: Optional[str] = Field(default=None, min_length=1, max_length=50)
-    ville: Optional[Ville] = None
-    types_recherches: Optional[list[TypeOffre]] = None
+    pays_etudes: Optional[PaysEtudes] = None
     filieres_interet: Optional[list[Filiere]] = None
 
     @field_validator("nom", "prenom", "universite", mode="before")
@@ -284,11 +284,18 @@ class StatutUpdate(BaseModel):
     statut: Optional[StatutCandidature] = None
 
 
+class PosteAnnee(BaseModel):
+    """Poste et nombre d'offres pour l'année en cours (dashboard)."""
+    poste: str
+    count: int
+
+
+class PublicationUpdate(BaseModel):
+    statut: Literal["active", "rejetee"]
+
+
 class PreferencesAvancees(BaseModel):
     """Préférences avancées stockées dans profils.metadata['prefs_avancees']."""
-
-    villes_exclues: list[Ville] = Field(default_factory=list)
-    types_masques: list[TypeOffre] = Field(default_factory=list)
     seuil_pertinence: Optional[int] = Field(default=None, ge=0, le=100)
     pays_favoris: list[PaysEtudes] = Field(default_factory=list)  # pays d'études préférés
     financement_min: Optional[TypeFinancement] = None  # niveau minimal de financement
@@ -297,11 +304,19 @@ class PreferencesAvancees(BaseModel):
 class PreferencesAvanceesUpdate(BaseModel):
     """PATCH /profils/{tel}/preferences — corps partiel (seuls champs fournis)."""
 
-    villes_exclues: Optional[list[Ville]] = None
-    types_masques: Optional[list[TypeOffre]] = None
     seuil_pertinence: Optional[int] = Field(default=None, ge=0, le=100)
     pays_favoris: Optional[list[PaysEtudes]] = None
     financement_min: Optional[TypeFinancement] = None
+
+
+class StatsResponse(BaseModel):
+    offres_actives: int
+    etudiants_actifs: int
+    matches_total: int
+    matches_notifies: int
+    matches_postules: int = 0
+    taux_notification: float
+    offres_en_attente: int = 0
 
 
 class DashboardProfil(BaseModel):
@@ -318,167 +333,11 @@ class ResumeHebdo(BaseModel):
     en_cours: int = 0
 
 
-class PosteAnnee(BaseModel):
-    poste: str
-    count: int
-
-
 class DashboardResponse(BaseModel):
     profil: DashboardProfil
     resume: ResumeHebdo
-    postes_annee: list[PosteAnnee]
+    postes_annee: list['PosteAnnee']
 
 
-# ---------- Stats (dashboard admin) ----------
-class StatsResponse(BaseModel):
-    offres_actives: int
-    etudiants_actifs: int
-    matches_total: int
-    matches_notifies: int
-    matches_postules: int = 0
-    taux_notification: float
-    # File de validation P6-A (0 tant que la migration 003_p6.sql n'est pas appliquée)
-    offres_en_attente: int = 0
-
-
-# ---------- P6-A : entreprises & pipeline offres ----------
-class StatutPublication(str, Enum):
-    """Statut de publication d'une offre (colonne offres.statut_publication)."""
-
-    ACTIVE = "active"
-    PENDING_REVIEW = "pending_review"
-    REJETEE = "rejetee"
-
-
-class EntrepriseInscription(BaseModel):
-    """POST /api/v1/entreprises/inscription — fiche + compte entreprise."""
-
-    nom: str = Field(min_length=2, max_length=200)
-    secteur: Optional[str] = Field(default=None, max_length=120)
-    ville: Ville = Ville.NOUAKCHOTT
-    email: EmailStr
-    password: str = Field(min_length=8, max_length=128)  # v1 : min 8 caractères
-    description: Optional[str] = Field(default=None, max_length=2000)
-    site_url: Optional[str] = Field(default=None, max_length=300)
-    telephone: Optional[str] = Field(default=None, max_length=30)
-
-    @field_validator("nom", "secteur", "description", mode="before")
-    @classmethod
-    def sanitize_fields(cls, v):
-        return _sanitize(v)
-
-
-class EntrepriseLogin(BaseModel):
-    """POST /api/v1/entreprises/login."""
-
-    email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
-
-
-class TokenEntreprise(BaseModel):
-    """POST /logout + envoi du token dans le corps (dépôt d'offre).
-
-    Token absent → 401 côté handler ; token court → 422 (validation)."""
-
-    token: Optional[str] = Field(default=None, min_length=8, max_length=64)
-
-
-class EntrepriseInscriptionReponse(BaseModel):
-    entreprise_id: UUID
-    message: str = "Compte créé"
-
-
-class EntrepriseLoginReponse(BaseModel):
-    token: str
-    entreprise_id: UUID
-    expires_in_jours: int = 7
-
-
-class OffreEntrepriseCreate(OffreStageCreate):
-    """Offre déposée par une entreprise : le corps reprend OffreStageCreate
-    auquel s'ajoute le token d'authentification. source/source_name/
-    source_url/entreprise sont calculés côté serveur (règles métier P6-A)."""
-
-    token: Optional[str] = Field(default=None, min_length=8, max_length=64)
-    source: Optional[SourceType] = None
-    source_name: Optional[str] = None
-    source_url: Optional[str] = None
-    entreprise: Optional[str] = None
-
-
-class OffreEntrepriseResume(BaseModel):
-    id: UUID
-    titre: str
-    ville: Ville
-    type_offre: TypeOffre
-    date_limite: date
-    statut_publication: StatutPublication = StatutPublication.ACTIVE
-    active: bool = True
-    url_publique: Optional[str] = None
-    nb_matches: int = 0
-    nb_postules: int = 0
-
-
-class OffreEntrepriseReponse(BaseModel):
-    id: UUID
-    statut_publication: StatutPublication
-    message: str = "Offre soumise à validation"
-
-
-class ProfilCandidature(BaseModel):
-    id: UUID
-    nom: str
-    prenom: str
-    telephone: str
-    universite: str
-    filiere: str
-    niveau: str
-    ville: str
-
-
-class OffreCandidature(BaseModel):
-    id: UUID
-    titre: str
-    entreprise: str
-    ville: str
-    type_offre: str
-    date_limite: date
-
-
-class CandidatureEntreprise(BaseModel):
-    """Une ligne du suivi employeur : le match + l'étudiant + l'offre."""
-
-    match_id: UUID
-    date_match: date
-    score: int = 100
-    notifie: bool = False
-    postule: bool = False
-    favori: bool = False
-    statut_candidature: Optional[str] = None
-    profil: ProfilCandidature
-    offre: OffreCandidature
-
-
-class EntreprisePublique(BaseModel):
-    id: UUID
-    nom: str
-    ville: Ville = Ville.NOUAKCHOTT
-    secteur: Optional[str] = None
-    nb_offres_actives: int = 0
-
-
-class EntrepriseFiche(EntreprisePublique):
-    description: Optional[str] = None
-    site_url: Optional[str] = None
-    telephone: Optional[str] = None
-    email_contact: Optional[str] = None
-    logo_url: Optional[str] = None
-    verifiee: bool = False
-    created_at: Optional[datetime] = None
-    offres: list[OffreEntrepriseResume] = Field(default_factory=list)
-
-
-class PublicationUpdate(BaseModel):
-    """PATCH /api/v1/admin/offres/{id}/publication — file de validation."""
-
-    statut: Literal["active", "rejetee"]
+# Resolve forward references
+DashboardResponse.model_rebuild()

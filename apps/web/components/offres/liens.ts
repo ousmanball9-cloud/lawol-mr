@@ -1,3 +1,4 @@
+import { labelPays } from "./types";
 import type { Offre } from "./types";
 
 /** Nettoie un numéro mauritanien pour wa.me : chiffres seulement, préfixe 222 si besoin. */
@@ -24,7 +25,7 @@ export function lienMailto(offre: Offre, email: string): string {
   const corps = [
     "Bonjour,",
     "",
-    `Je vous adresse ma candidature pour l'offre « ${offre.titre} » chez ${offre.entreprise} (${offre.ville}).`,
+    `Je vous adresse ma candidature pour l'offre « ${offre.titre} » chez ${offre.entreprise} (${offre.pays_etudes ? labelPays(offre.pays_etudes) : "Non précisé"}).`,
     "",
     "Vous trouverez ci-joint mon CV et ma lettre de motivation.",
     "",
@@ -35,5 +36,5 @@ export function lienMailto(offre: Offre, email: string): string {
 
 /** Message WhatsApp pré-rempli (fenêtre wa.me ouverte en onglet, pattern handlePartager). */
 export function texteWhatsApp(offre: Offre): string {
-  return `Bonjour, je suis intéressé(e) par votre offre « ${offre.titre} » — ${offre.entreprise} (${offre.ville}).`;
+  return `Bonjour, je suis intéressé(e) par votre offre « ${offre.titre} » — ${offre.entreprise} (${offre.pays_etudes ? labelPays(offre.pays_etudes) : "Non précisé"}).`;
 }

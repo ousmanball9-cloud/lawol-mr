@@ -3,7 +3,6 @@ export type Offre = {
   id: string;
   titre: string;
   entreprise: string;
-  ville: string;
   pays_etudes: string | null;
   filieres_cibles: string[];
   type_offre: string;
@@ -124,13 +123,3 @@ export function labelPays(valeur: string): string {
 export function labelFinancement(valeur: string): string {
   return LABELS_FINANCEMENT.get(valeur) ?? valeur.replace(/_/g, " ");
 }
-
-/** Enum Ville de l'apps/api. */
-export const VILLES: { valeur: string; label: string }[] = [
-  { valeur: "nouakchott", label: "Nouakchott" },
-  { valeur: "nouadhibou", label: "Nouadhibou" },
-  { valeur: "kaedi", label: "Kaédi" },
-  { valeur: "rosso", label: "Rosso" },
-  { valeur: "aleg", label: "Aleg" },
-  { valeur: "autre", label: "Autre" },
-];

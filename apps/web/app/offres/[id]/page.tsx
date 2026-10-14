@@ -18,6 +18,7 @@ import { BlocDescription } from "@/components/offres/bloc-description";
 import { BadgeEcheance } from "@/components/offres/badge-echeance";
 import { CtaCandidater } from "@/components/offres/cta-candidater";
 import { CarteOffre } from "@/components/offres/carte-offre";
+import { labelPays } from "@/components/offres/types";
 import {
   joursRestants,
   labelAvantLe,
@@ -170,7 +171,7 @@ export default function OffreDetailPage() {
               </span>
               <span className="flex items-center gap-1.5">
                 <MapPin className="h-4 w-4" aria-hidden="true" />
-                {offre.ville}
+                {offre.pays_etudes ? labelPays(offre.pays_etudes) : "Non précisé"}
               </span>
             </div>
           </header>

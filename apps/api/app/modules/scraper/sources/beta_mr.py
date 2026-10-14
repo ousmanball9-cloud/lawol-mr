@@ -241,14 +241,8 @@ class BetaMrScraper(BaseScraper):
         lieu = m_lieu.group(1).strip() if m_lieu else 'Nouakchott'
         ville = _detect_ville(lieu + ' ' + bloc)
 
-        # Type d'offre
-        t = titre.lower()
-        if 'stagiaire' in t or 'stage' in t or 'pfe' in t:
-            type_offre = TypeOffre.STAGE_PFE
-        elif 'alternance' in t:
-            type_offre = TypeOffre.ALTERNANCE
-        else:
-            type_offre = TypeOffre.EMPLOI_JUNIOR
+        # Type d'offre (tout est bourse)
+        type_offre = TypeOffre.BOURSE
 
         # Description = uniquement le bloc de l'offre, nettoyé (pas de menus)
         desc = _nettoyer_texte_desc(bloc_div.get_text('\n', strip=True))

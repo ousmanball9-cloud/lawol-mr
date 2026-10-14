@@ -1,14 +1,9 @@
 import { Search } from "lucide-react";
-import { TYPES_OFFRES } from "@/components/offre-detail-modal";
-import { FILIERES, VILLES, PAYS_ETUDES, TYPES_FINANCEMENT, TYPE_EN_TETE, type TriOffres } from "./types";
+import { FILIERES, PAYS_ETUDES, TYPES_FINANCEMENT, TYPE_EN_TETE, type TriOffres } from "./types";
 
 type Props = {
   motsCles: string;
   setMotsCles: (valeur: string) => void;
-  typeFiltre: string;
-  setTypeFiltre: (valeur: string) => void;
-  villeFiltre: string;
-  setVilleFiltre: (valeur: string) => void;
   filiereFiltre: string;
   setFiliereFiltre: (valeur: string) => void;
   paysFiltre: string;
@@ -41,21 +36,10 @@ const bascule = (actif: boolean) =>
       : "border-input bg-white text-foreground hover:border-signature hover:text-signature"
   }`;
 
-/** Types classés : la « Bourse » en vedette en tête, le reste dans l'ordre du dict. */
-const TYPES_TRIES = Object.entries(TYPES_OFFRES).sort(([a], [b]) => {
-  if (a === TYPE_EN_TETE) return -1;
-  if (b === TYPE_EN_TETE) return 1;
-  return 0;
-});
-
-/** Barre de recherche (mots-clés) + 5 selects (type, ville, filière, pays, financement) + tri & échéance. */
+/** Barre de recherche (mots-clés) + 3 selects (filière, pays, financement) + tri & échéance. */
 export function BarreFiltres({
   motsCles,
   setMotsCles,
-  typeFiltre,
-  setTypeFiltre,
-  villeFiltre,
-  setVilleFiltre,
   filiereFiltre,
   setFiliereFiltre,
   paysFiltre,
@@ -81,40 +65,12 @@ export function BarreFiltres({
             type="search"
             value={motsCles}
             onChange={(e) => setMotsCles(e.target.value)}
-            placeholder="Rechercher une bourse, un titre, une ville, un mot-clé…"
+            placeholder="Rechercher une bourse, un titre, un pays, un mot-clé…"
             aria-label="Rechercher dans les offres"
             className="w-full rounded-lg border border-input bg-white py-2 pl-9 pr-3 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30"
           />
         </div>
         <div data-probe="offres-filtres" className="flex flex-wrap gap-3">
-          <select
-            value={typeFiltre}
-            onChange={(e) => setTypeFiltre(e.target.value)}
-            aria-label="Filtrer par type d'offre"
-            className={SELECT}
-          >
-            <option value="tous">Tous les types</option>
-            {TYPES_TRIES.filter(
-              ([valeur]) => valeur !== "emploi_junior" && valeur !== "alternance",
-            ).map(([valeur, label]) => (
-              <option key={valeur} value={valeur}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={villeFiltre}
-            onChange={(e) => setVilleFiltre(e.target.value)}
-            aria-label="Filtrer par ville"
-            className={SELECT}
-          >
-            <option value="tous">Toutes les villes</option>
-            {VILLES.map((v) => (
-              <option key={v.valeur} value={v.valeur}>
-                {v.label}
-              </option>
-            ))}
-          </select>
           <select
             value={filiereFiltre}
             onChange={(e) => setFiliereFiltre(e.target.value)}

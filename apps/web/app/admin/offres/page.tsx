@@ -7,7 +7,7 @@ type Offre = {
   id: string;
   titre: string;
   entreprise: string;
-  ville: string;
+  pays_etudes: string | null;
   type_offre: string;
   active: boolean;
   date_limite: string;
@@ -18,11 +18,7 @@ const API_URL =
 
 // Badges « type » façon template Flowbite (pastilles de couleur).
 const TYPE_BADGE: Record<string, string> = {
-  stage_pfe: "bg-purple-100 text-purple-800",
-  emploi_junior: "bg-green-100 text-green-800",
   bourse: "bg-yellow-100 text-yellow-800",
-  alternance: "bg-blue-100 text-blue-800",
-  stage_ete: "bg-indigo-100 text-indigo-800",
 };
 
 function typeLabel(type: string) {
@@ -132,7 +128,7 @@ export default function AdminOffresPage() {
                       {offre.titre}
                     </td>
                     <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{offre.entreprise}</td>
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{offre.ville}</td>
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{offre.pays_etudes ?? "—"}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span
                         className={`text-xs font-medium mr-2 px-2.5 py-0.5 rounded ${

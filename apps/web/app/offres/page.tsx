@@ -76,8 +76,6 @@ function OffresContenu() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [motsCles, setMotsCles] = useState(rechercheUrl);
-  const [typeFiltre, setTypeFiltre] = useState("tous");
-  const [villeFiltre, setVilleFiltre] = useState("tous");
   const [filiereFiltre, setFiliereFiltre] = useState("tous");
   const [paysFiltre, setPaysFiltre] = useState("tous");
   const [financementFiltre, setFinancementFiltre] = useState("tous");
@@ -112,7 +110,7 @@ function OffresContenu() {
   // Tout changement de critère (dont tri et échéance) ramène à la première page
   useEffect(() => {
     setPage(1);
-  }, [motsCles, typeFiltre, villeFiltre, filiereFiltre, paysFiltre, financementFiltre, tri, cloture30, expireesVisibles]);
+  }, [motsCles, filiereFiltre, paysFiltre, financementFiltre, tri, cloture30, expireesVisibles]);
 
   /** Échéance recalculée une seule fois par offre (parse + jours restants). */
   const echeances = useMemo<Echeance[]>(
@@ -127,18 +125,13 @@ function OffresContenu() {
   const { liste: filtrees, nbExpirees } = useMemo(() => {
     const q = motsCles.trim().toLowerCase();
     const correspond = (offre: Offre) => {
-      if (typeFiltre !== "tous" && offre.type_offre !== typeFiltre) return false;
-      // Pivot 100 % bourses (13/10, masquage doux) : emploi/alternance gardés
-      // en base mais jamais affichés (réversible : supprimer ces 2 lignes).
-      if (offre.type_offre === "emploi_junior" || offre.type_offre === "alternance") return false;
-      if (villeFiltre !== "tous" && offre.ville !== villeFiltre) return false;
       if (filiereFiltre !== "tous" && !(offre.filieres_cibles ?? []).includes(filiereFiltre))
         return false;
       if (paysFiltre !== "tous" && offre.pays_etudes !== paysFiltre) return false;
       if (financementFiltre !== "tous" && offre.type_financement !== financementFiltre) return false;
       if (
         q &&
-        !`${offre.titre} ${offre.entreprise} ${offre.description} ${offre.ville}`
+        !`${offre.titre} ${offre.entreprise} ${offre.description} ${offre.pays_etudes ?? ""}`
           .toLowerCase()
           .includes(q)
       )
@@ -182,8 +175,6 @@ function OffresContenu() {
   }, [
     echeances,
     motsCles,
-    typeFiltre,
-    villeFiltre,
     filiereFiltre,
     paysFiltre,
     financementFiltre,
@@ -200,8 +191,6 @@ function OffresContenu() {
 
   const reinitialiserFiltres = useCallback(() => {
     setMotsCles("");
-    setTypeFiltre("tous");
-    setVilleFiltre("tous");
     setFiliereFiltre("tous");
     setPaysFiltre("tous");
     setFinancementFiltre("tous");
@@ -236,23 +225,19 @@ function OffresContenu() {
     <main className="bg-background px-4 py-10">
       <div className="mx-auto max-w-7xl">
         <header className="mb-8">
-          <p className="eyebrow text-signature">Bourses · Stages</p>
+          <p className="eyebrow text-signature">Bourses d&apos;études</p>
           <h1 className="mt-2 font-display text-3xl font-bold tracking-[-0.02em] text-foreground">
             Bourses pour ton profil
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Les bourses d&apos;études et stages (PFE, été) actuellement
-            ouverts aux candidatures.
+            Les bourses d&apos;études actuellement
+            ouvertes aux candidatures.
           </p>
         </header>
 
         <BarreFiltres
           motsCles={motsCles}
           setMotsCles={setMotsCles}
-          typeFiltre={typeFiltre}
-          setTypeFiltre={setTypeFiltre}
-          villeFiltre={villeFiltre}
-          setVilleFiltre={setVilleFiltre}
           filiereFiltre={filiereFiltre}
           setFiliereFiltre={setFiliereFiltre}
           paysFiltre={paysFiltre}

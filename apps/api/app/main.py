@@ -11,7 +11,6 @@ from apps.api.app.modules.dashboard.summary import (
     offres_par_poste,
 )
 from apps.api.app.modules.documents.routes import router as documents_router
-from apps.api.app.modules.entreprises.routes import router as entreprises_router
 from apps.api.app.modules.matching.engine import run_matching_job
 from apps.api.app.modules.notifications.routes import router as notifications_router
 from apps.api.app.modules.profils.routes import lire_matches_profil
@@ -24,11 +23,11 @@ from apps.api.app.modules.shared.models import (
     Filiere,
     OffreStageCreate,
     OffreStagePublic,
+    PaysEtudes,
     ResumeHebdo,
     StatsResponse,
     StatutUpdate,
     TypeOffre,
-    Ville,
 )
 from apps.api.app.modules.whatsapp.webhook import router as whatsapp_router
 from fastapi import FastAPI, HTTPException
@@ -66,9 +65,6 @@ app.add_middleware(
 # ---------- WhatsApp ----------
 app.include_router(whatsapp_router)
 
-# ---------- P6-A : entreprises (comptes, offres, candidatures, admin) ----------
-app.include_router(entreprises_router)
-
 # ---------- Profils (création, connexion PIN, consultation, mutations gardées) ----------
 app.include_router(profils_router)
 
@@ -101,7 +97,7 @@ async def health():
 @app.get("/api/v1/offres", response_model=list[OffreStagePublic])
 async def list_offres(
     filiere: Filiere | None = None,
-    ville: Ville | None = None,
+    pays: PaysEtudes | None = None,
     type_offre: TypeOffre | None = None,
     limit: int = 50,
     offset: int = 0,
@@ -114,8 +110,8 @@ async def list_offres(
     )
     if filiere:
         query = query.contains("filieres_cibles", [filiere.value])
-    if ville:
-        query = query.eq("ville", ville.value)
+    if pays:
+        query = query.eq("pays_etudes", pays.value)
     if type_offre:
         query = query.eq("type_offre", type_offre.value)
 
@@ -224,7 +220,7 @@ async def list_matches(profil_id: str | None = None, limit: int = 50):
     """Liste les matches, enrichis avec titre d'offre + prénom de l'étudiant."""
     colonnes = (
         "id, score, notifie, postule, date_match, "
-        "offre:offres(id, titre, entreprise, ville, type_offre, description, date_limite, "
+        "offre:offres(id, titre, entreprise, pays_etudes, ville, type_offre, description, date_limite, "
         "contact_email, contact_whatsapp, source_url, source_name, filieres_cibles), "
         "profil:profils(id, prenom, nom, telephone, filiere, niveau)"
     )
@@ -361,9 +357,19 @@ async def get_stats():
     )
     profils = supabase.table("profils").select("id", count="exact").eq("actif", True).execute()
     matches = supabase.table("matches").select("id", count="exact").execute()
-    notifie_res = supabase.table("matches").select("id", count="exact").eq("notifie", True).execute()
+    notifie_res = (
+        supabase.table("matches")
+        .select("id", count="exact")
+        .eq("notifie", True)
+        .execute()
+    )
     try:
-        postules = supabase.table("matches").select("id", count="exact").eq("postule", True).execute()
+        postules = (
+            supabase.table("matches")
+            .select("id", count="exact")
+            .eq("postule", True)
+            .execute()
+        )
         postules_count = postules.count or 0
     except Exception:
         postules_count = 0  # colonne 'postule' pas encore migrée

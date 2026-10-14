@@ -4,22 +4,16 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { TYPES_OFFRES } from "@/components/offre-detail-modal";
 import { PAYS_ETUDES, TYPES_FINANCEMENT } from "@/components/offres/types";
 import { ArrowRight, Check, Copy, UserMinus, Globe, DollarSign } from "lucide-react";
 
-/** Enum Ville du backend (ordre SQL), même liste que le schéma. */
-const VILLES = ["nouakchott", "nouadhibou", "kaedi", "rosso", "aleg", "autre"];
-
 type Prefs = {
-  villes_exclues: string[];
-  types_masques: string[];
   seuil_pertinence: number;
   pays_favoris: string[];
   financement_min: string | null;
 };
 
-const PREFS_DEFAUT: Prefs = { villes_exclues: [], types_masques: [], seuil_pertinence: 0, pays_favoris: [], financement_min: null };
+const PREFS_DEFAUT: Prefs = { seuil_pertinence: 0, pays_favoris: [], financement_min: null };
 
 type ProfilAvecPrefs = {
   metadata?: { prefs_avancees?: Partial<Prefs> } | null;
@@ -49,8 +43,6 @@ export function FormPrefs({ telephone }: { telephone: string }) {
         const sauvees = p.metadata?.prefs_avancees;
         if (sauvees) {
           setPrefs({
-            villes_exclues: sauvees.villes_exclues ?? PREFS_DEFAUT.villes_exclues,
-            types_masques: sauvees.types_masques ?? PREFS_DEFAUT.types_masques,
             seuil_pertinence: sauvees.seuil_pertinence ?? PREFS_DEFAUT.seuil_pertinence,
             pays_favoris: sauvees.pays_favoris ?? PREFS_DEFAUT.pays_favoris,
             financement_min: sauvees.financement_min ?? PREFS_DEFAUT.financement_min,
@@ -65,16 +57,6 @@ export function FormPrefs({ telephone }: { telephone: string }) {
     };
   }, [telephone]);
 
-  function basculer(cle: "villes_exclues" | "types_masques", valeur: string) {
-    setSauvegarde("repos");
-    setPrefs((prev) => ({
-      ...prev,
-      [cle]: prev[cle].includes(valeur)
-        ? prev[cle].filter((v) => v !== valeur)
-        : [...prev[cle], valeur],
-    }));
-  }
-
   async function handleSauver(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSauvegarde("pending");
@@ -83,8 +65,6 @@ export function FormPrefs({ telephone }: { telephone: string }) {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          villes_exclues: prefs.villes_exclues,
-          types_masques: prefs.types_masques,
           seuil_pertinence: prefs.seuil_pertinence,
           pays_favoris: prefs.pays_favoris,
           financement_min: prefs.financement_min,
@@ -110,7 +90,7 @@ export function FormPrefs({ telephone }: { telephone: string }) {
 
   async function handleDesinscrire() {
     const confirme = window.confirm(
-      "Vraiment te désinscrire ? Tu ne recevras plus aucune alerte d'offre ni de bourse."
+      "Vraiment te désinscrire ? Tu ne recevras plus aucune alerte de bourse."
     );
     if (!confirme) return;
     setDesinscriptionEnCours(true);
@@ -132,56 +112,10 @@ export function FormPrefs({ telephone }: { telephone: string }) {
           Préférences avancées
         </h1>
         <p className="mb-4 text-sm text-muted-foreground">
-          Affine le matching : moins de bruit, que des offres qui te concernent.
+          Affine le matching : moins de bruit, que des bourses qui te concernent.
         </p>
 
         <form onSubmit={handleSauver} data-probe="prefs-form" className="space-y-5">
-          <fieldset>
-            <legend className="mb-2 text-sm font-semibold text-foreground">Villes exclues</legend>
-            <div className="flex flex-wrap gap-2">
-              {VILLES.map((ville) => (
-                <label
-                  key={ville}
-                  className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-colors duration-150 hover:border-signature"
-                >
-                  <input
-                    type="checkbox"
-                    checked={prefs.villes_exclues.includes(ville)}
-                    onChange={() => basculer("villes_exclues", ville)}
-                    data-probe="pref-ville"
-                    data-cle={ville}
-                    className="h-4 w-4 rounded border-input accent-signature focus:ring-signature/30"
-                  />
-                  <span className="capitalize">{ville.replace(/_/g, " ")}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend className="mb-2 text-sm font-semibold text-foreground">
-              Types d&apos;offres à masquer
-            </legend>
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(TYPES_OFFRES).map(([valeur, libelle]) => (
-                <label
-                  key={valeur}
-                  className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-colors duration-150 hover:border-signature"
-                >
-                  <input
-                    type="checkbox"
-                    checked={prefs.types_masques.includes(valeur)}
-                    onChange={() => basculer("types_masques", valeur)}
-                    data-probe="pref-type"
-                    data-cle={valeur}
-                    className="h-4 w-4 rounded border-input accent-signature focus:ring-signature/30"
-                  />
-                  <span>{libelle}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
           <div>
             <div className="mb-2 flex items-center justify-between text-sm">
               <label htmlFor="seuil-pertinence" className="font-semibold text-foreground">
@@ -204,7 +138,7 @@ export function FormPrefs({ telephone }: { telephone: string }) {
               className="h-2 w-full cursor-pointer accent-signature"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              N&apos;enverra que les offres à partir de ce score de matching.
+              N&apos;enverra que les bourses à partir de ce score de matching.
             </p>
           </div>
 
@@ -300,7 +234,7 @@ export function FormPrefs({ telephone }: { telephone: string }) {
           Parrainage
         </h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          Tu connais un camarade qui cherche une bourse, un stage, une alternance ou un emploi ?
+          Tu connais un camarade qui cherche une bourse d&apos;études ?
           Partage-lui ton lien de profil et les opportunités du moment.
         </p>
         <div className="flex flex-wrap gap-2">
@@ -308,7 +242,7 @@ export function FormPrefs({ telephone }: { telephone: string }) {
             href="/offres"
             className="inline-flex h-9 items-center gap-2 rounded-lg bg-signature px-4 text-sm font-medium text-white transition-colors duration-150 hover:bg-signature-deep"
           >
-            Voir les bourses et offres
+            Voir les bourses
             <ArrowRight className="h-4 w-4" />
           </Link>
           <Button
@@ -368,7 +302,7 @@ export function FormPrefs({ telephone }: { telephone: string }) {
           Désinscription
         </h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          Désactive ton profil : tu ne recevras plus aucune alerte d&apos;offre ni de bourse.
+          Désactive ton profil : tu ne recevras plus aucune alerte de bourse.
         </p>
         <Button
           variant="outline"

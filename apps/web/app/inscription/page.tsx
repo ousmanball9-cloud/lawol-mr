@@ -4,69 +4,17 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { GraduationCap, MessageSquare, CheckCircle } from "lucide-react";
+import { GraduationCap, MessageSquare, CheckCircle, Globe } from "lucide-react";
 import { Chrome } from "@/components/chrome/chrome";
 import { ecrireSession } from "@/lib/session";
 import { Skeleton, SkeletonText } from "@/components/ui/skeleton";
 import { PinStrengthBar } from "@/components/ui/pin-strength-bar";
 import { validatePin } from "@/hooks/use-pin-validation";
-
-const FILIERES = [
-  { value: "informatique", label: "Informatique" },
-  { value: "genie_civil", label: "Génie Civil" },
-  { value: "electrique", label: "Électrique" },
-  { value: "mecanique", label: "Mécanique" },
-  { value: "gestion", label: "Gestion" },
-  { value: "finance", label: "Finance" },
-  { value: "droit", label: "Droit" },
-  { value: "medecine", label: "Médecine" },
-  { value: "agronomie", label: "Agronomie" },
-  { value: "genie_procedes", label: "Génie des procédés" },
-  { value: "environnement", label: "Environnement" },
-  { value: "genie_chimique", label: "Génie chimique" },
-  { value: "genie_industriel", label: "Génie industriel" },
-  { value: "telecoms", label: "Télécoms" },
-  { value: "reseaux", label: "Réseaux" },
-  { value: "cybersecurite", label: "Cybersécurité" },
-  { value: "data_science", label: "Data Science" },
-  { value: "intelligence_artificielle", label: "Intelligence artificielle" },
-  { value: "mathematiques", label: "Mathématiques" },
-  { value: "physique", label: "Physique" },
-  { value: "chimie", label: "Chimie" },
-  { value: "biologie", label: "Biologie" },
-  { value: "geologie", label: "Géologie" },
-  { value: "hydraulique", label: "Hydraulique" },
-  { value: "topographie", label: "Topographie" },
-  { value: "architecture", label: "Architecture" },
-  { value: "urbanisme", label: "Urbanisme" },
-  { value: "sciences_politiques", label: "Sciences politiques" },
-  { value: "sociologie", label: "Sociologie" },
-  { value: "psychologie", label: "Psychologie" },
-  { value: "langues", label: "Langues" },
-  { value: "lettres", label: "Lettres" },
-  { value: "histoire", label: "Histoire" },
-  { value: "geographie", label: "Géographie" },
-  { value: "autre", label: "Autre" },
-];
+import { FILIERES, PAYS_ETUDES } from "@/components/offres/types";
 
 const NIVEAUX = ["L1", "L2", "L3", "M1", "M2", "Autre"];
 
-const VILLES = [
-  { value: "nouakchott", label: "Nouakchott" },
-  { value: "nouadhibou", label: "Nouadhibou" },
-  { value: "kaedi", label: "Kaédi" },
-  { value: "rosso", label: "Rosso" },
-  { value: "aleg", label: "Aleg" },
-  { value: "autre", label: "Autre" },
-];
-
-const TYPES_OFFRES = [
-  { value: "stage_pfe", label: "Stage PFE" },
-  { value: "stage_ete", label: "Stage été" },
-  { value: "emploi_junior", label: "Emploi junior" },
-  { value: "alternance", label: "Alternance" },
-  { value: "bourse", label: "Bourse d'études" },
-];
+const PAYS = PAYS_ETUDES;
 
 const OPTIN_TEXTE = "J'accepte de recevoir les offres correspondant à mon profil sur WhatsApp";
 
@@ -93,8 +41,7 @@ export default function InscriptionPage() {
     universite: "",
     filiere: "",
     niveau: "",
-    ville: "nouakchott",
-    types_recherches: TYPES_OFFRES.map((t) => t.value) as string[], // Hick : tout pré-coché, zéro décision au départ
+    pays: "autre",
     optin: false,
   });
 
@@ -111,15 +58,6 @@ export default function InscriptionPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  function toggleTypeOffre(value: string) {
-    setForm((f) => ({
-      ...f,
-      types_recherches: f.types_recherches.includes(value)
-        ? f.types_recherches.filter((t) => t !== value)
-        : [...f.types_recherches, value],
-    }));
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -173,8 +111,7 @@ export default function InscriptionPage() {
           universite: form.universite.trim(),
           filiere: form.filiere,
           niveau: form.niveau,
-          ville: form.ville,
-          types_recherches: form.types_recherches,
+          pays_etudes: form.pays,
           optin_at: new Date().toISOString(),
           optin_texte: OPTIN_TEXTE,
         }),
@@ -231,7 +168,7 @@ export default function InscriptionPage() {
             </p>
             <ul className="space-y-3 text-sm text-white/80">
               {[
-                "Stage PFE, emploi junior, alternance, bourse : tous les formats",
+                "Bourses d'études 100% : masters, doctorats, post-docs",
                 "Alerte WhatsApp en quelques minutes après publication",
                 "100 % gratuit, désinscription en un clic",
               ].map((point) => (
@@ -418,7 +355,7 @@ export default function InscriptionPage() {
               >
                 <option value="">-- Sélectionne ta filière --</option>
                 {FILIERES.map((f) => (
-                  <option key={f.value} value={f.value}>{f.label}</option>
+                  <option key={f.valeur} value={f.valeur}>{f.label}</option>
                 ))}
               </select>
             </div>
@@ -442,47 +379,22 @@ export default function InscriptionPage() {
               </select>
             </div>
 
-            {/* Ville */}
+            {/* Pays d'études visé */}
             <div>
-              <label htmlFor="ville" className="mb-1.5 block text-sm font-medium text-foreground">
-                Ville
+              <label htmlFor="pays" className="mb-1.5 block text-sm font-medium text-foreground flex items-center gap-2">
+                <Globe className="h-4 w-4 text-signature" />
+                Pays d&apos;études visé
               </label>
               <select
-                id="ville"
-                value={form.ville}
-                onChange={(e) => update("ville", e.target.value)}
+                id="pays"
+                value={form.pays}
+                onChange={(e) => update("pays", e.target.value)}
                 className={selectClass}
               >
-                {VILLES.map((v) => (
-                  <option key={v.value} value={v.value}>{v.label}</option>
+                {PAYS.map((p) => (
+                  <option key={p.valeur} value={p.valeur}>{p.label}</option>
                 ))}
               </select>
-            </div>
-
-            {/* Types recherchés */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Types d&apos;offres recherchés
-              </label>
-              <p className="-mt-1 mb-2 text-xs text-muted-foreground">
-                Tout est coché — décoche ce que tu ne cherches pas.
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {TYPES_OFFRES.map((t) => (
-                  <label
-                    key={t.value}
-                    className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-input bg-white px-3 py-2.5 text-sm transition-colors duration-150 hover:border-signature hover:bg-signature/5"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={form.types_recherches.includes(t.value)}
-                      onChange={() => toggleTypeOffre(t.value)}
-                      className={checkboxClass}
-                    />
-                    <span className="text-sm">{t.label}</span>
-                  </label>
-                ))}
-              </div>
             </div>
 
             {/* Opt-in */}

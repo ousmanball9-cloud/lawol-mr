@@ -18,13 +18,7 @@ import {
   Settings,
   LogOut,
 } from "lucide-react";
-import {
-  OffreDetailModal,
-  STATUTS,
-  TYPES_OFFRES,
-  BADGES_TYPE,
-  type OffreDetail,
-} from "@/components/offre-detail-modal";
+import { OffreDetailModal, STATUTS, type OffreDetail } from "@/components/offre-detail-modal";
 import { CarteProfil } from "@/components/espace/carte-profil";
 import { FormPrefs } from "@/components/espace/form-prefs";
 
@@ -39,7 +33,8 @@ type Profil = {
   types_recherches: string[];
 };
 
-type Offre = OffreDetail;
+/** Bourse unique : `pays_etudes` remplace `ville` dans les cartes (mission bourse-only). */
+type Offre = OffreDetail & { pays_etudes?: string | null };
 
 type Match = {
   id: string;
@@ -117,8 +112,7 @@ export default function ProfilPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [typeFiltre, setTypeFiltre] = useState("tous");
-  const [villeFiltre, setVilleFiltre] = useState("tous");
+  const [paysFiltre, setPaysFiltre] = useState("tous");
   const [postulEnCours, setPostulEnCours] = useState<string | null>(null);
   const [actualisation, setActualisation] = useState(false);
   const [desinscriptionEnCours, setDesinscriptionEnCours] = useState(false);
@@ -227,19 +221,20 @@ export default function ProfilPage() {
     }
   }, [telephone, router]);
 
-  const villesDisponibles = useMemo(() => {
-    const villes = new Set(matches.map((m) => m.offre.ville));
-    return Array.from(villes).sort();
+  const paysDisponibles = useMemo(() => {
+    const pays = matches
+      .map((m) => m.offre.pays_etudes)
+      .filter((p): p is string => !!p);
+    return Array.from(new Set(pays)).sort();
   }, [matches]);
 
   const offresFiltrees = useMemo(
     () =>
       matches.filter(
         (m) =>
-          (typeFiltre === "tous" || m.offre.type_offre === typeFiltre) &&
-          (villeFiltre === "tous" || m.offre.ville === villeFiltre)
+          (paysFiltre === "tous" || m.offre.pays_etudes === paysFiltre)
       ),
-    [matches, typeFiltre, villeFiltre]
+    [matches, paysFiltre]
   );
 
   const fermerOffre = useCallback(() => setOffreOuverte(null), []);
@@ -279,7 +274,7 @@ export default function ProfilPage() {
   }
 
   function handlePartager(offre: Offre) {
-    const texte = `Offre repérée sur LAWOL.mr : ${offre.titre} — ${offre.entreprise} (${offre.ville}), candidature avant le ${offre.date_limite}.`;
+    const texte = `Offre repérée sur LAWOL.mr : ${offre.titre} — ${offre.entreprise} (${offre.pays_etudes ? offre.pays_etudes : "Non précisé"}), candidature avant le ${offre.date_limite}.`;
     window.open(`https://wa.me/?text=${encodeURIComponent(texte)}`, "_blank", "noopener,noreferrer");
   }
 
@@ -612,7 +607,7 @@ export default function ProfilPage() {
                             <div className="min-w-0">
                               <p className="truncate font-medium text-foreground">{match.offre.titre}</p>
                               <p className="truncate text-sm text-muted-foreground">
-                                {match.offre.entreprise} — {match.offre.ville}
+                                {match.offre.entreprise} — {match.offre.pays_etudes ? match.offre.pays_etudes : "Non précisé"}
                               </p>
                             </div>
                             <div className="flex shrink-0 items-center gap-3 text-sm">
@@ -631,32 +626,19 @@ export default function ProfilPage() {
                   </div>
                 ) : (
                   <>
-                  {/* Filtres type / ville */}
+                  {/* Filtres pays */}
                   {matches.length > 0 && (
                     <div className="mb-5 flex flex-wrap gap-3 border-b border-border pb-4">
                       <select
-                        value={typeFiltre}
-                        onChange={(e) => setTypeFiltre(e.target.value)}
-                        aria-label="Filtrer par type d'offre"
+                        value={paysFiltre}
+                        onChange={(e) => setPaysFiltre(e.target.value)}
+                        aria-label="Filtrer par pays d'études"
                         className="rounded-lg border border-input bg-white px-3 py-2 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30"
                       >
-                        <option value="tous">Tous les types</option>
-                        {Object.entries(TYPES_OFFRES).map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={villeFiltre}
-                        onChange={(e) => setVilleFiltre(e.target.value)}
-                        aria-label="Filtrer par ville"
-                        className="rounded-lg border border-input bg-white px-3 py-2 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30"
-                      >
-                        <option value="tous">Toutes les villes</option>
-                        {villesDisponibles.map((ville) => (
-                          <option key={ville} value={ville}>
-                            {ville}
+                        <option value="tous">Tous les pays</option>
+                        {paysDisponibles.map((pays) => (
+                          <option key={pays} value={pays}>
+                            {pays}
                           </option>
                         ))}
                       </select>
@@ -689,12 +671,8 @@ export default function ProfilPage() {
                             <h3 className="font-semibold leading-snug text-foreground group-hover:text-signature">
                               {match.offre.titre}
                             </h3>
-                            <span
-                              className={`badge-offre inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${
-                                BADGES_TYPE[match.offre.type_offre] ?? "border border-border bg-muted text-muted-foreground"
-                              }`}
-                            >
-                              {TYPES_OFFRES[match.offre.type_offre] || match.offre.type_offre}
+                            <span className="badge-offre inline-flex shrink-0 items-center rounded-full border border-border bg-muted px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                              Bourse d&apos;études
                             </span>
                           </div>
                           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
@@ -704,7 +682,7 @@ export default function ProfilPage() {
                             </span>
                             <span className="flex items-center gap-1.5">
                               <MapPin className="h-4 w-4" />
-                              {match.offre.ville}
+                              {match.offre.pays_etudes ? match.offre.pays_etudes : "Non précisé"}
                             </span>
                             <span className="flex items-center gap-1.5">
                               <Calendar className="h-4 w-4" />
