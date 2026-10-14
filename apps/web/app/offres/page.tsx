@@ -79,6 +79,8 @@ function OffresContenu() {
   const [typeFiltre, setTypeFiltre] = useState("tous");
   const [villeFiltre, setVilleFiltre] = useState("tous");
   const [filiereFiltre, setFiliereFiltre] = useState("tous");
+  const [paysFiltre, setPaysFiltre] = useState("tous");
+  const [financementFiltre, setFinancementFiltre] = useState("tous");
   const [tri, setTri] = useState<TriOffres>("urgent");
   const [cloture30, setCloture30] = useState(false);
   // Les offres expirées sont masquées par défaut — mais jamais invisibles :
@@ -110,7 +112,7 @@ function OffresContenu() {
   // Tout changement de critère (dont tri et échéance) ramène à la première page
   useEffect(() => {
     setPage(1);
-  }, [motsCles, typeFiltre, villeFiltre, filiereFiltre, tri, cloture30, expireesVisibles]);
+  }, [motsCles, typeFiltre, villeFiltre, filiereFiltre, paysFiltre, financementFiltre, tri, cloture30, expireesVisibles]);
 
   /** Échéance recalculée une seule fois par offre (parse + jours restants). */
   const echeances = useMemo<Echeance[]>(
@@ -132,6 +134,8 @@ function OffresContenu() {
       if (villeFiltre !== "tous" && offre.ville !== villeFiltre) return false;
       if (filiereFiltre !== "tous" && !(offre.filieres_cibles ?? []).includes(filiereFiltre))
         return false;
+      if (paysFiltre !== "tous" && offre.pays_etudes !== paysFiltre) return false;
+      if (financementFiltre !== "tous" && offre.type_financement !== financementFiltre) return false;
       if (
         q &&
         !`${offre.titre} ${offre.entreprise} ${offre.description} ${offre.ville}`
@@ -181,6 +185,8 @@ function OffresContenu() {
     typeFiltre,
     villeFiltre,
     filiereFiltre,
+    paysFiltre,
+    financementFiltre,
     cloture30,
     expireesVisibles,
     tri,
@@ -197,6 +203,8 @@ function OffresContenu() {
     setTypeFiltre("tous");
     setVilleFiltre("tous");
     setFiliereFiltre("tous");
+    setPaysFiltre("tous");
+    setFinancementFiltre("tous");
     setTri("urgent");
     setCloture30(false);
     setExpireesVisibles(false);
@@ -247,6 +255,10 @@ function OffresContenu() {
           setVilleFiltre={setVilleFiltre}
           filiereFiltre={filiereFiltre}
           setFiliereFiltre={setFiliereFiltre}
+          paysFiltre={paysFiltre}
+          setPaysFiltre={setPaysFiltre}
+          financementFiltre={financementFiltre}
+          setFinancementFiltre={setFinancementFiltre}
           tri={tri}
           setTri={setTri}
           cloture30={cloture30}

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { TYPES_OFFRES } from "@/components/offre-detail-modal";
-import { ArrowRight, Check, Copy, UserMinus } from "lucide-react";
+import { PAYS_ETUDES, TYPES_FINANCEMENT } from "@/components/offres/types";
+import { ArrowRight, Check, Copy, UserMinus, Globe, DollarSign } from "lucide-react";
 
 /** Enum Ville du backend (ordre SQL), même liste que le schéma. */
 const VILLES = ["nouakchott", "nouadhibou", "kaedi", "rosso", "aleg", "autre"];
@@ -14,13 +15,15 @@ type Prefs = {
   villes_exclues: string[];
   types_masques: string[];
   seuil_pertinence: number;
+  pays_favoris: string[];
+  financement_min: string | null;
 };
+
+const PREFS_DEFAUT: Prefs = { villes_exclues: [], types_masques: [], seuil_pertinence: 0, pays_favoris: [], financement_min: null };
 
 type ProfilAvecPrefs = {
   metadata?: { prefs_avancees?: Partial<Prefs> } | null;
 };
-
-const PREFS_DEFAUT: Prefs = { villes_exclues: [], types_masques: [], seuil_pertinence: 0 };
 
 /**
  * Onglet « Paramètres » de l'espace client : préférences de matching,
@@ -49,6 +52,8 @@ export function FormPrefs({ telephone }: { telephone: string }) {
             villes_exclues: sauvees.villes_exclues ?? PREFS_DEFAUT.villes_exclues,
             types_masques: sauvees.types_masques ?? PREFS_DEFAUT.types_masques,
             seuil_pertinence: sauvees.seuil_pertinence ?? PREFS_DEFAUT.seuil_pertinence,
+            pays_favoris: sauvees.pays_favoris ?? PREFS_DEFAUT.pays_favoris,
+            financement_min: sauvees.financement_min ?? PREFS_DEFAUT.financement_min,
           });
         }
       } catch {
@@ -81,6 +86,8 @@ export function FormPrefs({ telephone }: { telephone: string }) {
           villes_exclues: prefs.villes_exclues,
           types_masques: prefs.types_masques,
           seuil_pertinence: prefs.seuil_pertinence,
+          pays_favoris: prefs.pays_favoris,
+          financement_min: prefs.financement_min,
         }),
       });
       if (!res.ok) throw new Error();
@@ -200,6 +207,70 @@ export function FormPrefs({ telephone }: { telephone: string }) {
               N&apos;enverra que les offres à partir de ce score de matching.
             </p>
           </div>
+
+          <fieldset>
+            <legend className="mb-2 text-sm font-semibold text-foreground flex items-center gap-2">
+              <Globe className="h-4 w-4 text-signature" />
+              Pays d&apos;études favoris
+            </legend>
+            <p className="mb-2 text-xs text-muted-foreground">
+              Les bourses de ces pays seront prioritaires dans tes alertes.
+            </p>
+            <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-1">
+              {PAYS_ETUDES.map((p) => (
+                <label
+                  key={p.valeur}
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-colors duration-150 hover:border-signature"
+                >
+                  <input
+                    type="checkbox"
+                    checked={prefs.pays_favoris.includes(p.valeur)}
+                    onChange={() => {
+                      setSauvegarde("repos");
+                      setPrefs((prev) => ({
+                        ...prev,
+                        pays_favoris: prev.pays_favoris.includes(p.valeur)
+                          ? prev.pays_favoris.filter((v) => v !== p.valeur)
+                          : [...prev.pays_favoris, p.valeur],
+                      }));
+                    }}
+                    data-probe="pref-pays"
+                    data-cle={p.valeur}
+                    className="h-4 w-4 rounded border-input accent-signature focus:ring-signature/30"
+                  />
+                  <span>{p.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend className="mb-2 text-sm font-semibold text-foreground flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-signature" />
+              Financement minimum
+            </legend>
+            <p className="mb-2 text-xs text-muted-foreground">
+              Ne recevoir que les bourses au moins à ce niveau de financement.
+            </p>
+            <select
+              value={prefs.financement_min ?? "tous"}
+              onChange={(e) => {
+                setSauvegarde("repos");
+                setPrefs((prev) => ({
+                  ...prev,
+                  financement_min: e.target.value === "tous" ? null : e.target.value,
+                }));
+              }}
+              className="rounded-lg border border-input bg-white px-3 py-2 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30"
+            >
+              <option value="tous">Tous les niveaux de financement</option>
+              {TYPES_FINANCEMENT.map((f) => (
+                <option key={f.valeur} value={f.valeur}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </fieldset>
 
           <div className="flex flex-wrap items-center gap-3">
             <Button

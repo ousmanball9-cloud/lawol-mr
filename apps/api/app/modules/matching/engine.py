@@ -36,7 +36,7 @@ from collections import Counter
 from datetime import date, timedelta
 
 from apps.api.app.core.database import supabase
-from apps.api.app.modules.shared.models import Filiere, TypeOffre, Ville
+from apps.api.app.modules.shared.models import Filiere, TypeOffre, Ville, PaysEtudes, TypeFinancement
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +76,20 @@ def match_regles(
     filieres_cibles: list[str],
     ville_profil: str,
     ville_offre: str,
+    pays_etudes_offre: str | None = None,
+    pays_favoris_profil: list[str] | None = None,
+    type_financement_offre: str | None = None,
+    financement_min_profil: str | None = None,
     aujourdhui: date | None = None,
 ) -> tuple[bool, str]:
-    """Retourne (match?, raison) — raison utile pour le debug/dashboard."""
+    """Retourne (match?, raison) — raison utile pour le debug/dashboard.
+
+    Nouvelles règles (P7) :
+    - Si le profil a des pays_favoris définis et l'offre a un pays_etudes,
+      le pays de l'offre doit être dans les favoris (sauf si offre = AUTRE).
+    - Si le profil a un financement_min défini, le financement de l'offre
+      doit être >= au niveau minimum (ordre : fully_funded > partiel > auto_finance > inconnu).
+    """
     aujourdhui = aujourdhui or date.today()
 
     if not profil_actif:
@@ -107,6 +118,24 @@ def match_regles(
     ):
         return False, "ville_non_matchee"
 
+    # Pays d'études (nouveau P7)
+    if pays_favoris_profil and pays_etudes_offre:
+        if pays_etudes_offre != PaysEtudes.AUTRE.value and pays_etudes_offre not in pays_favoris_profil:
+            return False, "pays_non_favori"
+
+    # Financement minimum (nouveau P7)
+    if financement_min_profil and type_financement_offre:
+        ordre_financement = {
+            TypeFinancement.FULLY_FUNDED.value: 4,
+            TypeFinancement.PARTIEL.value: 3,
+            TypeFinancement.AUTO_FINANCE.value: 2,
+            TypeFinancement.INCONNU.value: 1,
+        }
+        niveau_offre = ordre_financement.get(type_financement_offre, 1)
+        niveau_min = ordre_financement.get(financement_min_profil, 1)
+        if niveau_offre < niveau_min:
+            return False, "financement_insuffisant"
+
     return True, "match"
 
 
@@ -120,6 +149,10 @@ def calculer_score_pertinence(
     date_scrape: date,
     date_limite: date,
     bourse_generique: bool = False,
+    pays_etudes_offre: str | None = None,
+    pays_favoris_profil: list[str] | None = None,
+    type_financement_offre: str | None = None,
+    financement_min_profil: str | None = None,
     aujourdhui: date | None = None,
 ) -> int:
     """Calcule le score de pertinence (0-100).
@@ -130,6 +163,9 @@ def calculer_score_pertinence(
     - Ville AUTRE (joker) : +10
     - Fraicheur (< 7 jours) : +10
     - Deadline proche (< 14 jours) : +10
+    - Pays favori : +15 (si offre.pays_etudes dans profil.pays_favoris)
+    - Financement fully_funded : +10 (si offre.type_financement = fully_funded)
+    - Financement >= financement_min : +5
 
     Lot D : une bourse « toutes filières » (bourse_generique=True) ne
     touche que BONUS_FILIERE_GENERIQUE pour la filière (quel que soit le
@@ -153,6 +189,26 @@ def calculer_score_pertinence(
         score += 20
     elif ville_profil == Ville.AUTRE.value or ville_offre == Ville.AUTRE.value:
         score += 10
+
+    # Pays d'études (nouveau P7)
+    if pays_favoris_profil and pays_etudes_offre:
+        if pays_etudes_offre in pays_favoris_profil:
+            score += 15
+
+    # Financement (nouveau P7)
+    if financement_min_profil and type_financement_offre:
+        ordre_financement = {
+            TypeFinancement.FULLY_FUNDED.value: 4,
+            TypeFinancement.PARTIEL.value: 3,
+            TypeFinancement.AUTO_FINANCE.value: 2,
+            TypeFinancement.INCONNU.value: 1,
+        }
+        niveau_offre = ordre_financement.get(type_financement_offre, 1)
+        niveau_min = ordre_financement.get(financement_min_profil, 1)
+        if niveau_offre >= niveau_min:
+            score += 10  # Bonus si le financement répond au minimum demandé
+            if type_financement_offre == TypeFinancement.FULLY_FUNDED.value:
+                score += 5  # Bonus supplémentaire pour fully funded quand c'est demandé
 
     # Fraicheur
     if (aujourdhui - date_scrape).days < FRAICHEUR_JOURS:
@@ -301,11 +357,13 @@ def run_matching_job() -> dict:
         "ignores_generiques": 0,
     }
     for p in profils_res.data:
-        # Préférences avancées du profil (P5) — dict vide si absentes
+        # Préférences avancées du profil (P5 + P7) — dict vide si absentes
         prefs = prefs_avancees(p.get("metadata"))
         villes_exclues = set(prefs.get("villes_exclues") or [])
         types_masques = set(prefs.get("types_masques") or [])
         seuil_pertinence = prefs.get("seuil_pertinence")
+        pays_favoris = set(prefs.get("pays_favoris") or [])
+        financement_min = prefs.get("financement_min")
         candidats = []
         for o in offres_dedup:
             stats["examines"] += 1
@@ -350,6 +408,10 @@ def run_matching_job() -> dict:
                 filieres_cibles=o.get("filieres_cibles", []),
                 ville_profil=p["ville"],
                 ville_offre=o["ville"],
+                pays_etudes_offre=o.get("pays_etudes"),
+                pays_favoris_profil=list(pays_favoris) if pays_favoris else None,
+                type_financement_offre=o.get("type_financement"),
+                financement_min_profil=financement_min,
             )
             if not ok:
                 continue
@@ -364,6 +426,10 @@ def run_matching_job() -> dict:
                 bourse_generique=est_bourse_generique(
                     o.get("type_offre"), o.get("filieres_cibles")
                 ),
+                pays_etudes_offre=o.get("pays_etudes"),
+                pays_favoris_profil=list(pays_favoris) if pays_favoris else None,
+                type_financement_offre=o.get("type_financement"),
+                financement_min_profil=financement_min,
             )
             if score < SCORE_MIN_PERTINENCE:
                 stats["ignores_score_faible"] += 1

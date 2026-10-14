@@ -43,7 +43,9 @@ from apps.api.app.modules.scraper.sources.entreprises import FILIERE_MOTS_CLES
 from apps.api.app.modules.shared.models import (
     Filiere,
     OffreStageCreate,
+    PaysEtudes,
     SourceType,
+    TypeFinancement,
     TypeOffre,
     Ville,
 )
@@ -271,6 +273,132 @@ def _couverture(texte: str) -> bool:
     return any(m in t for m in ("funded", "tuition", "stipend"))
 
 
+def _extraire_pays(texte: str) -> str | None:
+    """Extrait le pays d'études depuis le texte (titre + description).
+    Cherche les pays connus dans _PAYS (normalisés)."""
+    t = (texte or "").lower()
+    for pays in sorted(_PAYS, key=len, reverse=True):
+        if re.search(rf"\b{re.escape(pays)}\b", t):
+            # Normaliser vers l'enum PaysEtudes
+            return _normaliser_pays(pays)
+    return None
+
+
+def _normaliser_pays(pays: str) -> str:
+    """Mappe un pays détecté vers la valeur de l'enum PaysEtudes."""
+    mapping = {
+        "france": "france",
+        "canada": "canada",
+        "usa": "usa",
+        "united states": "usa",
+        "america": "usa",
+        "allemagne": "allemagne",
+        "germany": "allemagne",
+        "royaume_uni": "royaume_uni",
+        "united kingdom": "royaume_uni",
+        "uk": "royaume_uni",
+        "espagne": "espagne",
+        "spain": "espagne",
+        "italie": "italie",
+        "italy": "italie",
+        "belgique": "belgique",
+        "belgium": "belgique",
+        "suisse": "suisse",
+        "switzerland": "suisse",
+        "pays_bas": "pays_bas",
+        "netherlands": "pays_bas",
+        "holland": "pays_bas",
+        "suede": "suede",
+        "sweden": "suede",
+        "norvege": "norvege",
+        "norway": "norvege",
+        "finlande": "finlande",
+        "finland": "finlande",
+        "danemark": "danemark",
+        "denmark": "danemark",
+        "autriche": "autriche",
+        "austria": "autriche",
+        "irlande": "irlande",
+        "ireland": "irlande",
+        "portugal": "portugal",
+        "grece": "grece",
+        "greece": "grece",
+        "pologne": "pologne",
+        "poland": "pologne",
+        "turquie": "turquie",
+        "turkey": "turquie",
+        "maroc": "maroc",
+        "morocco": "maroc",
+        "tunisie": "tunisie",
+        "tunisia": "tunisie",
+        "algerie": "algerie",
+        "algeria": "algerie",
+        "senegal": "senegal",
+        "cote_ivoire": "cote_ivoire",
+        "cote d'ivoire": "cote_ivoire",
+        "ghana": "senegal",  # regroupement Afrique de l'Ouest
+        "nigeria": "senegal",
+        "kenya": "senegal",
+        "ethiopia": "senegal",
+        "rwanda": "senegal",
+        "tanzania": "senegal",
+        "uganda": "senegal",
+        "zambia": "senegal",
+        "zimbabwe": "senegal",
+        "botswana": "senegal",
+        "south africa": "senegal",
+        "china": "autre",
+        "hong kong": "autre",
+        "saudi arabia": "autre",
+        "qatar": "autre",
+        "czech": "autre",
+        "brazil": "autre",
+        "mexico": "autre",
+        "japan": "autre",
+        "singapore": "autre",
+        "new zealand": "autre",
+        "australia": "autre",
+        "saudi": "autre",
+        "korea": "autre",
+        "south korea": "autre",
+        "malaysia": "autre",
+        "india": "autre",
+        "russia": "autre",
+        "scotland": "royaume_uni",
+        "europe": "autre",
+        "america": "usa",
+    }
+    return mapping.get(pays.lower(), "autre")
+
+
+def _extraire_financement(texte: str) -> str:
+    """Déduit le type de financement depuis le texte.
+    Ordre de priorité : fully_funded > partiel > auto_finance > inconnu."""
+    t = (texte or "").lower()
+    # Fully funded
+    if any(m in t for m in (
+        "fully funded", "full funding", "100% funded", "fully-funded",
+        "all expenses covered", "all costs covered", "full scholarship",
+        "covers tuition", "covers living", "covers travel", "monthly stipend",
+        "stipend included", "living allowance", "travel allowance",
+    )):
+        return "fully_funded"
+    # Partiel (tuition seulement, partial funding, etc.)
+    if any(m in t for m in (
+        "partial funding", "partial scholarship", "tuition only",
+        "tuition fee", "tuition waiver", "fee waiver", "tuition covered",
+        "partial coverage", "covers tuition only",
+    )):
+        return "partiel"
+    # Auto-finance (explicitly says self-funded or no funding mentioned)
+    if any(m in t for m in (
+        "self-funded", "self funded", "self finance", "no funding",
+        "not funded", "unfunded", "own expenses", "own cost",
+    )):
+        return "auto_finance"
+    return "inconnu"
+
+
 def _extraire_meta(spans: list[str]) -> tuple[str, str, str]:
     """(organisme, niveau, couverture) depuis les spans .meta d'une ligne."""
     organisme = niveau = couverture = ""
@@ -300,6 +428,8 @@ class BourseScraper(BaseScraper):
         organisme: str,
         description: str,
         date_limite: date,
+        pays_etudes: str | None = None,
+        type_financement: str | None = None,
     ) -> OffreStageCreate | None:
         titre = _nettoie(titre)
         organisme = _nettoie(organisme)
@@ -315,8 +445,10 @@ class BourseScraper(BaseScraper):
             titre=titre[:300],
             entreprise=(organisme or self.source_name)[:200],
             ville=Ville.NOUAKCHOTT,
+            pays_etudes=pays_etudes,
             filieres_cibles=_filieres(f"{titre} {description}"),
             type_offre=TypeOffre.BOURSE,
+            type_financement=type_financement or "inconnu",
             description=_resume(description),
             date_limite=date_limite,
             contact_email=None,
@@ -377,12 +509,17 @@ class ScholarAfricaScraper(BourseScraper):
                     f"Organisme : {organisme or 'Scholar Africa'}. "
                     f"Date de clôture : {texte_dl or 'voir le portail'}."
                 )
+                texte_complet = f"{titre} {description}"
+                pays_etudes = _extraire_pays(texte_complet)
+                type_financement = _extraire_financement(texte_complet)
                 offre = self._offre(
                     url=lien,
                     titre=titre,
                     organisme=organisme or "Scholar Africa",
                     description=description,
                     date_limite=dl,
+                    pays_etudes=pays_etudes,
+                    type_financement=type_financement,
                 )
                 if offre:
                     yield offre
@@ -442,12 +579,17 @@ class OpportunityAfricaScraper(BourseScraper):
             else:
                 description = texte
 
+            texte_complet = f"{titre} {description}"
+            pays_etudes = _extraire_pays(texte_complet)
+            type_financement = _extraire_financement(texte_complet)
             offre = self._offre(
                 url=lien,
                 titre=titre,
                 organisme="",  # financeur rarement indiqué → nom du portail
                 description=description,
                 date_limite=dl,
+                pays_etudes=pays_etudes,
+                type_financement=type_financement,
             )
             if offre:
                 yield offre
@@ -527,12 +669,17 @@ class WpBourseScraper(BourseScraper):
 
             # Résumé = texte après la date de clôture (la deadline s'arrête là)
             description = f"Date de clôture : {bloc_dl}. {texte[m.end() :].strip()}"
+            texte_complet = f"{titre} {description}"
+            pays_etudes = _extraire_pays(texte_complet)
+            type_financement = _extraire_financement(texte_complet)
             offre = self._offre(
                 url=lien,
                 titre=titre,
                 organisme="",  # financeur rarement indiqué → nom du portail
                 description=description,
                 date_limite=dl,
+                pays_etudes=pays_etudes,
+                type_financement=type_financement,
             )
             if offre:
                 yield offre

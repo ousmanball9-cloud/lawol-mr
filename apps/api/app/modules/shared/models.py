@@ -26,6 +26,31 @@ class Filiere(str, Enum):
     DROIT = "droit"
     MEDECINE = "medecine"
     AGRONOMIE = "agronomie"
+    GENIE_PROCEDES = "genie_procedes"
+    ENVIRONNEMENT = "environnement"
+    GENIE_CHIMIQUE = "genie_chimique"
+    GENIE_INDUSTRIEL = "genie_industriel"
+    TELECOMS = "telecoms"
+    RESEAUX = "reseaux"
+    CYBERSECURITE = "cybersecurite"
+    DATA_SCIENCE = "data_science"
+    INTELLIGENCE_ARTIFICIELLE = "intelligence_artificielle"
+    MATHEMATIQUES = "mathematiques"
+    PHYSIQUE = "physique"
+    CHIMIE = "chimie"
+    BIOLOGIE = "biologie"
+    GEOLOGIE = "geologie"
+    HYDRAULIQUE = "hydraulique"
+    TOPOGRAPHIE = "topographie"
+    ARCHITECTURE = "architecture"
+    URBANISME = "urbanisme"
+    SCIENCES_POLITIQUES = "sciences_politiques"
+    SOCIOLOGIE = "sociologie"
+    PSYCHOLOGIE = "psychologie"
+    LANGUES = "langues"
+    LETTRES = "lettres"
+    HISTOIRE = "histoire"
+    GEOGRAPHIE = "geographie"
     AUTRE = "autre"
 
 
@@ -36,6 +61,44 @@ class Ville(str, Enum):
     ROSSO = "rosso"
     ALEG = "aleg"
     AUTRE = "autre"
+
+
+class PaysEtudes(str, Enum):
+    """Pays d'études pour les bourses internationales."""
+    FRANCE = "france"
+    CANADA = "canada"
+    USA = "usa"
+    ALLEMAGNE = "allemagne"
+    ROYAUME_UNI = "royaume_uni"
+    ESPAGNE = "espagne"
+    ITALIE = "italie"
+    BELGIQUE = "belgique"
+    SUISSE = "suisse"
+    PAYS_BAS = "pays_bas"
+    SUEDE = "suede"
+    NORVEGE = "norvege"
+    FINLANDE = "finlande"
+    DANEMARK = "danemark"
+    AUTRICHE = "autriche"
+    IRLANDE = "irlande"
+    PORTUGAL = "portugal"
+    GRECE = "grece"
+    POLOGNE = "pologne"
+    TURQUIE = "turquie"
+    MAROC = "maroc"
+    TUNISIE = "tunisie"
+    ALGERIE = "algerie"
+    SENEGAL = "senegal"
+    COTE_IVOIRE = "cote_ivoire"
+    AUTRE = "autre"
+
+
+class TypeFinancement(str, Enum):
+    """Type de financement de la bourse."""
+    FULLY_FUNDED = "fully_funded"        # 100% couvert (frais de scolarité + vie + voyage)
+    PARTIEL = "partiel"                   # Partiellement couvert (ex: frais scolarité seulement)
+    AUTO_FINANCE = "auto_finance"         # Non financée / auto-financée
+    INCONNU = "inconnu"                   # Non précisé dans l'annonce
 
 
 class SourceType(str, Enum):
@@ -62,8 +125,10 @@ class OffreStageBase(BaseModel):
     titre: str = Field(min_length=3, max_length=300)
     entreprise: str = Field(min_length=2, max_length=200)
     ville: Ville = Ville.NOUAKCHOTT
+    pays_etudes: Optional[PaysEtudes] = None
     filieres_cibles: list[Filiere] = Field(default_factory=list)
     type_offre: TypeOffre = TypeOffre.STAGE_PFE
+    type_financement: TypeFinancement = TypeFinancement.INCONNU
     description: str = ""
     date_limite: date
     contact_email: Optional[EmailStr] = None
@@ -84,8 +149,10 @@ class OffreStagePublic(BaseModel):
     titre: str
     entreprise: str
     ville: Ville
+    pays_etudes: Optional[PaysEtudes] = None
     filieres_cibles: list[Filiere]
     type_offre: TypeOffre
+    type_financement: TypeFinancement = TypeFinancement.INCONNU
     description: str
     date_limite: date
     contact_email: Optional[EmailStr] = None
@@ -223,6 +290,8 @@ class PreferencesAvancees(BaseModel):
     villes_exclues: list[Ville] = Field(default_factory=list)
     types_masques: list[TypeOffre] = Field(default_factory=list)
     seuil_pertinence: Optional[int] = Field(default=None, ge=0, le=100)
+    pays_favoris: list[PaysEtudes] = Field(default_factory=list)  # pays d'études préférés
+    financement_min: Optional[TypeFinancement] = None  # niveau minimal de financement
 
 
 class PreferencesAvanceesUpdate(BaseModel):
@@ -231,6 +300,8 @@ class PreferencesAvanceesUpdate(BaseModel):
     villes_exclues: Optional[list[Ville]] = None
     types_masques: Optional[list[TypeOffre]] = None
     seuil_pertinence: Optional[int] = Field(default=None, ge=0, le=100)
+    pays_favoris: Optional[list[PaysEtudes]] = None
+    financement_min: Optional[TypeFinancement] = None
 
 
 class DashboardProfil(BaseModel):

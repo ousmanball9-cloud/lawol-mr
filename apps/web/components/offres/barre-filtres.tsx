@@ -1,6 +1,6 @@
 import { Search } from "lucide-react";
 import { TYPES_OFFRES } from "@/components/offre-detail-modal";
-import { FILIERES, VILLES, TYPE_EN_TETE, type TriOffres } from "./types";
+import { FILIERES, VILLES, PAYS_ETUDES, TYPES_FINANCEMENT, TYPE_EN_TETE, type TriOffres } from "./types";
 
 type Props = {
   motsCles: string;
@@ -11,6 +11,10 @@ type Props = {
   setVilleFiltre: (valeur: string) => void;
   filiereFiltre: string;
   setFiliereFiltre: (valeur: string) => void;
+  paysFiltre: string;
+  setPaysFiltre: (valeur: string) => void;
+  financementFiltre: string;
+  setFinancementFiltre: (valeur: string) => void;
   /** Tri catalogue : « urgent » (défaut) ou « recentes ». */
   tri: TriOffres;
   setTri: (valeur: TriOffres) => void;
@@ -44,7 +48,7 @@ const TYPES_TRIES = Object.entries(TYPES_OFFRES).sort(([a], [b]) => {
   return 0;
 });
 
-/** Barre de recherche (mots-clés) + 3 selects (type, ville, filière) + tri & échéance. */
+/** Barre de recherche (mots-clés) + 5 selects (type, ville, filière, pays, financement) + tri & échéance. */
 export function BarreFiltres({
   motsCles,
   setMotsCles,
@@ -54,6 +58,10 @@ export function BarreFiltres({
   setVilleFiltre,
   filiereFiltre,
   setFiliereFiltre,
+  paysFiltre,
+  setPaysFiltre,
+  financementFiltre,
+  setFinancementFiltre,
   tri,
   setTri,
   cloture30,
@@ -115,6 +123,32 @@ export function BarreFiltres({
           >
             <option value="tous">Toutes les filières</option>
             {FILIERES.map((f) => (
+              <option key={f.valeur} value={f.valeur}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={paysFiltre}
+            onChange={(e) => setPaysFiltre(e.target.value)}
+            aria-label="Filtrer par pays d'études"
+            className={SELECT}
+          >
+            <option value="tous">Tous les pays</option>
+            {PAYS_ETUDES.map((p) => (
+              <option key={p.valeur} value={p.valeur}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={financementFiltre}
+            onChange={(e) => setFinancementFiltre(e.target.value)}
+            aria-label="Filtrer par type de financement"
+            className={SELECT}
+          >
+            <option value="tous">Tous financements</option>
+            {TYPES_FINANCEMENT.map((f) => (
               <option key={f.valeur} value={f.valeur}>
                 {f.label}
               </option>

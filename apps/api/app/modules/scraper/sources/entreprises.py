@@ -18,6 +18,7 @@ from apps.api.app.modules.shared.models import (
     OffreStageCreate,
     SourceType,
     TypeOffre,
+    TypeFinancement,
     Ville,
 )
 from bs4 import BeautifulSoup
@@ -174,6 +175,7 @@ class EntrepriseScraper(BaseScraper):
                     ) else self.ville_defaut,
                     filieres_cibles=_detect_filieres(contexte),
                     type_offre=type_offre,
+                    type_financement=TypeFinancement.INCONNU,
                     description=texte[:500],
                     date_limite=date.today() + timedelta(days=self.delai_max_jours),
                 )
