@@ -35,7 +35,13 @@ from collections import Counter
 from datetime import date, timedelta
 
 from apps.api.app.core.database import supabase
-from apps.api.app.modules.shared.models import Filiere, TypeOffre, PaysEtudes, TypeFinancement
+from apps.api.app.modules.shared.models import (
+    Filiere,
+    PaysEtudes,
+    TypeFinancement,
+    TypeOffre,
+    Ville,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +125,10 @@ def match_regles(
 
     # Pays d'études (nouveau P7)
     if pays_favoris_profil and pays_etudes_offre:
-        if pays_etudes_offre != PaysEtudes.AUTRE.value and pays_etudes_offre not in pays_favoris_profil:
+        if (
+            pays_etudes_offre != PaysEtudes.AUTRE.value
+            and pays_etudes_offre not in pays_favoris_profil
+        ):
             return False, "pays_non_favori"
 
     # Financement minimum (nouveau P7)

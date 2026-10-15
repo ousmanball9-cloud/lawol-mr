@@ -23,6 +23,9 @@ Charte : « Nuit d'Indigo » (voir skill `design-system`) — zéro noir, tokens
 5. **Harnais de preuve** : rejouer `scripts/test-*.py` (mock Supabase, zéro
    réseau) avant chaque commit — les `data-probe` des pages sont comptés par
    `scripts/verify-*.mjs` : ne jamais les supprimer lors d'une refonte.
+6. **Enums** : réduire les valeurs à l'écriture ne réduit jamais les valeurs
+   en base — le sérialiseur lecture accepte l'union SQL (enum `*Db`), seule
+   l'écriture est bridée (une ligne legacy ne doit jamais faire 500 la liste).
 
 ## Repères
 
