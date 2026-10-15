@@ -21,6 +21,7 @@ import {
 import { OffreDetailModal, STATUTS, type OffreDetail } from "@/components/offre-detail-modal";
 import { CarteProfil } from "@/components/espace/carte-profil";
 import { FormPrefs } from "@/components/espace/form-prefs";
+import { labelPays } from "@/components/offres/types";
 
 type Profil = {
   telephone: string;
@@ -607,7 +608,7 @@ export default function ProfilPage() {
                             <div className="min-w-0">
                               <p className="truncate font-medium text-foreground">{match.offre.titre}</p>
                               <p className="truncate text-sm text-muted-foreground">
-                                {match.offre.entreprise} — {match.offre.pays_etudes ? match.offre.pays_etudes : "Non précisé"}
+                                {match.offre.entreprise} — {match.offre.pays_etudes ? labelPays(match.offre.pays_etudes) : "Non précisé"}
                               </p>
                             </div>
                             <div className="flex shrink-0 items-center gap-3 text-sm">
@@ -626,8 +627,9 @@ export default function ProfilPage() {
                   </div>
                 ) : (
                   <>
-                  {/* Filtres pays */}
-                  {matches.length > 0 && (
+                  {/* Filtres pays : masqué s'il n'y a aucun pays à proposer
+                      (un select avec le seul « Tous les pays » est un contrôle mort) */}
+                  {matches.length > 0 && paysDisponibles.length > 0 && (
                     <div className="mb-5 flex flex-wrap gap-3 border-b border-border pb-4">
                       <select
                         value={paysFiltre}
@@ -638,7 +640,7 @@ export default function ProfilPage() {
                         <option value="tous">Tous les pays</option>
                         {paysDisponibles.map((pays) => (
                           <option key={pays} value={pays}>
-                            {pays}
+                            {labelPays(pays)}
                           </option>
                         ))}
                       </select>
