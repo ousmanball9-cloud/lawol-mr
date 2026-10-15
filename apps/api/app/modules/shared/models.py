@@ -9,6 +9,24 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 # ---------- Enums (mêmes valeurs que le schéma SQL) ----------
 class TypeOffre(str, Enum):
+    """Types ACCEPTÉS À L'ÉCRITURE (refonte 100 % bourses, commit d884e2f)."""
+
+    BOURSE = "bourse"
+
+
+class TypeOffreDb(str, Enum):
+    """Valeurs du type SQL `type_offre` (infra/supabase/schema.sql) — LECTURE seule.
+
+    La colonne Postgres garde les types hérités (`stage_pfe`, `stage_ete`,
+    `emploi_junior`, `alternance`, + `bourse` ajouté par migration) : le
+    sérialiseur public les accepte tels quels pour ne jamais faire échouer
+    la liste sur une ligne legacy. L'écriture reste bridée à TypeOffre.BOURSE.
+    """
+
+    STAGE_PFE = "stage_pfe"
+    STAGE_ETE = "stage_ete"
+    EMPLOI_JUNIOR = "emploi_junior"
+    ALTERNANCE = "alternance"
     BOURSE = "bourse"
 
 
@@ -154,7 +172,8 @@ class OffreStagePublic(BaseModel):
     entreprise: str
     pays_etudes: Optional[PaysEtudes] = None
     filieres_cibles: list[Filiere]
-    type_offre: TypeOffre
+    # Lecture : TypeOffreDb (valeurs SQL legacy incluses) — voir note en tête de fichier.
+    type_offre: TypeOffreDb
     type_financement: TypeFinancement = TypeFinancement.INCONNU
     description: str
     date_limite: date
