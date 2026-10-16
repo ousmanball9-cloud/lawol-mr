@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Inter, Sora } from "next/font/google"
 import "./globals.css"
+import { FacebookSdk } from "@/components/facebook-sdk"
 // Texte : Inter (lisibilité FR) — Titres : Sora, display avec caractère.
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 const sora = Sora({ subsets: ["latin"], variable: "--font-display" })
@@ -15,37 +16,19 @@ export const metadata: Metadata = {
 }
 export const viewport: Viewport = { themeColor: [{ media: "(prefers-color-scheme: light)", color: "#FAFAFA" }, { media: "(prefers-color-scheme: dark)", color: "#0A0A0A" }], width: "device-width", initialScale: 1, maximumScale: 5 }
 
-// Facebook SDK — App ID à remplacer par celui de ton app Meta
+// Facebook SDK — App ID à remplacer par celui de ton app Meta.
+// Chargé APRÈS hydratation (components/facebook-sdk.tsx) : une balise dans le
+// HTML servi était réécrite par le navigateur avant hydratation, ce qui
+// déclenchait un avertissement d'hydratation sur TOUTES les pages.
 const FACEBOOK_APP_ID = "1353421643376980";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.fbAsyncInit = function() {
-                FB.init({
-                  appId      : '${FACEBOOK_APP_ID}',
-                  cookie     : true,
-                  xfbml      : true,
-                  version    : 'v21.0'
-                });
-                FB.AppEvents.logPageView();
-              };
-              (function(d, s, id){
-                var js, fjs = d.getElementsByTagName(s)[0];
-                if (d.getElementById(id)) {return;}
-                js = d.createElement(s); js.id = id;
-                js.src = "https://connect.facebook.net/en_US/sdk.js";
-                fjs.parentNode.insertBefore(js, fjs);
-              }(document, 'script', 'facebook-jssdk'));
-            `,
-          }}
-        />
-      </head>
-      <body className={`${inter.variable} ${sora.variable} font-sans antialiased`}>{children}</body>
+      <body className={`${inter.variable} ${sora.variable} font-sans antialiased`}>
+        <FacebookSdk appId={FACEBOOK_APP_ID} />
+        {children}
+      </body>
     </html>
   );
 }
