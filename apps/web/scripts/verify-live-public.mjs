@@ -22,7 +22,7 @@
  * ⚠️ Ne pas confondre avec `verify-*.mjs` (mockés, hors réseau) : ici on tape la VRAIE prod.
  */
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -30,6 +30,12 @@ const BASE = (process.argv[2] || "https://lawol-mr.vercel.app").replace(/\/$/, "
 const CDP_PORT = Number(process.env.CDP_PORT || 9381);
 const PROFIL = path.join(os.tmpdir(), `lawol-live-${Date.now()}`);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Le numéro support vient de la SOURCE UNIQUE du projet — jamais recopié ici,
+// sinon la mesure dériverait du code qu'elle prétend vérifier.
+const sourceContact = readFileSync(new URL("../lib/contact.ts", import.meta.url), "utf8");
+const NUMERO_OFFICIEL =
+  (sourceContact.match(/export const CONTACT_WHATSAPP = "(\d*)"/) || [])[1] ?? "";
 
 const exe = [
   process.env.CHROME_PATH,
@@ -139,7 +145,8 @@ try {
         emploi_stage: badges.filter((b) => /emploi|stage|alternance/i.test(b)).length,
         bourses: badges.filter((b) => /bourse/i.test(b)).length,
         fauxLogos: /mauritel|ooredoo|\\bBNM\\b|\\bSNIM\\b/i.test(texte),
-        wa: (texte.match(/wa\\.me/g) || []).length,
+        numerosWhatsApp: [...document.querySelectorAll('a[href*="wa.me"]')]
+          .map((a) => (a.href.match(/wa\\.me\\/(\\d+)/) || [])[1] || "(partage sans numero)"),
       };
     })()`,
   });
@@ -152,7 +159,15 @@ try {
     ["0 carte emploi/stage/alternance (100 % bourses)", r.emploi_stage === 0, r.emploi_stage],
     ["12 aperçus rendus sur le payload allégé", r.apercus === 12, r.apercus],
     ["aucun faux logo partenaire", r.fauxLogos === false, r.fauxLogos],
-    ["aucun lien WhatsApp inventé", r.wa === 0, r.wa],
+    [
+      NUMERO_OFFICIEL
+        ? `liens WhatsApp : uniquement le numéro officiel (${NUMERO_OFFICIEL})`
+        : "liens WhatsApp : aucun numéro (aucun numéro configuré)",
+      NUMERO_OFFICIEL
+        ? r.numerosWhatsApp.every((n) => n === NUMERO_OFFICIEL || n === "(partage sans numero)")
+        : r.numerosWhatsApp.every((n) => n === "(partage sans numero)"),
+      r.numerosWhatsApp,
+    ],
     ["aucune erreur console", erreurs.length === 0, erreurs[0] ?? ""],
   ];
   let ko = 0;

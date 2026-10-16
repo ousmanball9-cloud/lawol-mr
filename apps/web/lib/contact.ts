@@ -8,8 +8,11 @@
  * internationaux sans « + » ni espaces (indicatif 222 suivi de 8 chiffres).
  */
 
-/** Numéro WhatsApp public — vide = non configuré (aucun CTA WhatsApp rendu). */
-export const CONTACT_WHATSAPP = "";
+/**
+ * Numéro WhatsApp public — SOURCE UNIQUE (renseigné le 16/10/2026 par l'utilisateur).
+ * Format : indicatif pays puis numéro, chiffres seulement (+222 48168149 → « 22248168149 »).
+ */
+export const CONTACT_WHATSAPP = "22248168149";
 
 /** Message pré-rempli du CTA WhatsApp. */
 export const CONTACT_WHATSAPP_MESSAGE =
