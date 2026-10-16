@@ -15,6 +15,11 @@ Charte : « Nuit d'Indigo » (voir skill `design-system`) — zéro noir, tokens
    Pattern : lire le corps (`request.text()`/`request.formData()`), forwarder vers
    `NEXT_PUBLIC_API_URL`, relayer statut + `Authorization` (modèles :
    `profils/[telephone]/preferences/route.ts`, `documents/route.ts`).
+   **Admin** : un proxy `/api/v1/admin/*` relaie l'auth de la garde
+   `_admin_autorise` — `Cookie` (`lawol_admin`), `x-admin-token` ET
+   `Authorization` ; oublier le cookie → 401 (modèle :
+   `api/v1/admin/offres/[offreId]/publication/route.ts`,
+   `api/v1/admin/parametres/route.ts`, `api/v1/admin/stats/visites/route.ts`).
 2. **Zéro migration SQL** : les colonnes additionnelles passent par
    `profils.metadata` (jsonb) — pattern `code_pin_hash` / `prefs_avancees` /
    `documents` / `notifications_lues` (lire dict → modifier → `.update()`).

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { Inter, Sora } from "next/font/google"
 import "./globals.css"
 import { FacebookSdk } from "@/components/facebook-sdk"
+import { TraceurVisites } from "@/components/vitrine/traceur-visites"
 // Texte : Inter (lisibilité FR) — Titres : Sora, display avec caractère.
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 const sora = Sora({ subsets: ["latin"], variable: "--font-display" })
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr" suppressHydrationWarning>
       <body className={`${inter.variable} ${sora.variable} font-sans antialiased`}>
+        <TraceurVisites />
         <FacebookSdk appId={FACEBOOK_APP_ID} />
         {children}
       </body>
