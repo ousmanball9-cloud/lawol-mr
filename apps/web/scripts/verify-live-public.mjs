@@ -113,6 +113,11 @@ try {
 
   await send("Runtime.enable");
   await send("Page.enable");
+
+  // Mesure réelle de la disponibilité (jamais un « true » écrit en dur).
+  const reponseBase = await fetch(`${BASE}/offres`).catch(() => null);
+  const statutBase = reponseBase ? reponseBase.status : 0;
+
   await send("Page.navigate", { url: `${BASE}/offres` });
   await sleep(12000); // laisse le rendu client + les fetchs tardifs se terminer
 
@@ -142,7 +147,7 @@ try {
   const erreurs = messages.filter((m) => !/favicon|facebook|DevTools/i.test(m));
 
   const cas = [
-    [`base répond (${BASE})`, true, "200"],
+    [`base répond (${BASE})`, statutBase === 200, statutBase],
     ["12 cartes affichées", r.cartes === 12, r.cartes],
     ["0 carte emploi/stage/alternance (100 % bourses)", r.emploi_stage === 0, r.emploi_stage],
     ["12 aperçus rendus sur le payload allégé", r.apercus === 12, r.apercus],
