@@ -5,6 +5,7 @@ from uuid import UUID
 
 from apps.api.app.core.config import settings
 from apps.api.app.core.database import supabase
+from apps.api.app.modules.auth.garde import garde_profil, session_profil
 from apps.api.app.modules.dashboard.summary import (
     calculer_resume,
     calculer_score_profil,
@@ -30,7 +31,7 @@ from apps.api.app.modules.shared.models import (
     TypeOffre,
 )
 from apps.api.app.modules.whatsapp.webhook import router as whatsapp_router
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -216,8 +217,28 @@ async def trigger_deadlines():
 
 
 @app.get("/api/v1/matches")
-async def list_matches(profil_id: str | None = None, limit: int = 50):
-    """Liste les matches, enrichis avec titre d'offre + prénom de l'étudiant."""
+async def list_matches(
+    profil_id: str | None = None,
+    limit: int = 50,
+    session: str = Depends(session_profil),
+):
+    """Liste les matches DU PROFIL CONNECTÉ, enrichis (titre d'offre + identité).
+
+    Garde : le token Bearer porte le numéro de session ; la liste (qui contient
+    le prénom/nom/téléphone de l'étudiant) n'est plus exposée sans Bearer.
+    Un `profil_id` qui n'est pas celui de la session → 403 (paire identique à
+    `garde_profil`), sinon la liste est toujours restreinte à la session.
+    """
+    possesseur = (
+        supabase.table("profils").select("id").eq("telephone", session).execute()
+    )
+    if not possesseur.data:
+        raise HTTPException(404, "Profil non trouvé")
+    mon_id = possesseur.data[0]["id"]
+    if profil_id and profil_id != mon_id:
+        raise HTTPException(403, "Ces matches ne t'appartiennent pas")
+    profil_id = mon_id
+
     colonnes = (
         "id, score, notifie, postule, date_match, "
         "offre:offres(id, titre, entreprise, pays_etudes, ville, type_offre, description, "
@@ -225,17 +246,17 @@ async def list_matches(profil_id: str | None = None, limit: int = 50):
         "filieres_cibles), "
         "profil:profils(id, prenom, nom, telephone, filiere, niveau)"
     )
-    query = supabase.table("matches").select(colonnes)
-    if profil_id:
-        query = query.eq("profil_id", profil_id)
+    query = (
+        supabase.table("matches").select(colonnes).eq("profil_id", profil_id)
+    )
     try:
         res = query.order("date_match", desc=True).limit(limit).execute()
     except Exception:
         # Repli si la colonne 'postule' n'existe pas encore (migration en attente)
         colonnes = colonnes.replace("notifie, postule,", "notifie,")
-        query = supabase.table("matches").select(colonnes)
-        if profil_id:
-            query = query.eq("profil_id", profil_id)
+        query = (
+            supabase.table("matches").select(colonnes).eq("profil_id", profil_id)
+        )
         res = query.order("date_match", desc=True).limit(limit).execute()
     return res.data
 
@@ -270,8 +291,11 @@ async def marquer_postule(match_id: str):
 
 # ---------- P5 : dashboard client ----------
 @app.get("/api/v1/dashboard/{telephone}", response_model=DashboardResponse)
-async def dashboard_client(telephone: str):
-    """Résumé hebdo du client : profil + compteurs de la semaine + offres par poste."""
+async def dashboard_client(telephone: str, _session: str = Depends(garde_profil)):
+    """Résumé hebdo du client : profil + compteurs de la semaine + offres par poste.
+
+    Garde : le token Bearer doit porter {telephone} (identique aux routes profil).
+    """
     res = supabase.table("profils").select("*").eq("telephone", telephone).execute()
     if not res.data:
         raise HTTPException(404, "Profil non trouvé")

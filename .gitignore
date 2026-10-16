@@ -29,6 +29,8 @@ pip-audit-*
 .DS_Store
 Thumbs.db
 *.log
+# Artefacts runtime (pulse système)
+.opencode/memory/*.jsonl
 
 # Outils locaux (non commités)
 tools/

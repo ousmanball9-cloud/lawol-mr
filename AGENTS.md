@@ -8,15 +8,21 @@ Charte : « Nuit d'Indigo » (voir skill `design-system`) — zéro noir, tokens
 
 1. **Tout nouvel endpoint `/api/v1/*` backend exige sa route proxy Next locale**
    (`apps/web/app/api/v1/.../route.ts`) — `middleware.ts` ne fait qu'injecter le
-   `Bearer` sur `/api/v1/profils/*`, il **ne réécrit pas**. Sans proxy → 404 Next.
+   `Bearer` (familles `/api/v1/profils/*`, `/api/v1/matches*`, `/api/v1/dashboard/*`),
+   il **ne réécrit pas**. Sans proxy → 404 Next. **Un proxy de GET gardé doit
+   RELAYER `Authorization` vers l'API** (`request.headers.get("authorization")`),
+   sinon l'espace client reçoit 401.
    Pattern : lire le corps (`request.text()`/`request.formData()`), forwarder vers
    `NEXT_PUBLIC_API_URL`, relayer statut + `Authorization` (modèles :
    `profils/[telephone]/preferences/route.ts`, `documents/route.ts`).
 2. **Zéro migration SQL** : les colonnes additionnelles passent par
    `profils.metadata` (jsonb) — pattern `code_pin_hash` / `prefs_avancees` /
    `documents` / `notifications_lues` (lire dict → modifier → `.update()`).
-3. **Sécurité** : endpoints profil = garde `garde_profil` (401 sans Bearer,
-   403 si token ≠ {tel}). Bucket Storage = **privé**. Uploads : whitelist
+3. **Sécurité** : TOUS les endpoints du profil sont gardés — consultation
+   (`GET /api/v1/profils/{tel}`, `/{tel}/historique`) et mutations (`garde_profil` :
+   401 sans Bearer, 403 si token ≠ {tel}) ; `GET /api/v1/dashboard/{tel}` idem ;
+   `GET /api/v1/matches` = `session_profil` + 403 si `profil_id` ≠ profil possédé.
+   Bucket Storage = **privé**. Uploads : whitelist
    extension+MIME, taille lue par tronçons, chemin reconstruit côté serveur.
 4. **Pas de build** dans les tâches courantes ; vérifications = `py_compile`
    + `ruff check` (API) et `npx tsc --noEmit` + `npx eslint` (web).

@@ -4,6 +4,8 @@ Contrat (déjà consommé par le frontend) :
 - POST   /{tel}/documents        multipart champ « fichier » → 201 {documents:[...]}
 - GET    /{tel}/documents        → 200 {documents:[...]}
 - DELETE /{tel}/documents/{id}   → 200 {documents:[...]} (liste restante)
+- GET    /{tel}/documents/{id}/url → 200 {url, expire_dans} : URL SIGNÉE
+  temporaire (60 s) pour relire un document du bucket privé ;
 - quota dépassé / fichier trop gros → 413 ; type non listé → 415 ; profil
   absent → 404.
 
@@ -23,7 +25,12 @@ Sécurité :
 - quota 10 documents/profil → 413 ;
 - l'id est toujours cherché dans les métadonnées DU profil du token : un id
   appartenant à un autre profil → 404 (jamais de fuite inter-profils), et un
-  objet n'est retiré du Storage que s'il est sous le préfixe du profil.
+  objet n'est retiré du Storage que s'il est sous le préfixe du profil ;
+- le lien de consultation est une URL SIGNÉE courte (60 s) générée à la
+  demande : aucune URL publique permanente n'existe (``get_public_url``
+  interdit), la route ne renvoie jamais le chemin Storage interne, et
+  ``create_signed_url`` n'est appelé que sur un objet sous le préfixe DU
+  profil du token.
 
 Métadonnées : PAS de migration SQL — la liste vit dans
 ``profils.metadata['documents']`` (jsonb), même pattern que
@@ -51,6 +58,7 @@ QUOTA_DOCUMENTS = 10
 TAILLE_MAX_OCTETS = 5 * 1024 * 1024  # 5 Mo
 BLOC_LECTURE = 1024 * 1024  # lecture par tronçons → 413 dès le dépassement
 NOM_MAX = 60  # nom normalisé borné
+TTL_URL_SIGNEE = 60  # durée de vie du lien de consultation (secondes)
 
 # Whitelist stricte : extension acceptée → MIME(s) déclaré(s) accepté(s)
 EXTENSIONS: set[str] = {"pdf", "jpg", "jpeg", "png", "webp", "doc", "docx"}
@@ -198,6 +206,40 @@ def _supprimer_objet(chemin: str) -> None:
         print(f"⚠️ Suppression Storage ignorée ({chemin}) : {e}")
 
 
+def _lien_signe(chemin: str) -> str:
+    """URL signée temporaire d'un objet du bucket privé (60 s).
+
+    ``create_signed_url`` travaille à l'intérieur du bucket : on lui passe la
+    clé relative. L'URL vit ``TTL_URL_SIGNEE`` secondes et n'est jamais
+    publique/permanente. Toute panne Storage → 500 (jamais d'URL vide).
+    """
+    try:
+        reponse = supabase.storage.from_(BUCKET).create_signed_url(
+            _cle_bucket(chemin), TTL_URL_SIGNEE
+        )
+    except Exception as e:  # Storage indisponible
+        raise HTTPException(500, f"Impossible de préparer le lien : {e}") from e
+    url = reponse.get("signedURL") or reponse.get("signedUrl")
+    if not url:
+        raise HTTPException(500, "Impossible de préparer le lien de consultation")
+    return url
+
+
+def _cible_du_profil(documents: list[dict], document_id: str, telephone: str) -> dict | None:
+    """Document du profil ET sous son préfixe Storage, ou None (jamais de fuite).
+
+    Un id inconnu, appartenant à un AUTRE profil, ou dont le chemin ne commence
+    pas par ``documents/{tel du token}/`` est traité de façon identique : None.
+    """
+    cible = next((d for d in documents if d.get("id") == document_id), None)
+    if cible is None:
+        return None
+    chemin = cible.get("chemin")
+    if not isinstance(chemin, str) or not chemin.startswith(f"{BUCKET}/{telephone}/"):
+        return None
+    return cible
+
+
 # ---------- Upload ----------
 @router.post("/{telephone}/documents", status_code=201)
 async def deposer_document(
@@ -296,3 +338,28 @@ async def supprimer_document(
     restants = [d for d in documents if d.get("id") != document_id]
     _sauver(telephone, metadata, restants)
     return {"documents": _vue_publique(restants)}
+
+
+# ---------- Lien de consultation (URL signée courte) ----------
+@router.get("/{telephone}/documents/{document_id}/url")
+async def url_document(
+    telephone: str,
+    document_id: str,
+    _session: str = Depends(garde_profil),
+):
+    """URL signée (60 s) pour relire un document — bucket privé, jamais public.
+
+    Le document n'est servi que s'il appartient au profil du token : id
+    inconnu, id d'un autre profil ou chemin hors du préfixe du profil → 404
+    identique (zéro fuite). La réponse ne contient que ``{url, expire_dans}``
+    — jamais le chemin Storage interne.
+    """
+    profil = _profil(telephone)
+    if not profil:
+        raise HTTPException(404, "Profil non trouvé")
+
+    cible = _cible_du_profil(_liste_documents(_metadata(profil)), document_id, telephone)
+    if cible is None:
+        raise HTTPException(404, "Document introuvable")
+
+    return {"url": _lien_signe(cible["chemin"]), "expire_dans": TTL_URL_SIGNEE}

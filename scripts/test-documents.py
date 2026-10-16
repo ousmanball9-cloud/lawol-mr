@@ -18,7 +18,12 @@ Prouve :
    8. delete d'un id appartenant à un autre profil → 404 (zéro fuite) ;
    9. delete valide → 200 + objet retiré du Storage + liste restante ;
   10. profil absent → 404 (3 routes) ; code_pin_hash/prefs intacts après écriture ;
-  11. main.py enregistre bien le routeur documents.
+  11. main.py enregistre bien le routeur documents ;
+  12. lien de consultation : GET .../url → URL SIGNÉE du bucket privé (60 s),
+      clé signée sous le préfixe du profil, réponse = {url, expire_dans} sans
+      chemin Storage ; « masquer le token n'expose rien » (sans Bearer → 401,
+      autre téléphone → 403, id d'un autre profil → 404), aucune URL publique
+      permanente (get_public_url jamais appelé).
 
 Usage : python -X utf8 scripts/test-documents.py
 Sortie : checks OK/KO — code retour 0 si tout est vert.
@@ -60,13 +65,34 @@ class _FauxBucket:
         return {"message": "ok"}
 
     def get_public_url(self, chemin):
+        self._storage.public_urls.append(chemin)
         raise AssertionError("bucket documents : get_public_url interdit (bucket privé)")
+
+    def create_signed_url(self, chemin, expires_in, options=None):
+        """URL signée factice : même forme que storage3 (clé relative au bucket)."""
+        if self._nom != "documents":
+            raise AssertionError(f"bucket inattendu : {self._nom!r} (attendu 'documents')")
+        if chemin.startswith("documents/") or chemin.startswith("/"):
+            raise AssertionError(f"clé signée non relative au bucket : {chemin!r}")
+        if (self._nom, chemin) not in self._storage.objets:
+            raise AssertionError(f"signature d'un objet inexistant : {chemin!r}")
+        jeton = f"jeton-ephemere-{len(self._storage.signes) + 1}"
+        self._storage.signes.append(
+            {"bucket": self._nom, "chemin": chemin, "expire_in": expires_in, "jeton": jeton}
+        )
+        url = (
+            f"https://faux.supabase.co/storage/v1/object/sign/documents/{chemin}"
+            f"?token={jeton}&expiresIn={expires_in}"
+        )
+        return {"signedURL": url, "signedUrl": url}
 
 
 class _FauxStorage:
     def __init__(self):
         self.objets = {}  # (bucket, chemin) -> bytes
         self.options = {}  # (bucket, chemin) -> options d'upload
+        self.signes = []  # create_signed_url : {bucket, chemin, expire_in, jeton}
+        self.public_urls = []  # get_public_url : doit rester VIDE (bucket privé)
 
     def from_(self, nom):
         return _FauxBucket(self, nom)
@@ -397,6 +423,7 @@ try:
     for attendu in (
         "/api/v1/profils/{telephone}/documents",
         "/api/v1/profils/{telephone}/documents/{document_id}",
+        "/api/v1/profils/{telephone}/documents/{document_id}/url",
     ):
         check(f"main.py expose {attendu}", attendu in chemins, str(chemins)[:300])
 except Exception as e:  # noqa: BLE001 — toute erreur d'import doit devenir un KO lisible
@@ -412,6 +439,103 @@ check("échec de l'écriture metadata → 500 (jamais un 201 silencieux)", r.sta
 check("objet compensé : aucun orphelin dans le bucket", len(objets(TEL_B)) == avant, f"{avant} → {len(objets(TEL_B))}")
 r = deposer(TEL_B, b"", nom="vide.pdf")
 check("fichier vide : 201/415 propre, jamais de 500", r.status_code in (201, 415), f"{r.status_code} {corps(r)}")
+
+# ==================== 13. Lien de consultation (URL signée) ====================
+print("\n13. Lien signé 60 s : bucket privé, garde, zéro fuite")
+
+
+def lien_signe(tel_token, doc_id, tel_url=None, headers=None):
+    return client.get(
+        f"/api/v1/profils/{tel_url or tel_token}/documents/{doc_id}/url",
+        headers=entete(tel_token) if headers is None else headers,
+    )
+
+
+docs_a = corps(liste(TEL_A)).get("documents", [])
+docs_b = corps(liste(TEL_B)).get("documents", [])
+doc_a = docs_a[0] if docs_a else {}
+id_a = doc_a.get("id", "")
+id_b = docs_b[0]["id"] if docs_b else ""
+
+# a) cas nominal : URL signée du document du profil connecté
+avant_signes = len(FAUX.storage.signes)
+r = lien_signe(TEL_A, id_a)
+c = corps(r)
+check("GET .../url (document du profil) → 200", r.status_code == 200, f"{r.status_code} {c}")
+check("réponse = {url, expire_dans} exactement", set(c) == {"url", "expire_dans"}, str(sorted(c)))
+check(
+    "l'URL signée est bien une URL http(s)",
+    isinstance(c.get("url"), str) and c["url"].startswith("http"),
+    str(c.get("url"))[:150],
+)
+check("TTL annoncé = 60 s", c.get("expire_dans") == 60, str(c.get("expire_dans")))
+check(
+    "l'URL signée porte un jeton éphémère",
+    "token=" in str(c.get("url", "")),
+    str(c.get("url"))[:150],
+)
+check(
+    "le CHEMIN Storage interne n'est jamais renvoyé",
+    all(
+        not (isinstance(v, str) and v.startswith("documents/"))
+        for v in c.values()
+    )
+    and "chemin" not in c
+    and "path" not in c,
+    str(c)[:150],
+)
+
+# b) côté Storage : bon bucket, bonne clé (relative), bon TTL
+signe = FAUX.storage.signes[-1] if len(FAUX.storage.signes) > avant_signes else {}
+check(
+    "signature demandée sur le bucket PRIVÉ 'documents'",
+    signe.get("bucket") == "documents",
+    str(signe),
+)
+check(
+    "clé signée = chemin du profil, relative au bucket (sans préfixe 'documents/')",
+    str(signe.get("chemin", "")).startswith(f"{TEL_A}/{id_a}/")
+    and not str(signe.get("chemin", "")).startswith("documents/"),
+    str(signe.get("chemin")),
+)
+check("TTL demandé à Storage = 60 s", signe.get("expire_in") == 60, str(signe.get("expire_in")))
+
+# c) « masquer le token n'expose rien » : aucun jeton → aucune URL
+r = lien_signe(TEL_A, id_a, headers={})
+check("sans Bearer → 401", r.status_code == 401, str(r.status_code))
+check("…et AUCUNE url exposée (token masqué = rien)", "url" not in corps(r), str(corps(r))[:150])
+
+# d) cloisonnement : autre téléphone / autre profil / id inconnu / profil absent
+avant_signes = len(FAUX.storage.signes)
+r = lien_signe(TEL_A, id_a, headers=entete(TEL_B))
+check("Bearer d'un autre téléphone (URL de A) → 403", r.status_code == 403, str(r.status_code))
+r = lien_signe(TEL_A, id_b)
+check("document d'un AUTRE profil → 404 (zéro fuite)", r.status_code == 404, str(r.status_code))
+check("…et toujours aucune url dans le corps", "url" not in corps(r), str(corps(r))[:150])
+r = lien_signe(TEL_B, id_b, tel_url=TEL_B, headers=entete(TEL_B))
+check("le propriétaire obtient bien SON lien → 200", r.status_code == 200, str(r.status_code))
+r = lien_signe(TEL_A, "id-inconnu-0000")
+check("id inconnu → 404", r.status_code == 404, str(r.status_code))
+r = lien_signe(TEL_ABSENT, "quelconque")
+check("profil absent → 404", r.status_code == 404, str(r.status_code))
+check(
+    "aucune signature générée par les appels refusés (sauf le propriétaire légitime)",
+    len(FAUX.storage.signes) == avant_signes + 1,
+    f"{avant_signes} → {len(FAUX.storage.signes)}",
+)
+
+# e) après suppression, le lien disparaît (404) et l'objet Storage aussi
+r = supprimer(TEL_A, id_a)
+check("suppression du document → 200", r.status_code == 200, str(r.status_code))
+r = lien_signe(TEL_A, id_a)
+check("…puis GET .../url sur l'id supprimé → 404", r.status_code == 404, str(r.status_code))
+
+# f) aucune URL publique permanente n'existe (bucket privé)
+check(
+    "get_public_url JAMAIS appelé (aucune URL publique permanente)",
+    FAUX.storage.public_urls == [],
+    str(FAUX.storage.public_urls),
+)
 
 # --------------------------------- Bilan --------------------------------------
 print(f"\n{'=' * 60}")
