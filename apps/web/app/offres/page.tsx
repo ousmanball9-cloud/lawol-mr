@@ -164,9 +164,13 @@ function OffresContenu() {
         return false;
       if (paysFiltre !== "tous" && offre.pays_etudes !== paysFiltre) return false;
       if (financementFiltre !== "tous" && offre.type_financement !== financementFiltre) return false;
+      // q : le SERVEUR est l'autorité (il cherche dans titre, entreprise ET
+      // description intégrale). Le raffinement local ne regarde donc PAS la
+      // description : la liste ne porte qu'un aperçu (`description_apercu`),
+      // s'y fier exclurait à tort une offre dont le mot-clé tombe plus loin.
       if (
         q &&
-        !`${offre.titre} ${offre.entreprise} ${offre.description} ${offre.pays_etudes ?? ""}`
+        !`${offre.titre} ${offre.entreprise} ${offre.pays_etudes ?? ""}`
           .toLowerCase()
           .includes(q)
       )

@@ -109,6 +109,25 @@ def _motif_recherche(q: str) -> str | None:
     return nettoye or None
 
 
+# Longueur de l'aperçu servi par la LISTE. La carte du catalogue n'affiche que
+# deux lignes (clamp CSS) : envoyer la description entière coûtait 210 Ko sur
+# 322 Ko mesurés le 16/10/2026 (65 % du payload) pour du texte jamais lu.
+APERCU_DESCRIPTION_CAR = 240
+
+
+def _apercu_description(texte: str, taille: int = APERCU_DESCRIPTION_CAR) -> str:
+    """Aperçu de description pour la liste — jamais de mot tronqué.
+
+    Le texte intégral n'est servi que par le détail `/offres/{id}`.
+    """
+    propre = " ".join((texte or "").split())
+    if len(propre) <= taille:
+        return propre
+    coupe = propre[:taille]
+    fin = coupe.rfind(" ")
+    return (coupe[:fin] if fin > 0 else coupe).rstrip() + "…"
+
+
 # ---------- Offres ----------
 @app.get("/api/v1/offres", response_model=list[OffreStagePublic])
 async def list_offres(
@@ -157,7 +176,18 @@ async def list_offres(
         query = query.order("date_scrape", desc=True)
 
     res = query.range(offset, offset + limit - 1).execute()
-    return [OffreStagePublic.model_validate(o) for o in res.data]
+    # LISTE = payload léger : la description intégrale n'est pas envoyée (la carte
+    # n'en montre que 2 lignes) ; on sert `description_apercu` et `description`
+    # reste vide. Le texte entier reste disponible via `/offres/{id}`.
+    return [
+        OffreStagePublic.model_validate(o).model_copy(
+            update={
+                "description": "",
+                "description_apercu": _apercu_description(o.get("description") or ""),
+            }
+        )
+        for o in res.data
+    ]
 
 
 @app.get("/api/v1/offres/{offre_id}", response_model=OffreStagePublic)

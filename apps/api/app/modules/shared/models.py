@@ -183,6 +183,10 @@ class OffreStagePublic(BaseModel):
     type_offre: TypeOffreDb
     type_financement: TypeFinancement = TypeFinancement.INCONNU
     description: str
+    # Renseigné par la LISTE `/offres` uniquement : aperçu court de la description
+    # (la carte du catalogue n'affiche que deux lignes). Le détail `/offres/{id}`
+    # sert le texte intégral dans `description` et laisse ce champ vide.
+    description_apercu: Optional[str] = None
     date_limite: date
     contact_email: Optional[EmailStr] = None
     contact_whatsapp: Optional[str] = None

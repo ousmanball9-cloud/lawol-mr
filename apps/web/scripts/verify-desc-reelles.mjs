@@ -129,15 +129,26 @@ async function chargerFamilles() {
   const brut = await (await fetch(`${API}/api/v1/offres?limit=200`)).json();
   const liste = Array.isArray(brut) ? brut : brut.offres ?? brut.items ?? [];
   if (!liste.length) throw new Error(`API ${API} : aucune offre (uvicorn lancé ?).`);
+  // Contrat 16/10/2026 : la LISTE ne sert qu'un APERÇU de description. La
+  // sélection d'une famille se fait donc sur l'aperçu, puis le texte INTÉGRAL
+  // est lu par le DÉTAIL `/offres/{id}` — c'est lui que la modale doit rendre.
+  const apercuDe = (x) => x.description_apercu ?? x.description ?? "";
+  const detail = async (offre) => {
+    const r = await fetch(`${API}/api/v1/offres/${offre.id}`);
+    if (!r.ok) throw new Error(`détail indisponible (${r.status}) : ${offre.id}`);
+    return { ...offre, ...(await r.json()) };
+  };
   const familles = [];
   for (const src of SOURCES_BOURSE) {
-    const o = liste.find((x) => x.source_name === src && (x.description ?? "").length > 80);
-    if (o) familles.push({ nom: src, offre: o });
+    const o = liste.find((x) => x.source_name === src && apercuDe(x).length > 80);
+    if (o) familles.push({ nom: src, offre: await detail(o) });
   }
   const courte = liste.find(
-    (x) => ["snim", "linkedin"].includes(x.source_name) && (x.description ?? "").length < 150
+    (x) => ["snim", "linkedin"].includes(x.source_name) && apercuDe(x).length < 150
   );
-  if (courte) familles.push({ nom: `prose-courte/${courte.source_name}`, offre: courte });
+  if (courte) {
+    familles.push({ nom: `prose-courte/${courte.source_name}`, offre: await detail(courte) });
+  }
   // Couverture stricte : chaque source bourse doit être représentée — la
   // disparition d'une famille entière ne doit jamais passer en silence.
   const manquantes = SOURCES_BOURSE.filter((s) => !familles.some((f) => f.nom === s));

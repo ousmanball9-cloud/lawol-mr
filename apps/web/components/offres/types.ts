@@ -8,6 +8,11 @@ export type Offre = {
   type_offre: string;
   type_financement: string;
   description: string;
+  /** Aperçu court servi par la LISTE `/api/v1/offres` (la carte n'affiche que
+   *  deux lignes) : dans la liste, `description` est vide et seul cet aperçu
+   *  porte du texte. Le DÉTAIL `/api/v1/offres/{id}` remplit `description`
+   *  (texte intégral) et laisse l'aperçu vide. */
+  description_apercu?: string | null;
   date_limite: string;
   contact_email?: string | null;
   contact_whatsapp?: string | null;
