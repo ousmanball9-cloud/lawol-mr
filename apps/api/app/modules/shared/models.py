@@ -115,6 +115,13 @@ class TypeFinancement(str, Enum):
     INCONNU = "inconnu"                   # Non précisé dans l'annonce
 
 
+class TriOffres(str, Enum):
+    """Ordre de la liste publique (`GET /api/v1/offres?tri=`) — vocabulaire du front."""
+
+    URGENT = "urgent"  # date_limite croissante : les plus urgentes d'abord
+    RECENTES = "recentes"  # date_scrape décroissant : ordre historique (défaut)
+
+
 class SourceType(str, Enum):
     LINKEDIN = "linkedin"
     ENTREPRISE = "entreprise"

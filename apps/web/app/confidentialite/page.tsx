@@ -16,7 +16,7 @@ export default function ConfidentialitePage() {
 
         <h2 className="text-xl font-semibold mt-8 mb-3">2. Utilisation</h2>
         <p className="text-gray-600 mb-4">
-          Vos données sont utilisées uniquement pour vous envoyer les offres de stage/PFE
+          Vos données sont utilisées uniquement pour vous envoyer les bourses d&apos;études
           correspondant à votre profil, via WhatsApp.
         </p>
 

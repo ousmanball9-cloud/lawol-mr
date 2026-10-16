@@ -11,8 +11,7 @@ export default function ConditionsPage() {
         <h2 className="text-xl font-semibold mt-8 mb-3">1. Service</h2>
         <p className="text-gray-600 mb-4">
           LAWOL.mr est une plateforme de mise en relation qui présente aux étudiants mauritaniens
-          les bourses d&apos;études, stages/PFE, emplois juniors et alternances correspondant à
-          leur profil. Le service est gratuit.
+          les bourses d&apos;études correspondant à leur profil. Le service est gratuit.
         </p>
 
         <h2 className="text-xl font-semibold mt-8 mb-3">2. Inscription</h2>
@@ -30,8 +29,9 @@ export default function ConditionsPage() {
 
         <h2 className="text-xl font-semibold mt-8 mb-3">4. Responsabilité</h2>
         <p className="text-gray-600 mb-4">
-          LAWOL.mr ne garantit pas l&apos;exactitude des offres publiées. La candidature et la
-          sélection restent de la responsabilité de l&apos;étudiant et de l&apos;entreprise.
+          LAWOL.mr ne garantit pas l&apos;exactitude des bourses publiées. La candidature et la
+          sélection restent de la responsabilité de l&apos;étudiant et de l&apos;organisme qui
+          attribue la bourse.
         </p>
 
         <h2 className="text-xl font-semibold mt-8 mb-3">5. Contact</h2>

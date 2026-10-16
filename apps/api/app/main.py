@@ -1,3 +1,4 @@
+import re
 import sys
 from contextlib import asynccontextmanager
 from datetime import date
@@ -28,6 +29,7 @@ from apps.api.app.modules.shared.models import (
     ResumeHebdo,
     StatsResponse,
     StatutUpdate,
+    TriOffres,
     TypeOffre,
 )
 from apps.api.app.modules.whatsapp.webhook import router as whatsapp_router
@@ -94,15 +96,38 @@ async def health():
     }
 
 
+# PostgREST lit `,` `(` `)` `*` comme la syntaxe de son filtre `or` : un `q` brut
+# permettrait donc d'injecter une condition (`x,active.eq.false`). On ne garde que
+# les caractères réellement tapés par un étudiant (lettres, chiffres, espaces, -, ').
+_CARACTERES_RECHERCHE = re.compile(r"[^A-Za-z0-9_\s\-'\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff]")
+
+
+def _motif_recherche(q: str) -> str | None:
+    """Nettoie `q` pour un filtre PostgREST `ilike.*…*` — None si rien d'exploitable."""
+    nettoye = _CARACTERES_RECHERCHE.sub(" ", q).strip()
+    nettoye = re.sub(r"\s+", " ", nettoye)[:80]
+    return nettoye or None
+
+
 # ---------- Offres ----------
 @app.get("/api/v1/offres", response_model=list[OffreStagePublic])
 async def list_offres(
     filiere: Filiere | None = None,
     pays: PaysEtudes | None = None,
     type_offre: TypeOffre | None = None,
+    q: str | None = None,
+    tri: TriOffres = TriOffres.RECENTES,
     limit: int = 50,
     offset: int = 0,
 ):
+    """Liste publique des offres actives dont la date limite est future.
+
+    · `tri=urgent`   → `date_limite` CROISSANTE (les plus urgentes d'abord) ;
+    · `tri=recentes` → `date_scrape` décroissant (défaut historique) ;
+    · `q`            → recherche texte insensible à la casse dans titre,
+      entreprise et description (enum `pays_etudes` exclu : PostgREST ne sait
+      pas comparer une colonne enum avec `ilike`).
+    """
     query = (
         supabase.table("offres")
         .select("*")
@@ -116,7 +141,22 @@ async def list_offres(
     if type_offre:
         query = query.eq("type_offre", type_offre.value)
 
-    res = query.order("date_scrape", desc=True).range(offset, offset + limit - 1).execute()
+    motif = _motif_recherche(q) if q else None
+    if motif:
+        query = query.or_(
+            ",".join(
+                f"{colonne}.ilike.*{motif}*"
+                for colonne in ("titre", "entreprise", "description")
+            )
+        )
+
+    if tri == TriOffres.URGENT:
+        # Échéance proche d'abord ; à échéance égale, la plus fraîche scrapée.
+        query = query.order("date_limite", desc=False).order("date_scrape", desc=True)
+    else:
+        query = query.order("date_scrape", desc=True)
+
+    res = query.range(offset, offset + limit - 1).execute()
     return [OffreStagePublic.model_validate(o) for o in res.data]
 
 

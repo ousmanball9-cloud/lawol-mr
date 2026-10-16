@@ -56,7 +56,7 @@ export function Footer() {
           ))}
         </div>
         <div className="flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-8 text-center text-sm text-white/50 sm:flex-row sm:text-left">
-          <p>© 2024 LAWOL.mr — Tous droits réservés.</p>
+          <p>© {new Date().getFullYear()} LAWOL.mr — Tous droits réservés.</p>
           <p>Fait pour les étudiants mauritaniens.</p>
         </div>
       </div>

@@ -49,7 +49,7 @@ export default function InscriptionPage() {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
-  // Pré-remplissage depuis /inscription?tel=222XXXXXXXX (lien « Créer mon profil » de /connexion)
+  // Pré-remplissage depuis /inscription?tel=<numéro> (lien « Créer mon profil » de /connexion)
   useEffect(() => {
     const tel = new URLSearchParams(window.location.search).get("tel");
     if (tel) setForm((f) => (f.telephone ? f : { ...f, telephone: tel }));
@@ -238,7 +238,7 @@ export default function InscriptionPage() {
             </div>
             <h1 className="mb-2 font-display text-2xl font-bold tracking-[-0.02em] text-foreground">Inscription LAWOL.mr</h1>
             <p className="text-sm text-muted-foreground">
-              Reçois les offres de stage, PFE et emploi qui matchent ton profil sur WhatsApp
+              Reçois les bourses qui matchent ton profil sur WhatsApp
             </p>
           </div>
 
