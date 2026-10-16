@@ -29,6 +29,12 @@ Charte : « Nuit d'Indigo » (voir skill `design-system`) — zéro noir, tokens
 5. **Harnais de preuve** : rejouer `scripts/test-*.py` (mock Supabase, zéro
    réseau) avant chaque commit — les `data-probe` des pages sont comptés par
    `scripts/verify-*.mjs` : ne jamais les supprimer lors d'une refonte.
+   **Après un déploiement, la preuve est le comportement live** :
+   `node apps/web/scripts/verify-live-public.mjs https://lawol-mr.vercel.app`
+   (catalogue : 12 cartes, 0 emploi, 12 aperçus, 0 erreur console) + la fiche
+   (`verify-fiche-bourse.mjs <url>`). Un « READY » de dashboard ne prouve pas
+   qu'un élève voit la bonne page — et le harnais jetable doit devenir un
+   fichier du dépôt, sinon la preuve disparaît avec la session.
 6. **Enums** : réduire les valeurs à l'écriture ne réduit jamais les valeurs
    en base — le sérialiseur lecture accepte l'union SQL (enum `*Db`), seule
    l'écriture est bridée (une ligne legacy ne doit jamais faire 500 la liste).
