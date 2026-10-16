@@ -177,22 +177,22 @@ const PAGES = [
     route: "/",
     mock: false,
     dark: true,
-    // Contrôle desktop : largeur exploitée du hero + grilles multi-colonnes + partenaires visibles.
+    // Contrôle desktop : largeur exploitée du hero + grilles multi-colonnes + badges de confiance visibles.
     desktopProbes: ["heroLargeur", "etapesColonnes"],
-    expectDesktop: (r) => r.heroLargeur >= 0.7 && r.etapesColonnes >= 3 && r.partnersVisibles === true,
+    expectDesktop: (r) => r.heroLargeur >= 0.7 && r.etapesColonnes >= 3 && r.badgesVisibles === true,
     probe: `({
       h1: !!document.querySelector("h1"),
       gradient: !!document.querySelector("h1 span"),
       etapes: document.querySelectorAll("#comment-ca-marche .grid > div").length,
       avantages: document.body.textContent.includes("Pourquoi"),
-      types: document.body.textContent.includes("Stage PFE"),
+      types: document.body.textContent.includes("Bourse d'études"),
       footer: !!document.querySelector("footer"),
       liensFooter: document.querySelectorAll("footer a[href^='/']").length,
       heroLargeur: ${P_LARGEUR('[data-probe="hero-conteneur"]')},
       etapesColonnes: ${P_COLONNES("#comment-ca-marche .grid")},
-      partnersVisibles: ${P_VISIBLE('[data-probe="partenaires-logos"]')},
+      badgesVisibles: ${P_VISIBLE('[data-probe="trust-badges"]')},
     })`,
-    expect: (r) => r.h1 && r.gradient && r.etapes === 3 && r.avantages && r.types && r.footer && r.liensFooter >= 3 && r.partnersVisibles === true,
+    expect: (r) => r.h1 && r.gradient && r.etapes === 3 && r.avantages && r.types && r.footer && r.liensFooter >= 3 && r.badgesVisibles === true,
   },
   {
     id: "inscription",

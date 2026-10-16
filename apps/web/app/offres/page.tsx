@@ -18,6 +18,8 @@ const BATCH = 500;
 const MAX_OFFSET = 5000;
 /** Seuil du filtre « Clôture dans moins de 30 jours ». */
 const SEUIL_30_JOURS = 30;
+/** Laisse la frappe se poser avant d'interroger l'API (recherche côté serveur). */
+const DELAI_RECHERCHE_MS = 300;
 
 /** Offre enrichie de son échéance : jours restants (null = date illisible). */
 type Echeance = { offre: Offre; jours: number | null };
@@ -28,12 +30,33 @@ function rangEcheance(jours: number | null): number {
   return jours < 0 ? 1 : 0;
 }
 
-/** Charge toutes les offres actives (bassin complet, pagination 100 % côté client
- *  pour que la recherche mots-clés porte bien sur l'ensemble du catalogue). */
-async function chargerBassin(): Promise<Offre[]> {
+/**
+ * Même nettoyage que `_motif_recherche` côté API : les caractères retirés par le
+ * serveur (syntaxe du filtre PostgREST) ne doivent pas créer d'écart entre le
+ * sous-ensemble renvoyé par l'API et le filtre local qui le raffine.
+ */
+function normaliserRecherche(q: string): string {
+  return q
+    .replace(/[^A-Za-z0-9_\s\-'À-ÖØ-öø-ÿ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+}
+
+/** Charge les offres actives retenues par l'API : tri (`tri`) et recherche
+ *  texte (`q`) sont calculés CÔTÉ SERVEUR sur tout le catalogue, pas sur la
+ *  page affichée. Chargement par lots de 500 (plafond Supabase = 1 000 lignes).
+ *  `type_offre=bourse` : le catalogue public ne sert QUE des bourses — les
+ *  offres d'emploi/stage collectées restent en base (matching, admin) mais ne
+ *  sont jamais publiées ici (décision produit du 16/10). */
+async function chargerBassin(tri: TriOffres, q: string): Promise<Offre[]> {
   const toutes: Offre[] = [];
+  const parametres = new URLSearchParams({ tri, type_offre: "bourse" });
+  if (q) parametres.set("q", q);
   for (let offset = 0; offset < MAX_OFFSET; offset += BATCH) {
-    const res = await fetch(`/api/v1/offres?limit=${BATCH}&offset=${offset}`);
+    parametres.set("limit", String(BATCH));
+    parametres.set("offset", String(offset));
+    const res = await fetch(`/api/v1/offres?${parametres.toString()}`);
     if (!res.ok) throw new Error();
     const data: unknown = await res.json();
     if (!Array.isArray(data)) throw new Error();
@@ -58,8 +81,9 @@ function IndicateurChargement() {
 /**
  * Page publique /offres — recherche + filtres + grille paginée (12/page).
  * useSearchParams lit `?recherche=` poussé par le hero : la barre de filtres
- * est pré-remplie et le filtrage s'applique dès le chargement (Suspense
- * obligatoire autour d'un Client Component qui lit les searchParams).
+ * est pré-remplie et la recherche part vers l'API (paramètre `q`) dès le
+ * chargement (Suspense obligatoire autour d'un Client Component qui lit les
+ * searchParams).
  */
 export default function OffresPage() {
   return (
@@ -76,6 +100,9 @@ function OffresContenu() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [motsCles, setMotsCles] = useState(rechercheUrl);
+  // Miroir débouncé des mots-clés : c'est LUI qui part vers l'API (`q`), pendant
+  // que l'input reste instantané — la recherche est faite par le serveur.
+  const [rechercheApi, setRechercheApi] = useState(rechercheUrl);
   const [filiereFiltre, setFiliereFiltre] = useState("tous");
   const [paysFiltre, setPaysFiltre] = useState("tous");
   const [financementFiltre, setFinancementFiltre] = useState("tous");
@@ -91,11 +118,18 @@ function OffresContenu() {
     setMotsCles(rechercheUrl);
   }, [rechercheUrl]);
 
-  const charger = useCallback(async () => {
+  // Frappe en cours : on laisse le mot se poser avant d'interroger l'API.
+  useEffect(() => {
+    if (motsCles === rechercheApi) return;
+    const id = setTimeout(() => setRechercheApi(motsCles), DELAI_RECHERCHE_MS);
+    return () => clearTimeout(id);
+  }, [motsCles, rechercheApi]);
+
+  const charger = useCallback(async (triCourant: TriOffres, recherche: string) => {
     setLoading(true);
     setError("");
     try {
-      setBassin(await chargerBassin());
+      setBassin(await chargerBassin(triCourant, recherche.trim()));
     } catch {
       setError("Impossible de charger les offres. Réessaie dans un instant.");
     } finally {
@@ -103,9 +137,10 @@ function OffresContenu() {
     }
   }, []);
 
+  // Tri et recherche vivent dans l'API : tout changement rechargé depuis le serveur.
   useEffect(() => {
-    charger();
-  }, [charger]);
+    charger(tri, rechercheApi);
+  }, [charger, tri, rechercheApi]);
 
   // Tout changement de critère (dont tri et échéance) ramène à la première page
   useEffect(() => {
@@ -123,15 +158,19 @@ function OffresContenu() {
   );
 
   const { liste: filtrees, nbExpirees } = useMemo(() => {
-    const q = motsCles.trim().toLowerCase();
+    const q = normaliserRecherche(motsCles).toLowerCase();
     const correspond = (offre: Offre) => {
       if (filiereFiltre !== "tous" && !(offre.filieres_cibles ?? []).includes(filiereFiltre))
         return false;
       if (paysFiltre !== "tous" && offre.pays_etudes !== paysFiltre) return false;
       if (financementFiltre !== "tous" && offre.type_financement !== financementFiltre) return false;
+      // q : le SERVEUR est l'autorité (il cherche dans titre, entreprise ET
+      // description intégrale). Le raffinement local ne regarde donc PAS la
+      // description : la liste ne porte qu'un aperçu (`description_apercu`),
+      // s'y fier exclurait à tort une offre dont le mot-clé tombe plus loin.
       if (
         q &&
-        !`${offre.titre} ${offre.entreprise} ${offre.description} ${offre.pays_etudes ?? ""}`
+        !`${offre.titre} ${offre.entreprise} ${offre.pays_etudes ?? ""}`
           .toLowerCase()
           .includes(q)
       )
@@ -159,8 +198,10 @@ function OffresContenu() {
     }
 
     if (tri === "urgent") {
-      // Échéance proche d'abord ; sans date lisible au dernier rang ; expirées
-      // (si affichées) en toute fin, la plus récemment close en tête.
+      // L'API renvoie déjà `date_limite` croissante (`tri=urgent`) : ce tri local
+      // est un garde-fou (dates illisibles en dernier rang, expirées en fin de
+      // liste). Échéance proche d'abord ; sans date lisible au dernier rang ;
+      // expirées (si affichées) en toute fin, la plus récemment close en tête.
       // Sort stable : à rang égal, l'ordre du bassin (API) est conservé.
       retenues.sort((a, b) => {
         const rang = rangEcheance(a.jours) - rangEcheance(b.jours);
@@ -199,7 +240,9 @@ function OffresContenu() {
     setExpireesVisibles(false);
   }, []);
 
-  if (loading) {
+  // Le premier chargement occupe l'écran ; les rechargements (tri, recherche)
+  // gardent la liste en place — pas de clignotement pendant la frappe.
+  if (loading && bassin.length === 0) {
     return <IndicateurChargement />;
   }
 
@@ -209,7 +252,7 @@ function OffresContenu() {
         <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
           <p className="mb-4 font-medium text-destructive">{error}</p>
           <Button
-            onClick={charger}
+            onClick={() => charger(tri, rechercheApi)}
             className="h-11 rounded-lg bg-signature px-6 text-white hover:bg-signature-deep"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
@@ -281,7 +324,11 @@ function OffresContenu() {
           </div>
         ) : (
           <>
-            <div data-probe="offres-grille" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div
+              data-probe="offres-grille"
+              aria-busy={loading}
+              className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+            >
               {pageCourante.map((offre) => (
                 <CarteOffre key={offre.id} offre={offre} />
               ))}

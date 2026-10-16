@@ -2,8 +2,6 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { HeroSearch } from "@/components/landing/hero-search"
 import { Compteurs, Organisations } from "@/components/landing/compteurs"
-import PartnerLogos from "@/components/landing/partner-logos"
-import TestimonialCarousel from "@/components/landing/testimonial-carousel"
 import TrustBadges from "@/components/landing/trust-badges"
 import { Header } from "@/components/chrome/header"
 import { Footer } from "@/components/chrome/footer"
@@ -68,11 +66,11 @@ const AVANTAGES = [
 ]
 
 // Badges d'icônes monochromes : zéro rainbow, la couleur signature reste rare.
-// La « Bourse » en vedette en tête de liste.
-const TYPES_OFFRES = [
+// 100 % bourses : chaque entrée décrit un type de bourse financée.
+const TYPES_BOURSES = [
   { icon: Award, label: "Bourse d'études", desc: "Masters, PhD et séjours financés" },
-  { icon: GraduationCap, label: "Stage PFE", desc: "Fin d'études, 3-6 mois" },
-  { icon: Clock, label: "Stage Été", desc: "2-3 mois pendant les vacances" },
+  { icon: GraduationCap, label: "Bourse de master", desc: "Financement complet, 1 à 2 ans" },
+  { icon: Clock, label: "Bourse d'échange", desc: "Séjours courts, 2 à 12 semaines" },
 ]
 
 // Sources d'offres réellement observées dans GET /api/v1/offres (source_name) :
@@ -102,7 +100,7 @@ export default function HomePage() {
           <div data-probe="hero-conteneur" className="mx-auto max-w-3xl text-center lg:max-w-6xl">
             <div className="entree-douce mb-8 inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
               <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-surlignage" />
-              <span>Bourses et stages au même endroit</span>
+              <span>100 % bourses, au même endroit</span>
             </div>
 
             <h1 className="entree-douce mb-6 font-display text-[clamp(2.5rem,6vw,4rem)] font-bold leading-[1.06] tracking-[-0.03em] lg:text-[clamp(4rem,6vw,5.5rem)]">
@@ -113,7 +111,7 @@ export default function HomePage() {
             </h1>
 
             <p className="entree-douce mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-white/70 lg:max-w-3xl">
-              LAWOL.mr t&apos;envoie uniquement les bourses d&apos;études et offres de stage
+              LAWOL.mr t&apos;envoie uniquement les bourses d&apos;études
               qui correspondent à{" "}
               <strong className="font-semibold text-white">ton profil</strong> — sur une seule
               plateforme. Fini la veille quotidienne, les sites éparpillés et les opportunités
@@ -177,13 +175,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Partenaires & sources — logos identifiés (probe: partenaires-logos) */}
-      <section className="border-y border-border bg-background py-16">
-        <div className="container mx-auto px-4">
-          <PartnerLogos />
-        </div>
-      </section>
-
       {/* Comment ça marche */}
       <section id="comment-ca-marche" className="bg-background py-24 lg:py-32">
         <div className="container mx-auto px-4">
@@ -230,7 +221,7 @@ export default function HomePage() {
               Pourquoi <span className="text-signature">LAWOL.mr</span> ?
             </h2>
             <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-              Une veille de bourses et d&apos;offres qui travaille à ta place.
+              Une veille de bourses qui travaille à ta place.
             </p>
           </div>
 
@@ -251,12 +242,12 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Types d'offres */}
+      {/* Types de bourses */}
       <section className="bg-background py-24 lg:py-32">
         <div className="container mx-auto px-4">
           <div className="mb-16 text-center">
             <p className="eyebrow mb-4 text-signature">
-              Bourses en tête, 100 % bourses
+              100 % bourses
             </p>
             <h2 className="mb-4 font-display text-3xl font-bold tracking-[-0.02em] text-ink lg:text-4xl">
               Que des bourses, pour <span className="text-signature">ton profil</span>
@@ -264,7 +255,7 @@ export default function HomePage() {
           </div>
 
           <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 md:grid-cols-3 lg:max-w-6xl lg:grid-cols-3">
-            {TYPES_OFFRES.map((item) => (
+            {TYPES_BOURSES.map((item) => (
               <div
                 key={item.label}
                 className="rounded-lg border border-border bg-card p-6 transition-colors duration-200 hover:border-signature"
@@ -281,7 +272,7 @@ export default function HomePage() {
       </section>
 
       {/* Sources */}
-      <section className="border-y border-border bg-card py-24 lg:py-32">
+      <section id="sources" className="border-y border-border bg-card py-24 lg:py-32">
         <div className="container mx-auto px-4">
           <div className="mb-12 text-center">
             <p className="eyebrow mb-4 text-signature">
@@ -309,13 +300,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Témoignages d'étudiants (probe: temoignages) */}
-      <section className="bg-background py-24 lg:py-32">
-        <div className="container mx-auto px-4">
-          <TestimonialCarousel />
-        </div>
-      </section>
-
       {/* Badges de confiance (probe: trust-badges) */}
       <section className="border-y border-border bg-card py-16">
         <div className="container mx-auto px-4">
@@ -336,7 +320,7 @@ export default function HomePage() {
                 Votre université ?
               </h3>
               <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
-                Offrez à vos étudiants un accès privilégié aux bourses et offres qui correspondent
+                Offrez à vos étudiants un accès privilégié aux bourses qui correspondent
                 à leur filière, directement depuis leur profil LAWOL.mr.
               </p>
               <Link href="/contact">

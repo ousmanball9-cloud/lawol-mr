@@ -11,7 +11,7 @@ import { ecrireSession, sessionValidePour } from "@/lib/session";
 const inputClass =
   "w-full rounded-lg border border-input bg-white px-4 py-2.5 text-sm text-foreground transition-colors duration-150 placeholder:text-muted-foreground focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30";
 
-/** Numéro saisi (8 chiffres ou 222XXXXXXXX) → 222XXXXXXXX normalisé. */
+/** Numéro saisi (8 chiffres, ou indicatif + 8 chiffres) → préfixe 222 normalisé. */
 function normaliserTel(brut: string): string {
   const chiffres = brut.replace(/\D/g, "");
   return chiffres.length === 8 ? `222${chiffres}` : chiffres;
@@ -23,10 +23,10 @@ export default function ConnexionPage() {
   const [codePin, setCodePin] = useState("");
   const [loading, setLoading] = useState(false);
   const [erreur, setErreur] = useState("");
-  // Numéro complet (222XXXXXXXX) quand le profil est introuvable → lien de création
+  // Numéro complet (indicatif 222 + 8 chiffres) quand le profil est introuvable → lien de création
   const [introuvable, setIntrouvable] = useState("");
 
-  // Pré-remplissage depuis /connexion?tel=222XXXXXXXX (repli après inscription)
+  // Pré-remplissage depuis /connexion?tel=<numéro> (repli après inscription)
   useEffect(() => {
     const tel = new URLSearchParams(window.location.search).get("tel");
     if (tel && /^222\d{8}$/.test(tel)) setDigits(tel.slice(3));
@@ -97,7 +97,7 @@ export default function ConnexionPage() {
           >
             <span className="mb-6 text-lg font-bold tracking-[-0.02em]">LAWOL.mr</span>
             <p className="mb-4 font-display text-3xl font-bold leading-[1.1] tracking-[-0.02em]">
-              Ton prochain stage t&apos;attend déjà sur WhatsApp.
+              Ta prochaine bourse t&apos;attend déjà sur WhatsApp.
             </p>
             <p className="mb-8 text-sm leading-relaxed text-white/70">
               Retrouve ton espace en 10 secondes : pas d&apos;application à installer —
@@ -105,7 +105,7 @@ export default function ConnexionPage() {
             </p>
             <ul className="space-y-3 text-sm text-white/80">
               {[
-                "Les offres qui matchent ton profil, en direct",
+                "Les bourses qui matchent ton profil, en direct",
                 "Ton score de profil et tes candidatures au même endroit",
                 "Opt-out en un clic, ton numéro reste privé",
               ].map((point) => (

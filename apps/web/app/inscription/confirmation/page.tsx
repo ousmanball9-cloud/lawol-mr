@@ -15,7 +15,7 @@ export default function ConfirmationPage() {
   };
 
   const lienParrainage = "https://wa.me/?text=" + encodeURIComponent(
-    "Rejoins-moi sur LAWOL.mr ! Je reçois les bourses et stages qui matchent mon profil direct sur WhatsApp. Gratuit, sans stress. 🎓"
+    "Rejoins-moi sur LAWOL.mr ! Je reçois les bourses qui matchent mon profil direct sur WhatsApp. Gratuit, sans stress. 🎓"
   );
 
   return (
@@ -35,8 +35,8 @@ export default function ConfirmationPage() {
             </p>
             <ol className="space-y-4 text-sm text-white/80">
               {[
-                "Nos robots lancent le matching sur les nouvelles offres.",
-                "Tu reçois uniquement les offres qui collent à ton profil.",
+                "Nos robots lancent le matching sur les nouvelles bourses.",
+                "Tu reçois uniquement les bourses qui collent à ton profil.",
                 "Tu postules en un clic, directement sur WhatsApp.",
               ].map((etape, i) => (
                 <li key={etape} className="flex items-start gap-3">
@@ -47,11 +47,11 @@ export default function ConfirmationPage() {
             </ol>
             <div className="mt-8 space-y-3">
               <Link
-                href="/profil/2221234567/parametres"
+                href="/connexion"
                 className="flex items-center gap-3 rounded-lg p-3 bg-white/10 hover:bg-white/20 transition-colors"
               >
                 <Settings className="h-5 w-5" />
-                <span className="text-sm font-medium">Paramètres & préférences</span>
+                <span className="text-sm font-medium">Accéder à mes paramètres</span>
               </Link>
               <button
                 onClick={handleAlerteTest}
@@ -85,7 +85,7 @@ export default function ConfirmationPage() {
 
         <h1 className="mb-3 font-display text-2xl font-bold tracking-[-0.02em] text-foreground">Inscription réussie !</h1>
         <p className="mb-8 leading-relaxed text-muted-foreground">
-          Tu recevras bientôt les offres correspondant à ton profil sur WhatsApp.
+          Tu recevras bientôt les bourses correspondant à ton profil sur WhatsApp.
         </p>
 
         <Link href="/">
@@ -101,7 +101,7 @@ export default function ConfirmationPage() {
         </Link>
 
         <p className="mt-5 text-xs text-muted-foreground">
-          Un message de confirmation t&apos;attend sur ton numéro enregistré.
+          Ton profil est actif — aucune action supplémentaire n&apos;est requise.
         </p>
           </div>
         </div>

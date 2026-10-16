@@ -1,3 +1,4 @@
+import re
 import sys
 from contextlib import asynccontextmanager
 from datetime import date
@@ -5,6 +6,7 @@ from uuid import UUID
 
 from apps.api.app.core.config import settings
 from apps.api.app.core.database import supabase
+from apps.api.app.modules.auth.garde import garde_profil, session_profil
 from apps.api.app.modules.dashboard.summary import (
     calculer_resume,
     calculer_score_profil,
@@ -27,10 +29,11 @@ from apps.api.app.modules.shared.models import (
     ResumeHebdo,
     StatsResponse,
     StatutUpdate,
+    TriOffres,
     TypeOffre,
 )
 from apps.api.app.modules.whatsapp.webhook import router as whatsapp_router
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -93,15 +96,57 @@ async def health():
     }
 
 
+# PostgREST lit `,` `(` `)` `*` comme la syntaxe de son filtre `or` : un `q` brut
+# permettrait donc d'injecter une condition (`x,active.eq.false`). On ne garde que
+# les caractères réellement tapés par un étudiant (lettres, chiffres, espaces, -, ').
+_CARACTERES_RECHERCHE = re.compile(r"[^A-Za-z0-9_\s\-'\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff]")
+
+
+def _motif_recherche(q: str) -> str | None:
+    """Nettoie `q` pour un filtre PostgREST `ilike.*…*` — None si rien d'exploitable."""
+    nettoye = _CARACTERES_RECHERCHE.sub(" ", q).strip()
+    nettoye = re.sub(r"\s+", " ", nettoye)[:80]
+    return nettoye or None
+
+
+# Longueur de l'aperçu servi par la LISTE. La carte du catalogue n'affiche que
+# deux lignes (clamp CSS) : envoyer la description entière coûtait 210 Ko sur
+# 322 Ko mesurés le 16/10/2026 (65 % du payload) pour du texte jamais lu.
+APERCU_DESCRIPTION_CAR = 240
+
+
+def _apercu_description(texte: str, taille: int = APERCU_DESCRIPTION_CAR) -> str:
+    """Aperçu de description pour la liste — jamais de mot tronqué.
+
+    Le texte intégral n'est servi que par le détail `/offres/{id}`.
+    """
+    propre = " ".join((texte or "").split())
+    if len(propre) <= taille:
+        return propre
+    coupe = propre[:taille]
+    fin = coupe.rfind(" ")
+    return (coupe[:fin] if fin > 0 else coupe).rstrip() + "…"
+
+
 # ---------- Offres ----------
 @app.get("/api/v1/offres", response_model=list[OffreStagePublic])
 async def list_offres(
     filiere: Filiere | None = None,
     pays: PaysEtudes | None = None,
     type_offre: TypeOffre | None = None,
+    q: str | None = None,
+    tri: TriOffres = TriOffres.RECENTES,
     limit: int = 50,
     offset: int = 0,
 ):
+    """Liste publique des offres actives dont la date limite est future.
+
+    · `tri=urgent`   → `date_limite` CROISSANTE (les plus urgentes d'abord) ;
+    · `tri=recentes` → `date_scrape` décroissant (défaut historique) ;
+    · `q`            → recherche texte insensible à la casse dans titre,
+      entreprise et description (enum `pays_etudes` exclu : PostgREST ne sait
+      pas comparer une colonne enum avec `ilike`).
+    """
     query = (
         supabase.table("offres")
         .select("*")
@@ -115,8 +160,34 @@ async def list_offres(
     if type_offre:
         query = query.eq("type_offre", type_offre.value)
 
-    res = query.order("date_scrape", desc=True).range(offset, offset + limit - 1).execute()
-    return [OffreStagePublic.model_validate(o) for o in res.data]
+    motif = _motif_recherche(q) if q else None
+    if motif:
+        query = query.or_(
+            ",".join(
+                f"{colonne}.ilike.*{motif}*"
+                for colonne in ("titre", "entreprise", "description")
+            )
+        )
+
+    if tri == TriOffres.URGENT:
+        # Échéance proche d'abord ; à échéance égale, la plus fraîche scrapée.
+        query = query.order("date_limite", desc=False).order("date_scrape", desc=True)
+    else:
+        query = query.order("date_scrape", desc=True)
+
+    res = query.range(offset, offset + limit - 1).execute()
+    # LISTE = payload léger : la description intégrale n'est pas envoyée (la carte
+    # n'en montre que 2 lignes) ; on sert `description_apercu` et `description`
+    # reste vide. Le texte entier reste disponible via `/offres/{id}`.
+    return [
+        OffreStagePublic.model_validate(o).model_copy(
+            update={
+                "description": "",
+                "description_apercu": _apercu_description(o.get("description") or ""),
+            }
+        )
+        for o in res.data
+    ]
 
 
 @app.get("/api/v1/offres/{offre_id}", response_model=OffreStagePublic)
@@ -216,8 +287,28 @@ async def trigger_deadlines():
 
 
 @app.get("/api/v1/matches")
-async def list_matches(profil_id: str | None = None, limit: int = 50):
-    """Liste les matches, enrichis avec titre d'offre + prénom de l'étudiant."""
+async def list_matches(
+    profil_id: str | None = None,
+    limit: int = 50,
+    session: str = Depends(session_profil),
+):
+    """Liste les matches DU PROFIL CONNECTÉ, enrichis (titre d'offre + identité).
+
+    Garde : le token Bearer porte le numéro de session ; la liste (qui contient
+    le prénom/nom/téléphone de l'étudiant) n'est plus exposée sans Bearer.
+    Un `profil_id` qui n'est pas celui de la session → 403 (paire identique à
+    `garde_profil`), sinon la liste est toujours restreinte à la session.
+    """
+    possesseur = (
+        supabase.table("profils").select("id").eq("telephone", session).execute()
+    )
+    if not possesseur.data:
+        raise HTTPException(404, "Profil non trouvé")
+    mon_id = possesseur.data[0]["id"]
+    if profil_id and profil_id != mon_id:
+        raise HTTPException(403, "Ces matches ne t'appartiennent pas")
+    profil_id = mon_id
+
     colonnes = (
         "id, score, notifie, postule, date_match, "
         "offre:offres(id, titre, entreprise, pays_etudes, ville, type_offre, description, "
@@ -225,17 +316,17 @@ async def list_matches(profil_id: str | None = None, limit: int = 50):
         "filieres_cibles), "
         "profil:profils(id, prenom, nom, telephone, filiere, niveau)"
     )
-    query = supabase.table("matches").select(colonnes)
-    if profil_id:
-        query = query.eq("profil_id", profil_id)
+    query = (
+        supabase.table("matches").select(colonnes).eq("profil_id", profil_id)
+    )
     try:
         res = query.order("date_match", desc=True).limit(limit).execute()
     except Exception:
         # Repli si la colonne 'postule' n'existe pas encore (migration en attente)
         colonnes = colonnes.replace("notifie, postule,", "notifie,")
-        query = supabase.table("matches").select(colonnes)
-        if profil_id:
-            query = query.eq("profil_id", profil_id)
+        query = (
+            supabase.table("matches").select(colonnes).eq("profil_id", profil_id)
+        )
         res = query.order("date_match", desc=True).limit(limit).execute()
     return res.data
 
@@ -270,8 +361,11 @@ async def marquer_postule(match_id: str):
 
 # ---------- P5 : dashboard client ----------
 @app.get("/api/v1/dashboard/{telephone}", response_model=DashboardResponse)
-async def dashboard_client(telephone: str):
-    """Résumé hebdo du client : profil + compteurs de la semaine + offres par poste."""
+async def dashboard_client(telephone: str, _session: str = Depends(garde_profil)):
+    """Résumé hebdo du client : profil + compteurs de la semaine + offres par poste.
+
+    Garde : le token Bearer doit porter {telephone} (identique aux routes profil).
+    """
     res = supabase.table("profils").select("*").eq("telephone", telephone).execute()
     if not res.data:
         raise HTTPException(404, "Profil non trouvé")

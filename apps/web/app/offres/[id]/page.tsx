@@ -17,6 +17,9 @@ import { Chrome } from "@/components/chrome/chrome";
 import { BlocDescription } from "@/components/offres/bloc-description";
 import { BadgeEcheance } from "@/components/offres/badge-echeance";
 import { CtaCandidater } from "@/components/offres/cta-candidater";
+import { BlocFinancement } from "@/components/offres/financement";
+import { DossierPieces } from "@/components/offres/dossier-pieces";
+import { SuiviCandidature } from "@/components/offres/suivi-candidature";
 import { CarteOffre } from "@/components/offres/carte-offre";
 import { labelPays } from "@/components/offres/types";
 import {
@@ -223,7 +226,10 @@ export default function OffreDetailPage() {
             </div>
           </section>
 
-          {/* 3 · ÉCHÉANCE — date_limite + jours restants, au-dessus de la description */}
+          {/* 3 · FINANCEMENT — label honnête, jamais de montant ni de taux inventé */}
+          <BlocFinancement typeFinancement={offre.type_financement} />
+
+          {/* 4 · ÉCHÉANCE — date_limite + jours restants, au-dessus de la description */}
           <section
             data-probe="detail-echeance"
             className="mt-4 rounded-lg border border-border bg-muted/40 px-4 py-3"
@@ -240,7 +246,7 @@ export default function OffreDetailPage() {
             )}
           </section>
 
-          {/* 4 · DESCRIPTION — texte brut découpé en blocs lisibles */}
+          {/* 5 · DESCRIPTION — texte brut découpé en blocs lisibles */}
           <section className="mt-6">
             <h2 className="eyebrow mb-3 text-muted-foreground">Description</h2>
             <div data-probe="detail-description">
@@ -254,7 +260,12 @@ export default function OffreDetailPage() {
             </div>
           </section>
 
-          {/* 5 · SOURCE & POSTULER — source_name + CTA « Voir l'offre originale » */}
+          {/* 6 · DOSSIER — pièces usuelles génériques + coffre-fort, puis suivi
+              de candidature (statut / « J'ai postulé ») si un match existe */}
+          <DossierPieces />
+          <SuiviCandidature offreId={offre.id} />
+
+          {/* 7 · SOURCE & POSTULER — source_name + CTA « Voir l'offre originale » */}
           <section data-probe="detail-source" className="mt-6">
             <h2 className="eyebrow mb-3 text-muted-foreground">Source &amp; postuler</h2>
             {offre.source_name && (

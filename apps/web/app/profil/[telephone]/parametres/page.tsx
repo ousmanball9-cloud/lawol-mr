@@ -110,7 +110,7 @@ export default function ParametresPage() {
 
   async function handleDesinscrire() {
     const confirme = window.confirm(
-      "Vraiment te désinscrire ? Tu ne recevras plus aucune alerte d'offre ni de bourse."
+      "Vraiment te désinscrire ? Tu ne recevras plus aucune alerte de bourse."
     );
     if (!confirme) return;
     setDesinscriptionEnCours(true);
@@ -196,7 +196,7 @@ export default function ParametresPage() {
             Préférences avancées
           </h2>
           <p className="mb-4 text-sm text-muted-foreground">
-            Affine le matching : moins de bruit, que des offres qui te concernent.
+            Affine le matching : moins de bruit, que des bourses qui te concernent.
           </p>
 
           <form onSubmit={handleSauver} data-probe="prefs-form" className="space-y-5">
@@ -271,7 +271,7 @@ export default function ParametresPage() {
                 className="h-2 w-full cursor-pointer accent-signature"
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                N&apos;enverra que les offres à partir de ce score de matching.
+                N&apos;enverra que les bourses à partir de ce score de matching.
               </p>
             </div>
 
@@ -305,7 +305,7 @@ export default function ParametresPage() {
             Parrainage
           </h2>
           <p className="mb-4 text-sm text-muted-foreground">
-            Tu connais un camarade qui cherche une bourse, un stage, une alternance ou un emploi ?
+            Tu connais un camarade qui cherche une bourse d&apos;études ?
             Partage-lui ton lien de profil et les opportunités du moment.
           </p>
           <div className="flex flex-wrap gap-2">
@@ -313,7 +313,7 @@ export default function ParametresPage() {
               href="/offres"
               className="inline-flex h-9 items-center gap-2 rounded-lg bg-signature px-4 text-sm font-medium text-white transition-colors duration-150 hover:bg-signature-deep"
             >
-              Voir les bourses et offres
+              Voir les bourses
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Button
@@ -373,7 +373,7 @@ export default function ParametresPage() {
             Désinscription
           </h2>
           <p className="mb-4 text-sm text-muted-foreground">
-            Désactive ton profil : tu ne recevras plus aucune alerte d&apos;offre ni de bourse.
+            Désactive ton profil : tu ne recevras plus aucune alerte de bourse.
           </p>
           <Button
             variant="outline"

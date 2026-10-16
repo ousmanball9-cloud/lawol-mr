@@ -3,10 +3,11 @@
 Sécurité (fermeture du trou « connaître un numéro = accès total ») :
 - POST /{tel}/connexion vérifie le code PIN (hash PBKDF2 dans metadata) et
   délivre un token signé HMAC (SESSION_SECRET) avec expiration ;
-- les MUTANTS (PUT /{tel}, PATCH /{tel}/preferences, POST /{tel}/desinscription)
-  exigent ce token en Bearer et qu'il corresponde au téléphone de la ressource ;
-- les GET restent ouverts (consultation), le hash du PIN n'est jamais exposé
-  (ProfilEtudiant n'a pas de champ metadata).
+- TOUTES les routes du profil exigent ce token en Bearer et qu'il corresponde
+  au téléphone de la ressource (401 sans Bearer, 403 si token ≠ {tel}) : les
+  MUTANTS (PUT /{tel}, PATCH /{tel}/preferences, POST /{tel}/desinscription)
+  comme la CONSULTATION (GET /{tel}, GET /{tel}/historique) ;
+- le hash du PIN n'est jamais exposé (ProfilEtudiant n'a pas de champ metadata).
 
 Migration douce : un profil créé avant le PIN (metadata sans code_pin_hash)
 fixe son code PIN dès la première connexion — zéro migration SQL.
@@ -114,9 +115,10 @@ async def connexion_profil(telephone: str, corps: ConnexionProfilRequete):
     )
 
 
-# ---------- Consultation (GET ouverts) ----------
+# ---------- Consultation (GET gardés : réservés au propriétaire) ----------
 @router.get("/{telephone}", response_model=ProfilEtudiant)
-async def get_profil(telephone: str):
+async def get_profil(telephone: str, _session: str = Depends(garde_profil)):
+    """Fiche du profil — le token Bearer doit porter le téléphone demandé."""
     res = supabase.table("profils").select("*").eq("telephone", telephone).execute()
     if not res.data:
         raise HTTPException(404, "Profil non trouvé")
@@ -212,7 +214,7 @@ async def maj_preferences_avancees(
     return {"telephone": telephone, "prefs_avancees": fusion}
 
 
-# ---------- Historique (GET ouvert) ----------
+# ---------- Historique (GET gardé : réservé au propriétaire) ----------
 # Variantes du plus complet au plus sobre (repli D8 si une colonne manque)
 _MATCHES_OFFRE_ETENDUE = (
     "id, titre, entreprise, ville, type_offre, description, date_limite, "
@@ -270,9 +272,13 @@ def lire_matches_profil(profil_id: str, limit: int | None = None) -> list[dict]:
 
 
 @router.get("/{telephone}/historique")
-async def historique_candidatures(telephone: str):
+async def historique_candidatures(
+    telephone: str, _session: str = Depends(garde_profil)
+):
     """Matches du profil (date_match desc) avec offre étendue + favori +
-    statut_candidature + postule (repli D8 si colonnes absentes)."""
+    statut_candidature + postule (repli D8 si colonnes absentes).
+
+    Réservé au propriétaire : le token Bearer doit porter {telephone}."""
     res = supabase.table("profils").select("id").eq("telephone", telephone).execute()
     if not res.data:
         raise HTTPException(404, "Profil non trouvé")

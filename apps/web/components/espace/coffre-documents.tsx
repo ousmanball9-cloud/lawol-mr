@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, RefreshCw, Trash2, Upload } from "lucide-react";
+import { ExternalLink, FileText, RefreshCw, Trash2, Upload } from "lucide-react";
 
 /** Limite imposée côté client : 5 Mo (le serveur confirme par 413 au-delà). */
 const TAILLE_MAX_OCTETS = 5 * 1024 * 1024;
@@ -47,6 +47,13 @@ function lireListe(brut: unknown): Piece[] | null {
   return liste;
 }
 
+/** URL signée d'une réponse `{url}`. Shape inattendu → null (jamais de crash). */
+function lireUrl(brut: unknown): string | null {
+  if (typeof brut !== "object" || brut === null) return null;
+  const url = (brut as { url?: unknown }).url;
+  return typeof url === "string" && url.trim() ? url.trim() : null;
+}
+
 /** Poids lisible en français (o / Ko / Mo), virgule décimale. */
 function lirePoids(octets: number | null): string {
   if (octets === null || !Number.isFinite(octets) || octets < 0) return "Poids inconnu";
@@ -88,10 +95,11 @@ function messageServeur(status: number): string | null {
 /**
  * Coffre-fort de documents de l'espace étudiant.
  *
- * Contrat : GET/POST `/api/v1/profils/{tel}/documents` (FormData `fichier`) et
- * DELETE `.../{id}` — le middleware Next injecte déjà le Bearer (cookie de
- * session), on n'attache rien nous-mêmes. Après chaque mutation, la liste est
- * reprise dans la réponse `{documents}` (repli : re-GET si shape inattendue).
+ * Contrat : GET/POST `/api/v1/profils/{tel}/documents` (FormData `fichier`),
+ * DELETE `.../{id}` et GET `.../{id}/url` (URL signée 60 s) — le middleware Next
+ * injecte déjà le Bearer (cookie de session), on n'attache rien nous-mêmes.
+ * Après chaque mutation, la liste est reprise dans la réponse `{documents}`
+ * (repli : re-GET si shape inattendue).
  */
 export function CoffreDocuments({ telephone }: { telephone: string }) {
   const [documents, setDocuments] = useState<Piece[]>([]);
@@ -102,6 +110,7 @@ export function CoffreDocuments({ telephone }: { telephone: string }) {
   const [envoi, setEnvoi] = useState(false);
   const [aSupprimer, setASupprimer] = useState<string | null>(null);
   const [suppression, setSuppression] = useState<string | null>(null);
+  const [ouverture, setOuverture] = useState<string | null>(null);
   const ignore = useRef(false);
 
   // Drapeau anti-appel en retard après navigation (réinitialisé à chaque montée :
@@ -244,6 +253,51 @@ export function CoffreDocuments({ telephone }: { telephone: string }) {
       setMessage({ ok: false, texte: "Suppression impossible — vérifie ta connexion." });
     } finally {
       setSuppression(null);
+    }
+  }
+
+  /**
+   * Demande une URL SIGNÉE (60 s) au serveur, puis l'ouvre dans un nouvel onglet.
+   * La fenêtre est créée DANS le geste utilisateur (sinon le bloqueur de pop-up
+   * l'empêche) ; elle est refermée si le serveur refuse. Le chemin Storage
+   * n'est jamais exposé : on ne manipule que l'URL signée renvoyée.
+   */
+  async function handleOuvrir(piece: Piece) {
+    if (ouverture) return;
+    setOuverture(piece.id);
+    setMessage(null);
+    const fenetre = typeof window !== "undefined" ? window.open("", "_blank") : null;
+    try {
+      const res = await fetch(
+        `/api/v1/profils/${telephone}/documents/${encodeURIComponent(piece.id)}/url`
+      );
+      const url = res.ok ? lireUrl(await res.json()) : null;
+      if (!url) {
+        fenetre?.close();
+        setMessage({
+          ok: false,
+          texte:
+            messageServeur(res.status) ??
+            "Impossible d'ouvrir ce document — réessaie dans un instant.",
+        });
+        return;
+      }
+      if (fenetre) {
+        fenetre.opener = null; // pas de lien retour vers l'app
+        fenetre.location.href = url;
+      } else {
+        // Pop-up refusée : repli sur un lien cliqué (même comportement visible).
+        const lien = document.createElement("a");
+        lien.href = url;
+        lien.target = "_blank";
+        lien.rel = "noopener noreferrer";
+        lien.click();
+      }
+    } catch {
+      fenetre?.close();
+      setMessage({ ok: false, texte: "Impossible d'ouvrir ce document — vérifie ta connexion." });
+    } finally {
+      setOuverture(null);
     }
   }
 
@@ -437,18 +491,33 @@ export function CoffreDocuments({ telephone }: { telephone: string }) {
                         </Button>
                       </span>
                     ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setASupprimer(piece.id)}
-                        aria-label={`Supprimer le document ${piece.nom}`}
-                        data-probe="coffre-supprimer"
-                        className="rounded-lg border-destructive/40 text-destructive transition-colors duration-150 hover:border-destructive hover:bg-destructive/5 hover:text-destructive"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                        Supprimer
-                      </Button>
+                      <>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOuvrir(piece)}
+                          disabled={ouverture === piece.id}
+                          aria-label={`Ouvrir le document ${piece.nom}`}
+                          data-probe="coffre-ouvrir"
+                          className="rounded-lg border-border transition-colors duration-150 hover:border-signature hover:text-signature"
+                        >
+                          <ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />
+                          {ouverture === piece.id ? "Ouverture..." : "Ouvrir"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setASupprimer(piece.id)}
+                          aria-label={`Supprimer le document ${piece.nom}`}
+                          data-probe="coffre-supprimer"
+                          className="rounded-lg border-destructive/40 text-destructive transition-colors duration-150 hover:border-destructive hover:bg-destructive/5 hover:text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                          Supprimer
+                        </Button>
+                      </>
                     )}
                   </div>
                 </li>

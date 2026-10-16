@@ -11,9 +11,8 @@ export default function MentionsPage() {
         <h2 className="text-xl font-semibold mt-8 mb-3">1. Éditeur</h2>
         <p className="text-gray-600 mb-4">
           LAWOL.mr est une plateforme qui connecte les étudiants mauritaniens aux bourses
-          d&apos;études ainsi qu&apos;aux offres de stage, PFE, emploi junior et alternance qui
-          correspondent à leur profil. Le site est édité par l&apos;équipe LAWOL.mr, basée en
-          Mauritanie.
+          d&apos;études qui correspondent à leur profil. Le site est édité par l&apos;équipe
+          LAWOL.mr, basée en Mauritanie.
         </p>
 
         <h2 className="text-xl font-semibold mt-8 mb-3">2. Contact</h2>

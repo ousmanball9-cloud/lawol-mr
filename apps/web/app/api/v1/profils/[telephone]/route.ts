@@ -3,10 +3,14 @@ import { NextResponse } from "next/server";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://lawol-mr-production.up.railway.app";
 
 // Proxy GET /api/v1/profils/[telephone] → API Railway
+// (endpoint GARDÉ : le Bearer injecté par middleware.ts part vers l'API)
 export async function GET(request: Request, { params }: { params: Promise<{ telephone: string }> }) {
   try {
     const { telephone } = await params;
-    const res = await fetch(`${API_URL}/api/v1/profils/${telephone}`);
+    const authorization = request.headers.get("authorization");
+    const res = await fetch(`${API_URL}/api/v1/profils/${telephone}`, {
+      headers: authorization ? { Authorization: authorization } : {},
+    });
     const data = await res.text();
     return new NextResponse(data, {
       status: res.status,

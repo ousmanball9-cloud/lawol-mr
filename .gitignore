@@ -16,6 +16,7 @@ apps/web/.verify-desc-reelles/
 apps/web/.verify-espace/
 apps/web/.verify-entreprise/
 apps/web/.verify-offres/
+apps/web/.verify-fiche/
 # D17 : token sans scope workflow → CI en local non trackée (à retirer si token corrigé)
 .github/
 
@@ -29,6 +30,8 @@ pip-audit-*
 .DS_Store
 Thumbs.db
 *.log
+# Artefacts runtime (pulse système)
+.opencode/memory/*.jsonl
 
 # Outils locaux (non commités)
 tools/

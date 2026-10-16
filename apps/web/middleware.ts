@@ -3,8 +3,10 @@ import { NextResponse, type NextRequest } from "next/server";
 /** Garde de l'espace client + injection du Bearer vers l'API.
  *
  * - /profil/{tel} : sans session valide appartenant à ce numéro → /connexion.
- * - /api/v1/profils/* : le token du cookie `lawol_token` part en
- *   `Authorization: Bearer` vers l'API FastAPI (qui re-vérifie la signature).
+ * - /api/v1/profils/*, /api/v1/matches*, /api/v1/dashboard/* : le token du
+ *   cookie `lawol_token` part en `Authorization: Bearer` vers l'API FastAPI
+ *   (qui re-vérifie la signature). Ces trois familles sont gardées côté API :
+ *   oublier une famille ici ferait répondre 401 à l'espace client.
  *
  * La signature HMAC est revérifiée ici si SESSION_SECRET est exposé au runtime
  * (Vercel) ; sinon on contrôle au minimum la forme, l'expiration et le numéro —
@@ -12,6 +14,13 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 
 const NOM_COOKIE = "lawol_token";
+
+/** Familles d'URL API dont le Bearer est injecté depuis le cookie de session. */
+const PREFIXES_BEARER = [
+  "/api/v1/profils/",
+  "/api/v1/matches",
+  "/api/v1/dashboard/",
+];
 
 type PayloadSession = { tel?: string; exp?: number };
 
@@ -84,8 +93,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Passerelle /api/v1/profils/* : le Bearer part vers l'API dans le même cookie
-  if (pathname.startsWith("/api/v1/profils/")) {
+  // Passerelle API gardée : le Bearer part vers l'API dans le même cookie
+  // (profil, matches, dashboard — voir PREFIXES_BEARER)
+  if (PREFIXES_BEARER.some((prefixe) => pathname.startsWith(prefixe))) {
     if (token && (await sessionCookieValide(token))) {
       const enTetes = new Headers(request.headers);
       enTetes.set("authorization", `Bearer ${token}`);
@@ -97,5 +107,11 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/profil/:path*", "/api/v1/profils/:path*"],
+  matcher: [
+    "/profil/:path*",
+    "/api/v1/profils/:path*",
+    "/api/v1/matches",
+    "/api/v1/matches/:path*",
+    "/api/v1/dashboard/:path*",
+  ],
 };

@@ -115,6 +115,13 @@ class TypeFinancement(str, Enum):
     INCONNU = "inconnu"                   # Non précisé dans l'annonce
 
 
+class TriOffres(str, Enum):
+    """Ordre de la liste publique (`GET /api/v1/offres?tri=`) — vocabulaire du front."""
+
+    URGENT = "urgent"  # date_limite croissante : les plus urgentes d'abord
+    RECENTES = "recentes"  # date_scrape décroissant : ordre historique (défaut)
+
+
 class SourceType(str, Enum):
     LINKEDIN = "linkedin"
     ENTREPRISE = "entreprise"
@@ -176,6 +183,10 @@ class OffreStagePublic(BaseModel):
     type_offre: TypeOffreDb
     type_financement: TypeFinancement = TypeFinancement.INCONNU
     description: str
+    # Renseigné par la LISTE `/offres` uniquement : aperçu court de la description
+    # (la carte du catalogue n'affiche que deux lignes). Le détail `/offres/{id}`
+    # sert le texte intégral dans `description` et laisse ce champ vide.
+    description_apercu: Optional[str] = None
     date_limite: date
     contact_email: Optional[EmailStr] = None
     contact_whatsapp: Optional[str] = None

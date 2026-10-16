@@ -23,6 +23,9 @@ const SEUIL_URGENT_JOURS = 7;
 export function CarteOffre({ offre }: { offre: Offre }) {
   const jours = joursRestants(parserDateLimite(offre.date_limite));
   const expiree = jours !== null && jours < 0;
+  // La LISTE ne sert qu'un aperçu (voir types.ts) ; une offre complète (détail,
+  // similaires) porte `description`. Les deux cas affichent la même 2-lignes.
+  const apercu = offre.description_apercu || offre.description;
 
   return (
     <Link
@@ -47,8 +50,8 @@ export function CarteOffre({ offre }: { offre: Offre }) {
           {offre.date_limite}
         </span>
       </p>
-      {offre.description && (
-        <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{offre.description}</p>
+      {apercu && (
+        <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{apercu}</p>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {jours !== null && (
