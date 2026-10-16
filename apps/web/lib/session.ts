@@ -48,6 +48,21 @@ export function effacerSession(): void {
   document.cookie = `${NOM_COOKIE_SESSION}=; path=/; max-age=0; samesite=lax`;
 }
 
+/** Numéro porté par le token courant (null si absent, expiré ou illisible).
+ *
+ * Sert uniquement à l'interface publique (afficher l'état connecté, viser le
+ * bon espace) : l'autorité de vérification reste le backend, qui revalide la
+ * signature HMAC. Aucune décision de sécurité ne dépend de cette lecture.
+ */
+export function telephoneSession(): string | null {
+  const token = lireTokenSession();
+  if (!token) return null;
+  const payload = decoderPayload(token);
+  if (!payload || typeof payload.tel !== "string") return null;
+  if (typeof payload.exp !== "number" || payload.exp * 1000 <= Date.now()) return null;
+  return payload.tel;
+}
+
 /** Session valide (non expirée) ET rattachée au téléphone demandé. */
 export function sessionValidePour(telephone: string): boolean {
   const token = lireTokenSession();
