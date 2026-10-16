@@ -15,6 +15,7 @@ from apps.api.app.modules.dashboard.summary import (
 from apps.api.app.modules.documents.routes import router as documents_router
 from apps.api.app.modules.matching.engine import run_matching_job
 from apps.api.app.modules.notifications.routes import router as notifications_router
+from apps.api.app.modules.parametres.routes import router as parametres_router
 from apps.api.app.modules.profils.routes import lire_matches_profil
 from apps.api.app.modules.profils.routes import router as profils_router
 from apps.api.app.modules.scraper.sources.catalogue import get_scrapers
@@ -76,6 +77,9 @@ app.include_router(documents_router)
 
 # ---------- Centre d'alertes in-app (calculé à la volée, sans table SQL) ----------
 app.include_router(notifications_router)
+
+# ---------- Réglages du site (public/admin) + compteur de visites ----------
+app.include_router(parametres_router)
 
 
 # ---------- Health ----------
