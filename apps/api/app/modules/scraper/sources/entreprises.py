@@ -17,8 +17,8 @@ from apps.api.app.modules.shared.models import (
     Filiere,
     OffreStageCreate,
     SourceType,
-    TypeOffre,
     TypeFinancement,
+    TypeOffre,
     Ville,
 )
 from bs4 import BeautifulSoup
@@ -38,10 +38,16 @@ FILIERE_MOTS_CLES: dict[Filiere, tuple[str, ...]] = {
         "reseau", "réseau", "sysadmin", "digital",
     ),
     Filiere.GENIE_CIVIL: ("genie civil", "génie civil", "btp", "chantier", "vrd", "topograph"),
-    Filiere.ELECTRIQUE: ("electrique", "électrique", "electronique", "instrumentation", "energie", "énergie"),
+    Filiere.ELECTRIQUE: (
+        "electrique", "électrique", "electronique", "instrumentation", "energie", "énergie"
+    ),
     Filiere.MECANIQUE: ("mecanique", "mécanique", "maintenance", "industriel", "production"),
-    Filiere.GESTION: ("ressources humaines", "rh ", "gestion", "assistant", "admin", "secretaire", "bureau"),
-    Filiere.FINANCE: ("finance", "audit", "compta", "comptab", "banque", "tresorer", "trésorer", "risk"),
+    Filiere.GESTION: (
+        "ressources humaines", "rh ", "gestion", "assistant", "admin", "secretaire", "bureau"
+    ),
+    Filiere.FINANCE: (
+        "finance", "audit", "compta", "comptab", "banque", "tresorer", "trésorer", "risk"
+    ),
     Filiere.DROIT: ("droit", "juridique", "legal", "juriste"),
     Filiere.AGRONOMIE: ("agro", "agronom", "elevage", "élevage", "filiere animale"),
 }
@@ -55,10 +61,13 @@ VILLE_MOTS_CLES: dict[Ville, tuple[str, ...]] = {
 }
 
 TYPE_MOTS_CLES: dict[TypeOffre, tuple[str, ...]] = {
-    TypeOffre.BOURSE: ("pfe", "fin d'etudes", "fin d'études", "stage de fin", "memoire", "mémoire",
-                       "stage d'ete", "stage d'été", "stage ete", "vacances",
-                       "alternance", "apprentissage", "contrat de professionnalisation",
-                       "jeune diplome", "jeune diplômé", "junior", "premier emploi", "0-2 ans", "debutant", "débutant"),
+    TypeOffre.BOURSE: (
+        "pfe", "fin d'etudes", "fin d'études", "stage de fin", "memoire", "mémoire",
+        "stage d'ete", "stage d'été", "stage ete", "vacances",
+        "alternance", "apprentissage", "contrat de professionnalisation",
+        "jeune diplome", "jeune diplômé", "junior", "premier emploi", "0-2 ans",
+        "debutant", "débutant",
+    ),
 }
 
 
@@ -157,7 +166,10 @@ class EntrepriseScraper(BaseScraper):
                 if parent:
                     contexte += " " + parent.get_text(" ", strip=True).lower()[:400]
 
-                # Type de contrat
+                # Type de contrat : le catalogue générique ne sert QUE des
+                # sources d'emploi → la règle durable (`scraper/engine.py`,
+                # appliquée par `BaseScraper.save`) écrit `emploi_junior` (ou
+                # `stage_pfe` pour un stage), jamais `bourse`. Placeholder bridé :
                 type_offre = TypeOffre.BOURSE
                 for typ, mots in TYPE_MOTS_CLES.items():
                     if any(m in contexte for m in mots):

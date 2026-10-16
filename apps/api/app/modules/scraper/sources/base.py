@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Iterable
 
 from apps.api.app.core.database import supabase
+from apps.api.app.modules.scraper.engine import type_offre_pour_source
 from apps.api.app.modules.shared.models import OffreStageCreate
 
 
@@ -18,12 +19,21 @@ class BaseScraper(ABC):
         raise NotImplementedError
 
     def save(self, offres: list[OffreStageCreate]) -> tuple[int, int]:
-        """Insère/upsert les offres (upsert sur source_url = idempotent)."""
+        """Insère/upsert les offres (upsert sur source_url = idempotent).
+
+        Le `type_offre` est (re)calculé par la règle durable
+        `scraper.engine.type_offre_pour_source` AVANT l'écriture : une source
+        d'emploi (beta.mr, LinkedIn, sites carrières) ne peut jamais écrire
+        `bourse` — elle écrit `emploi_junior`, ou `stage_pfe` pour un stage.
+        """
         inserted = 0
         errors = 0
         for o in offres:
             try:
                 data = o.model_dump(mode="json")
+                data["type_offre"] = type_offre_pour_source(
+                    self.source_name, o.titre, o.description
+                )
                 res = supabase.table("offres").upsert(data, on_conflict="source_url").execute()
                 if res.data:
                     inserted += 1
@@ -32,7 +42,9 @@ class BaseScraper(ABC):
                 print(f"⚠️ {self.source_name}: insertion échouée - {e}")
         return inserted, errors
 
-    def log(self, status: str, nouvelles: int, total: int, erreur: str | None = None, duree_ms: int = 0):
+    def log(
+        self, status: str, nouvelles: int, total: int, erreur: str | None = None, duree_ms: int = 0
+    ):
         """Trace l'exécution dans scraper_logs (dashboard admin)."""
         try:
             supabase.table("scraper_logs").insert(

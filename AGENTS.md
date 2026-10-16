@@ -32,6 +32,15 @@ Charte : « Nuit d'Indigo » (voir skill `design-system`) — zéro noir, tokens
 6. **Enums** : réduire les valeurs à l'écriture ne réduit jamais les valeurs
    en base — le sérialiseur lecture accepte l'union SQL (enum `*Db`), seule
    l'écriture est bridée (une ligne legacy ne doit jamais faire 500 la liste).
+7. **Classification des offres par source** (décision 16/10/2026) : le
+   catalogue public est « 100 % bourses ». Une source d'EMPLOI (`beta_mr`,
+   `linkedin`, `anpe`, sites carrières `mauritel`/`snim`/`bnm`/`totalenergies`)
+   ne produit JAMAIS `bourse` : `emploi_junior`, ou `stage_pfe` si l'intitulé
+   décrit un stage. Règle unique : `scraper/engine.py::type_offre_pour_source`,
+   appliquée au point d'écriture unique `BaseScraper.save` (aucun scraper ne la
+   contourne). Reprise des lignes existantes : `scripts/backfill-type-offre.py`
+   (`--dry-run` liste, `--apply` écrit, zéro suppression, ne change que
+   `type_offre`).
 
 ## Repères
 

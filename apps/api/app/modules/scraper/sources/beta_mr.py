@@ -5,7 +5,7 @@ Structure :
   - /beta/offre/{slug}/{id} : page détail avec entreprise, titre, date, lieu
 """
 import re
-from datetime import date
+from datetime import date, timedelta
 from typing import Iterable
 
 import certifi
@@ -127,7 +127,12 @@ def _completer_entreprise(entreprise: str, titre: str) -> tuple[str, str]:
     """
     mots = titre.split(' ')
     connectes = 0
-    while entreprise and mots and mots[0].lower().strip('.,') in _CONNECTEURS and len(entreprise.split()) < 8:
+    while (
+        entreprise
+        and mots
+        and mots[0].lower().strip('.,') in _CONNECTEURS
+        and len(entreprise.split()) < 8
+    ):
         entreprise = f"{entreprise} {mots.pop(0)}".strip()
         connectes += 1
     if connectes and mots and mots[0][:1].isupper() and len(entreprise.split()) < 8:
@@ -148,7 +153,11 @@ def _nettoyer_texte_desc(texte: str) -> str:
     fin = _FINS_DESC.search(texte)
     if fin:
         texte = texte[: fin.start()]
-    lignes = [l.strip() for l in texte.split('\n') if l.strip() and not _ligne_junk(l)]
+    lignes = [
+        ligne.strip()
+        for ligne in texte.split('\n')
+        if ligne.strip() and not _ligne_junk(ligne)
+    ]
     return '\n'.join(lignes)[:600]
 
 
@@ -167,7 +176,10 @@ class BetaMrScraper(BaseScraper):
 
     def _fetch(self, url: str) -> str | None:
         try:
-            r = httpx.get(url, headers=ENTETES, timeout=self.timeout, follow_redirects=True, verify=certifi.where())
+            r = httpx.get(
+                url, headers=ENTETES, timeout=self.timeout, follow_redirects=True,
+                verify=certifi.where(),
+            )
             r.raise_for_status()
             return r.text
         except Exception as e:  # noqa: BLE001
@@ -179,7 +191,9 @@ class BetaMrScraper(BaseScraper):
         liens = set()
         for a in soup.find_all('a', href=True):
             href = a['href']
-            if re.match(r'^/beta/offre/[^/]+/\d+$', href) or re.match(r'^https://beta\.mr/beta/offre/[^/]+/\d+$', href):
+            if re.match(r'^/beta/offre/[^/]+/\d+$', href) or re.match(
+                r'^https://beta\.mr/beta/offre/[^/]+/\d+$', href
+            ):
                 liens.add(href if href.startswith('http') else f'https://beta.mr{href}')
         return liens
 
@@ -234,14 +248,18 @@ class BetaMrScraper(BaseScraper):
         entreprise, titre = _completer_entreprise(entreprise, titre)
 
         # Date limite
-        date_limite = _parse_date_fr(bloc) or (date.today() + __import__('datetime').timedelta(days=30))
+        date_limite = _parse_date_fr(bloc) or (date.today() + timedelta(days=30))
 
         # Lieu
         m_lieu = re.search(r'Lieu\s*:\s*([^.]+?)(?:\s*\.|$)', bloc)
         lieu = m_lieu.group(1).strip() if m_lieu else 'Nouakchott'
         ville = _detect_ville(lieu + ' ' + bloc)
 
-        # Type d'offre (tout est bourse)
+        # beta.mr = portail de RECRUTEMENT : la règle durable
+        # (`scraper/engine.py`, appliquée par `BaseScraper.save`) force
+        # `emploi_junior` — ou `stage_pfe` pour un stage —, jamais `bourse`.
+        # La valeur ci-dessous n'est qu'un placeholder bridé par le modèle
+        # d'écriture (`TypeOffre` = bourse seulement) ; elle est réécrite au save.
         type_offre = TypeOffre.BOURSE
 
         # Description = uniquement le bloc de l'offre, nettoyé (pas de menus)

@@ -45,10 +45,13 @@ function normaliserRecherche(q: string): string {
 
 /** Charge les offres actives retenues par l'API : tri (`tri`) et recherche
  *  texte (`q`) sont calculés CÔTÉ SERVEUR sur tout le catalogue, pas sur la
- *  page affichée. Chargement par lots de 500 (plafond Supabase = 1 000 lignes). */
+ *  page affichée. Chargement par lots de 500 (plafond Supabase = 1 000 lignes).
+ *  `type_offre=bourse` : le catalogue public ne sert QUE des bourses — les
+ *  offres d'emploi/stage collectées restent en base (matching, admin) mais ne
+ *  sont jamais publiées ici (décision produit du 16/10). */
 async function chargerBassin(tri: TriOffres, q: string): Promise<Offre[]> {
   const toutes: Offre[] = [];
-  const parametres = new URLSearchParams({ tri });
+  const parametres = new URLSearchParams({ tri, type_offre: "bourse" });
   if (q) parametres.set("q", q);
   for (let offset = 0; offset < MAX_OFFSET; offset += BATCH) {
     parametres.set("limit", String(BATCH));
