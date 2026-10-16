@@ -8,11 +8,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import {
+  BarChart3,
   Briefcase,
   ExternalLink,
   LayoutDashboard,
   LogOut,
   Menu,
+  Settings,
   Users,
   X,
 } from "lucide-react";
@@ -22,6 +24,8 @@ const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/offres", label: "Offres", icon: Briefcase },
   { href: "/admin/profils", label: "Profils", icon: Users },
+  { href: "/admin/statistiques", label: "Statistiques", icon: BarChart3 },
+  { href: "/admin/parametres", label: "Paramètres", icon: Settings },
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
