@@ -1,10 +1,14 @@
 from datetime import date, datetime
 from enum import Enum
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 from uuid import UUID
 
 import bleach
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from apps.api.app.modules.scraper.engine import (
+    CategorieBourse,
+    categorie_bourse_pour_offre,
+)
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
 # ---------- Enums (mêmes valeurs que le schéma SQL) ----------
@@ -162,6 +166,9 @@ class OffreStageBase(BaseModel):
     date_limite: date
     contact_email: Optional[EmailStr] = None
     contact_whatsapp: Optional[str] = None
+    # jsonb `offres.metadata` : axe FINANCEUR (`categorie_bourse`) et autres
+    # clés libres. Écrit par `BaseScraper.save` sans écraser les clés existantes.
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("titre", "entreprise", "description", mode="before")
     @classmethod
@@ -193,6 +200,24 @@ class OffreStagePublic(BaseModel):
     source_name: Optional[str] = None
     source_url: Optional[str] = None
     active: bool = True
+    # Axe FINANCEUR (≠ `type_offre`, la nature) : lu dans
+    # `metadata['categorie_bourse']` ; ligne legacy sans metadata → même règle
+    # par source que le filtre `?categorie=` (sinon « inconnu »).
+    categorie_bourse: str = CategorieBourse.INCONNU.value
+
+    @model_validator(mode="before")
+    @classmethod
+    def _categorie_bourse_depuis_metadata(cls, data):
+        if isinstance(data, dict) and "categorie_bourse" not in data:
+            return {
+                **data,
+                "categorie_bourse": categorie_bourse_pour_offre(
+                    data.get("metadata"),
+                    data.get("source_name"),
+                    data.get("entreprise") or "",
+                ),
+            }
+        return data
 
     model_config = {"from_attributes": True}
 

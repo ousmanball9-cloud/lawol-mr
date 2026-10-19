@@ -73,6 +73,7 @@ from apps.api.app.modules.scraper.engine import (
     BOURSE,
     EMPLOI_JUNIOR,
     STAGE_PFE,
+    categorie_bourse_pour_source,
     categoriser_source,
     est_source_emploi,
     type_offre_pour_source,
@@ -267,6 +268,41 @@ check(
     "les bourses légitimes sont intactes (scholar-africa reste bourse)",
     _par_id["4"]["type_offre"] == "bourse",
     "",
+)
+
+# ==================== 4. Axe financeur (catégorie de bourse) =================
+# Second axe, indépendant de la NATURE : il vit dans offres.metadata (jsonb).
+# On vérifie que les deux règles ne se contredisent jamais.
+print("\n4. Cohérence nature (type_offre) × financeur (categorie_bourse)")
+check(
+    "source d'emploi → catégorie inconnue (ce n'est pas une bourse)",
+    categorie_bourse_pour_source("beta_mr") == "inconnu",
+    categorie_bourse_pour_source("beta_mr"),
+)
+check(
+    "source de bourse non classée → inconnu (financeur jamais deviné)",
+    categorie_bourse_pour_source("scholar-africa") == "inconnu",
+    categorie_bourse_pour_source("scholar-africa"),
+)
+check(
+    "DAAD officiel → gouvernementale ; blog daad-scholarship → inconnu",
+    categorie_bourse_pour_source("daad") == "gouvernementale"
+    and categorie_bourse_pour_source("daad-scholarship") == "inconnu",
+    f"daad={categorie_bourse_pour_source('daad')} blog={categorie_bourse_pour_source('daad-scholarship')}",
+)
+_ScraperTest("beta_mr").save([_offre("Recrutement d'un juriste sénior", "beta_mr")])
+_deux_axes = FAUX.upserts[-1][1]
+check(
+    "l'écriture pose les DEUX axes sans conflit (nature emploi_junior + financeur inconnu)",
+    _deux_axes["type_offre"] == EMPLOI_JUNIOR
+    and _deux_axes["metadata"]["categorie_bourse"] == "inconnu",
+    str((_deux_axes["type_offre"], _deux_axes["metadata"])),
+)
+check(
+    "l'axe financeur ne touche PAS la colonne type_offre d'une bourse",
+    FAUX.upserts[2][1]["type_offre"] == BOURSE
+    and FAUX.upserts[2][1]["metadata"]["categorie_bourse"] == "inconnu",
+    str((FAUX.upserts[2][1]["type_offre"], FAUX.upserts[2][1]["metadata"])),
 )
 
 # --------------------------------- Bilan --------------------------------------

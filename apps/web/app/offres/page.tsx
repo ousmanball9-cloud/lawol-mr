@@ -10,6 +10,7 @@ import { Chrome } from "@/components/chrome/chrome";
 import { CarteOffre } from "@/components/offres/carte-offre";
 import { PaginationOffres } from "@/components/offres/pagination-offres";
 import { joursRestants, parserDateLimite } from "@/components/offres/date-limite";
+import { estCategorieBourse } from "@/components/offres/types";
 import type { Offre, TriOffres } from "@/components/offres/types";
 
 const PAR_PAGE = 12;
@@ -43,16 +44,18 @@ function normaliserRecherche(q: string): string {
     .slice(0, 80);
 }
 
-/** Charge les offres actives retenues par l'API : tri (`tri`) et recherche
- *  texte (`q`) sont calculés CÔTÉ SERVEUR sur tout le catalogue, pas sur la
- *  page affichée. Chargement par lots de 500 (plafond Supabase = 1 000 lignes).
+/** Charge les offres actives retenues par l'API : tri (`tri`), recherche
+ *  texte (`q`) et catégorie de bourse (`categorie`) sont calculés CÔTÉ SERVEUR
+ *  sur tout le catalogue, pas sur la page affichée. Chargement par lots de 500
+ *  (plafond Supabase = 1 000 lignes).
  *  `type_offre=bourse` : le catalogue public ne sert QUE des bourses — les
  *  offres d'emploi/stage collectées restent en base (matching, admin) mais ne
  *  sont jamais publiées ici (décision produit du 16/10). */
-async function chargerBassin(tri: TriOffres, q: string): Promise<Offre[]> {
+async function chargerBassin(tri: TriOffres, q: string, categorie: string): Promise<Offre[]> {
   const toutes: Offre[] = [];
   const parametres = new URLSearchParams({ tri, type_offre: "bourse" });
   if (q) parametres.set("q", q);
+  if (categorie && categorie !== "toutes") parametres.set("categorie", categorie);
   for (let offset = 0; offset < MAX_OFFSET; offset += BATCH) {
     parametres.set("limit", String(BATCH));
     parametres.set("offset", String(offset));
@@ -96,6 +99,8 @@ export default function OffresPage() {
 function OffresContenu() {
   const searchParams = useSearchParams();
   const rechercheUrl = searchParams.get("recherche") ?? "";
+  // Carte de l'accueil « Bourse gouvernementale » → /offres?categorie=gouvernementale
+  const categorieUrl = searchParams.get("categorie") ?? "";
   const [bassin, setBassin] = useState<Offre[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -106,6 +111,10 @@ function OffresContenu() {
   const [filiereFiltre, setFiliereFiltre] = useState("tous");
   const [paysFiltre, setPaysFiltre] = useState("tous");
   const [financementFiltre, setFinancementFiltre] = useState("tous");
+  // Catégorie de bourse : filtrée par le SERVEUR (`?categorie=`), comme q/tri.
+  const [categorieFiltre, setCategorieFiltre] = useState(
+    estCategorieBourse(categorieUrl) ? categorieUrl : "toutes"
+  );
   const [tri, setTri] = useState<TriOffres>("urgent");
   const [cloture30, setCloture30] = useState(false);
   // Les offres expirées sont masquées par défaut — mais jamais invisibles :
@@ -118,6 +127,11 @@ function OffresContenu() {
     setMotsCles(rechercheUrl);
   }, [rechercheUrl]);
 
+  // ?categorie= changé pendant la session (carte de l'accueil, retour arrière) → resynchronise
+  useEffect(() => {
+    setCategorieFiltre(estCategorieBourse(categorieUrl) ? categorieUrl : "toutes");
+  }, [categorieUrl]);
+
   // Frappe en cours : on laisse le mot se poser avant d'interroger l'API.
   useEffect(() => {
     if (motsCles === rechercheApi) return;
@@ -125,11 +139,11 @@ function OffresContenu() {
     return () => clearTimeout(id);
   }, [motsCles, rechercheApi]);
 
-  const charger = useCallback(async (triCourant: TriOffres, recherche: string) => {
+  const charger = useCallback(async (triCourant: TriOffres, recherche: string, categorie: string) => {
     setLoading(true);
     setError("");
     try {
-      setBassin(await chargerBassin(triCourant, recherche.trim()));
+      setBassin(await chargerBassin(triCourant, recherche.trim(), categorie));
     } catch {
       setError("Impossible de charger les offres. Réessaie dans un instant.");
     } finally {
@@ -137,15 +151,24 @@ function OffresContenu() {
     }
   }, []);
 
-  // Tri et recherche vivent dans l'API : tout changement rechargé depuis le serveur.
+  // Tri, recherche ET catégorie vivent dans l'API : tout changement rechargé depuis le serveur.
   useEffect(() => {
-    charger(tri, rechercheApi);
-  }, [charger, tri, rechercheApi]);
+    charger(tri, rechercheApi, categorieFiltre);
+  }, [charger, tri, rechercheApi, categorieFiltre]);
 
   // Tout changement de critère (dont tri et échéance) ramène à la première page
   useEffect(() => {
     setPage(1);
-  }, [motsCles, filiereFiltre, paysFiltre, financementFiltre, tri, cloture30, expireesVisibles]);
+  }, [
+    motsCles,
+    filiereFiltre,
+    paysFiltre,
+    financementFiltre,
+    categorieFiltre,
+    tri,
+    cloture30,
+    expireesVisibles,
+  ]);
 
   /** Échéance recalculée une seule fois par offre (parse + jours restants). */
   const echeances = useMemo<Echeance[]>(
@@ -230,11 +253,16 @@ function OffresContenu() {
     .slice((pageNum - 1) * PAR_PAGE, pageNum * PAR_PAGE)
     .map((e) => e.offre);
 
+  // Un filtre calculé par le SERVEUR (catégorie, recherche) qui ne renvoie rien :
+  // le message « aucune offre publiée » serait faux — on propose d'élargir.
+  const filtreServeurActif = categorieFiltre !== "toutes" || rechercheApi.trim() !== "";
+
   const reinitialiserFiltres = useCallback(() => {
     setMotsCles("");
     setFiliereFiltre("tous");
     setPaysFiltre("tous");
     setFinancementFiltre("tous");
+    setCategorieFiltre("toutes");
     setTri("urgent");
     setCloture30(false);
     setExpireesVisibles(false);
@@ -252,7 +280,7 @@ function OffresContenu() {
         <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
           <p className="mb-4 font-medium text-destructive">{error}</p>
           <Button
-            onClick={() => charger(tri, rechercheApi)}
+            onClick={() => charger(tri, rechercheApi, categorieFiltre)}
             className="h-11 rounded-lg bg-signature px-6 text-white hover:bg-signature-deep"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
@@ -287,6 +315,8 @@ function OffresContenu() {
           setPaysFiltre={setPaysFiltre}
           financementFiltre={financementFiltre}
           setFinancementFiltre={setFinancementFiltre}
+          categorieFiltre={categorieFiltre}
+          setCategorieFiltre={setCategorieFiltre}
           tri={tri}
           setTri={setTri}
           cloture30={cloture30}
@@ -302,16 +332,16 @@ function OffresContenu() {
           <div className="rounded-lg border border-dashed border-border bg-background px-4 py-12 text-center">
             <Briefcase className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
             <p className="font-medium text-foreground">
-              {bassin.length === 0
+              {bassin.length === 0 && !filtreServeurActif
                 ? "Aucune offre disponible pour le moment"
                 : "Aucune offre ne correspond à ces filtres"}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {bassin.length === 0
+              {bassin.length === 0 && !filtreServeurActif
                 ? "Reviens bientôt — de nouvelles offres sont publiées chaque semaine."
                 : "Essaie d'élargir ta recherche."}
             </p>
-            {bassin.length > 0 && (
+            {(bassin.length > 0 || filtreServeurActif) && (
               <Button
                 variant="outline"
                 size="sm"

@@ -1,5 +1,11 @@
 import { Search } from "lucide-react";
-import { FILIERES, PAYS_ETUDES, TYPES_FINANCEMENT, TYPE_EN_TETE, type TriOffres } from "./types";
+import {
+  CATEGORIES_BOURSE,
+  FILIERES,
+  PAYS_ETUDES,
+  TYPES_FINANCEMENT,
+  type TriOffres,
+} from "./types";
 
 type Props = {
   motsCles: string;
@@ -10,6 +16,10 @@ type Props = {
   setPaysFiltre: (valeur: string) => void;
   financementFiltre: string;
   setFinancementFiltre: (valeur: string) => void;
+  /** Catégorie de bourse : « toutes » ou une valeur de `CATEGORIES_BOURSE`.
+   *  Filtré CÔTÉ SERVEUR (`?categorie=`), comme `q` et `tri`. */
+  categorieFiltre: string;
+  setCategorieFiltre: (valeur: string) => void;
   /** Tri catalogue : « urgent » (défaut) ou « recentes ». */
   tri: TriOffres;
   setTri: (valeur: TriOffres) => void;
@@ -36,7 +46,7 @@ const bascule = (actif: boolean) =>
       : "border-input bg-white text-foreground hover:border-signature hover:text-signature"
   }`;
 
-/** Barre de recherche (mots-clés) + 3 selects (filière, pays, financement) + tri & échéance. */
+/** Barre de recherche (mots-clés) + 4 selects (filière, pays, financement, catégorie) + tri & échéance. */
 export function BarreFiltres({
   motsCles,
   setMotsCles,
@@ -46,6 +56,8 @@ export function BarreFiltres({
   setPaysFiltre,
   financementFiltre,
   setFinancementFiltre,
+  categorieFiltre,
+  setCategorieFiltre,
   tri,
   setTri,
   cloture30,
@@ -107,6 +119,20 @@ export function BarreFiltres({
             {TYPES_FINANCEMENT.map((f) => (
               <option key={f.valeur} value={f.valeur}>
                 {f.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={categorieFiltre}
+            onChange={(e) => setCategorieFiltre(e.target.value)}
+            aria-label="Filtrer par catégorie de bourse"
+            data-probe="offres-categorie"
+            className={SELECT}
+          >
+            <option value="toutes">Toutes les catégories</option>
+            {CATEGORIES_BOURSE.map((c) => (
+              <option key={c.valeur} value={c.valeur}>
+                {c.label}
               </option>
             ))}
           </select>

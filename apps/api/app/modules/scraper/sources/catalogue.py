@@ -20,6 +20,7 @@ from apps.api.app.modules.scraper.sources.bourses import (
     Scholars4DevScraper,
 )
 from apps.api.app.modules.scraper.sources.entreprises import EntrepriseScraper
+from apps.api.app.modules.scraper.sources.mesrs import MesrsMauritanieScraper
 from apps.api.app.modules.shared.models import Ville
 
 # Sources génériques (sites d'entreprises)
@@ -43,6 +44,8 @@ SPECIFIQUES: list[BaseScraper] = [
     Scholars4DevScraper(),
     DaadScholarshipScraper(),
     FullyFundedScholarshipsScraper(),
+    # Bourses GOUVERNEMENTALES relayées par le MESRS mauritanien (vérifié 20/10/2026)
+    MesrsMauritanieScraper(),
 ]
 
 

@@ -2,12 +2,13 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { HeroSearch } from "@/components/landing/hero-search"
 import { Compteurs, Organisations } from "@/components/landing/compteurs"
+import { TypesBourses } from "@/components/landing/types-bourses"
 import TrustBadges from "@/components/landing/trust-badges"
 import { Header } from "@/components/chrome/header"
 import { Footer } from "@/components/chrome/footer"
 import {
   CheckCircle, Clock, Shield,
-  GraduationCap, Zap, ArrowRight, Award,
+  GraduationCap, Zap, ArrowRight,
   Sparkles, Target, Users, Bell,
 } from "lucide-react"
 
@@ -66,12 +67,8 @@ const AVANTAGES = [
 ]
 
 // Badges d'icônes monochromes : zéro rainbow, la couleur signature reste rare.
-// 100 % bourses : chaque entrée décrit un type de bourse financée.
-const TYPES_BOURSES = [
-  { icon: Award, label: "Bourse d'études", desc: "Masters, PhD et séjours financés" },
-  { icon: GraduationCap, label: "Bourse de master", desc: "Financement complet, 1 à 2 ans" },
-  { icon: Clock, label: "Bourse d'échange", desc: "Séjours courts, 2 à 12 semaines" },
-]
+// 100 % bourses — la grille vit dans <TypesBourses /> : la carte « Bourse
+// gouvernementale » n'y apparaît que si l'API en compte réellement (zéro mensonge).
 
 export default function HomePage() {
   return (
@@ -247,20 +244,7 @@ export default function HomePage() {
             </h2>
           </div>
 
-          <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 md:grid-cols-3 lg:max-w-6xl lg:grid-cols-3">
-            {TYPES_BOURSES.map((item) => (
-              <div
-                key={item.label}
-                className="rounded-lg border border-border bg-card p-6 transition-colors duration-200 hover:border-signature"
-              >
-                <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-lg bg-nuit text-white">
-                  <item.icon className="h-5 w-5" />
-                </div>
-                <h3 className="mb-1 text-lg font-semibold text-ink">{item.label}</h3>
-                <p className="text-sm text-muted-foreground">{item.desc}</p>
-              </div>
-            ))}
-          </div>
+          <TypesBourses />
         </div>
       </section>
 

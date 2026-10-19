@@ -18,6 +18,12 @@ from apps.api.app.modules.notifications.routes import router as notifications_ro
 from apps.api.app.modules.parametres.routes import router as parametres_router
 from apps.api.app.modules.profils.routes import lire_matches_profil
 from apps.api.app.modules.profils.routes import router as profils_router
+from apps.api.app.modules.scraper.engine import (
+    CATEGORIES_BOURSE,
+    CategorieBourse,
+    sources_bourse_connues,
+    sources_classifiees,
+)
 from apps.api.app.modules.scraper.sources.catalogue import get_scrapers
 from apps.api.app.modules.shared.models import (
     DashboardProfil,
@@ -132,12 +138,26 @@ def _apercu_description(texte: str, taille: int = APERCU_DESCRIPTION_CAR) -> str
     return (coupe[:fin] if fin > 0 else coupe).rstrip() + "…"
 
 
+def _requete_offres_actives():
+    """Offres publiques : actives + échéance future (base du comptage par catégorie).
+
+    `head=True` : PostgREST renvoie le compte exact sans transporter les lignes.
+    """
+    return (
+        supabase.table("offres")
+        .select("id", count="exact", head=True)
+        .eq("active", True)
+        .gte("date_limite", date.today().isoformat())
+    )
+
+
 # ---------- Offres ----------
 @app.get("/api/v1/offres", response_model=list[OffreStagePublic])
 async def list_offres(
     filiere: Filiere | None = None,
     pays: PaysEtudes | None = None,
     type_offre: TypeOffre | None = None,
+    categorie: CategorieBourse | None = None,
     q: str | None = None,
     tri: TriOffres = TriOffres.RECENTES,
     limit: int = 50,
@@ -149,7 +169,11 @@ async def list_offres(
     · `tri=recentes` → `date_scrape` décroissant (défaut historique) ;
     · `q`            → recherche texte insensible à la casse dans titre,
       entreprise et description (enum `pays_etudes` exclu : PostgREST ne sait
-      pas comparer une colonne enum avec `ilike`).
+      pas comparer une colonne enum avec `ilike`) ;
+    · `categorie`    → axe FINANCEUR (`gouvernementale`, `institutionnelle`,
+      `fondation`, `entreprise`, `inconnu`). Filtre serveur par `source_name`
+      (liste dérivée de `scraper.engine`), une valeur inconnue → 422. La
+      catégorie `inconnu` = tout SAUF les sources de financeur connu.
     """
     query = (
         supabase.table("offres")
@@ -163,6 +187,17 @@ async def list_offres(
         query = query.eq("pays_etudes", pays.value)
     if type_offre:
         query = query.eq("type_offre", type_offre.value)
+    if categorie:
+        if categorie == CategorieBourse.INCONNU:
+            # « inconnu » = tout SAUF les sources dont le financeur est connu.
+            # `offres.source_name` est NOT NULL (schéma) : aucune ligne n'échappe
+            # au filtre par exclusion.
+            query = query.not_.in_("source_name", sources_bourse_connues())
+        else:
+            noms_sources = sources_classifiees(categorie.value)
+            if not noms_sources:
+                return []  # catégorie sans source classée (ex. « entreprise »)
+            query = query.in_("source_name", noms_sources)
 
     motif = _motif_recherche(q) if q else None
     if motif:
@@ -192,6 +227,33 @@ async def list_offres(
         )
         for o in res.data
     ]
+
+
+# DÉCLARÉE AVANT `/api/v1/offres/{offre_id}` : sinon FastAPI interprète
+# « categories » comme un identifiant d'offre (422/404).
+@app.get("/api/v1/offres/categories")
+async def categories_offres() -> dict[str, int]:
+    """Comptage RÉEL des offres actives à échéance future, par catégorie.
+
+    Réponse : `{"gouvernementale": n, "institutionnelle": n, "fondation": n,
+    "entreprise": n, "inconnu": n}`. `inconnu` compte tout ce qui n'est pas
+    classé (aucune source de financeur connu).
+    """
+    compteurs: dict[str, int] = {}
+    for categorie in CATEGORIES_BOURSE:
+        if categorie == CategorieBourse.INCONNU.value:
+            requete = _requete_offres_actives().not_.in_(
+                "source_name", sources_bourse_connues()
+            )
+        else:
+            noms_sources = sources_classifiees(categorie)
+            if not noms_sources:
+                compteurs[categorie] = 0
+                continue
+            requete = _requete_offres_actives().in_("source_name", noms_sources)
+        res = requete.execute()
+        compteurs[categorie] = res.count or 0
+    return compteurs
 
 
 @app.get("/api/v1/offres/{offre_id}", response_model=OffreStagePublic)
