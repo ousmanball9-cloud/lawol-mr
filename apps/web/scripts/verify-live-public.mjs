@@ -145,6 +145,9 @@ try {
         emploi_stage: badges.filter((b) => /emploi|stage|alternance/i.test(b)).length,
         bourses: badges.filter((b) => /bourse/i.test(b)).length,
         fauxLogos: /mauritel|ooredoo|\\bBNM\\b|\\bSNIM\\b/i.test(texte),
+        filtreCategorie: !!document.querySelector('[data-probe="offres-categorie"]'),
+        optionGouvernementale: [...document.querySelectorAll('[data-probe="offres-categorie"] option')]
+          .some((o) => /gouvernementale/i.test(o.textContent)),
         numerosWhatsApp: [...document.querySelectorAll('a[href*="wa.me"]')]
           .map((a) => (a.href.match(/wa\\.me\\/(\\d+)/) || [])[1] || "(partage sans numero)"),
       };
@@ -152,6 +155,28 @@ try {
   });
   const r = res.result.value;
   const erreurs = messages.filter((m) => !/favicon|facebook|DevTools/i.test(m));
+
+  // Le filtre « Catégorie » doit filtrer CÔTÉ SERVEUR : on compare le nombre de
+  // cartes rendues au comptage RÉEL de l'API (jamais un 0 écrit en dur — la
+  // première vraie bourse gouvernementale collectée fera évoluer ce cas).
+  const reponseCategories = await fetch(`${BASE}/api/v1/offres/categories`).catch(() => null);
+  const comptage = reponseCategories && reponseCategories.ok
+    ? await reponseCategories.json().catch(() => null)
+    : null;
+  const attenduesGouv = comptage && typeof comptage.gouvernementale === "number"
+    ? Math.min(comptage.gouvernementale, 12)
+    : null;
+
+  await send("Page.navigate", { url: `${BASE}/offres?categorie=gouvernementale` });
+  await sleep(10000);
+  const resGouv = await send("Runtime.evaluate", {
+    returnByValue: true,
+    expression: `(() => ({
+      cartes: document.querySelectorAll('[data-probe="offre-carte"]').length,
+      texteVide: /aucune offre|aucun résultat/i.test(document.body.innerText),
+    }))()`,
+  });
+  const gouv = resGouv.result.value;
 
   const cas = [
     [`base répond (${BASE})`, statutBase === 200, statutBase],
@@ -169,6 +194,18 @@ try {
       r.numerosWhatsApp,
     ],
     ["aucune erreur console", erreurs.length === 0, erreurs[0] ?? ""],
+    ["filtre « Catégorie » présent dans la barre de filtres", r.filtreCategorie === true, r.filtreCategorie],
+    ["option « Gouvernementale » proposée", r.optionGouvernementale === true, r.optionGouvernementale],
+    [
+      "?categorie=gouvernementale rend le nombre réel de bourses d'État",
+      attenduesGouv === null ? gouv.cartes === 0 : gouv.cartes === attenduesGouv,
+      { cartes: gouv.cartes, attendues: attenduesGouv },
+    ],
+    [
+      "aucune carte gouvernementale sans offre réelle (état vide honnête)",
+      !(gouv.cartes === 0) || gouv.texteVide === true,
+      { cartes: gouv.cartes, messageVide: gouv.texteVide },
+    ],
   ];
   let ko = 0;
   for (const [libelle, ok, valeur] of cas) {
