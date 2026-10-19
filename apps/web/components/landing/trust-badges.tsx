@@ -27,18 +27,18 @@ const BADGES_DEFAUT: TrustBadge[] = [
   },
   {
     icone: CheckCircle,
-    titre: "Données protégées",
-    description: "RGPD, hébergement UE, chiffrement bout en bout",
+    titre: "Données privées",
+    description: "Profil non public, opt-in clair",
   },
   {
     icone: Eye,
-    titre: "Sources vérifiées",
-    description: "Offres sourcées depuis sites officiels uniquement",
+    titre: "Sources affichées",
+    description: "Chaque offre indique sa provenance",
   },
   {
     icone: LogOut,
     titre: "Désinscription 1 clic",
-    description: "Suppression compte et données instantanée",
+    description: "Suppression depuis tes paramètres",
   },
 ];
 

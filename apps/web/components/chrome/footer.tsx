@@ -24,7 +24,7 @@ const COLONNES = [
     liens: [
       { href: "/offres", label: "Toutes les offres" },
       { href: "/#comment-ca-marche", label: "Comment ça marche" },
-      { href: "/#sources", label: "Nos sources" },
+      { href: "/#organisations", label: "Nos sources" },
     ],
   },
 ];

@@ -68,6 +68,62 @@ describe("page Statistiques", () => {
     expect(screen.getAllByText("0").length).toBeGreaterThanOrEqual(1);
   });
 
+  it("export CSV : bouton inactif avant chargement, actif ensuite, contenu conforme (BOM, total, jours)", async () => {
+    // On capture le Blob réellement téléchargé, sans toucher au DOM de l'ancre.
+    const blobs: Blob[] = [];
+    const telechargements: string[] = [];
+    const createObjectURL = vi.fn((b: Blob) => {
+      blobs.push(b);
+      return "blob:test";
+    });
+    const revokeObjectURL = vi.fn();
+    const protoUrl = URL as unknown as {
+      createObjectURL?: (b: Blob) => string;
+      revokeObjectURL?: (u: string) => void;
+    };
+    const anciens = { c: protoUrl.createObjectURL, r: protoUrl.revokeObjectURL };
+    protoUrl.createObjectURL = createObjectURL;
+    protoUrl.revokeObjectURL = revokeObjectURL;
+    const clickOriginal = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () {
+      telechargements.push(this.download);
+    };
+
+    try {
+      render(<AdminStatistiquesPage />);
+      const bouton = screen.getByRole("button", { name: /Exporter CSV/i });
+      // Avant l'arrivée des stats : désactivé (pas d'export vide).
+      expect(bouton).toBeDisabled();
+
+      await waitFor(() => expect(screen.getByText("152")).toBeInTheDocument());
+      expect(bouton).toBeEnabled();
+
+      bouton.click();
+      await waitFor(() => expect(blobs).toHaveLength(1));
+
+      const texte = await blobs[0].text();
+      // Le BOM est conservé dans les OCTETS (TextDecoder le retire au décodage) :
+      // on lit donc l'octet brut pour prouver qu'Excel FR ne cassera pas les accents.
+      const octets = await new Promise<Uint8Array>((resoudre, rejeter) => {
+        const lecteur = new FileReader();
+        lecteur.onload = () => resoudre(new Uint8Array(lecteur.result as ArrayBuffer));
+        lecteur.onerror = () => rejeter(lecteur.error);
+        lecteur.readAsArrayBuffer(blobs[0]);
+      });
+      expect(Array.from(octets.slice(0, 3))).toEqual([0xef, 0xbb, 0xbf]);
+      expect(texte).toContain("Jour;Visites");
+      expect(texte).toContain("TOTAL (toutes périodes);152");
+      expect(texte).toContain("2026-10-01;3");
+      expect(texte).toContain("2026-10-02;7");
+      expect(telechargements).toHaveLength(1);
+      expect(telechargements[0]).toMatch(/^lawol-statistiques-\d{4}-\d{2}-\d{2}\.csv$/);
+    } finally {
+      HTMLAnchorElement.prototype.click = clickOriginal;
+      protoUrl.createObjectURL = anciens.c;
+      protoUrl.revokeObjectURL = anciens.r;
+    }
+  });
+
   it("refus d'auth (401) → message de reconnexion, pas un écran muet", async () => {
     stubFetch({ statut: 401, corps: {} });
     render(<AdminStatistiquesPage />);
