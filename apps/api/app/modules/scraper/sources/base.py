@@ -4,7 +4,11 @@ from datetime import datetime, timezone
 from typing import Iterable
 
 from apps.api.app.core.database import supabase
-from apps.api.app.modules.scraper.engine import type_offre_pour_source
+from apps.api.app.modules.scraper.engine import (
+    CLE_METADATA_CATEGORIE,
+    categorie_bourse_pour_source,
+    type_offre_pour_source,
+)
 from apps.api.app.modules.shared.models import OffreStageCreate
 
 
@@ -25,6 +29,11 @@ class BaseScraper(ABC):
         `scraper.engine.type_offre_pour_source` AVANT l'écriture : une source
         d'emploi (beta.mr, LinkedIn, sites carrières) ne peut jamais écrire
         `bourse` — elle écrit `emploi_junior`, ou `stage_pfe` pour un stage.
+
+        `metadata['categorie_bourse']` (axe FINANCEUR, jsonb sans migration) est
+        posé au même endroit, par `scraper.engine.categorie_bourse_pour_source`.
+        Le dict metadata est LU puis MODIFIÉ : les autres clés déjà portées par
+        l'offre (`content_hash`, `bourse_generique`…) sont conservées.
         """
         inserted = 0
         errors = 0
@@ -34,6 +43,12 @@ class BaseScraper(ABC):
                 data["type_offre"] = type_offre_pour_source(
                     self.source_name, o.titre, o.description
                 )
+                metadata = data.get("metadata")
+                metadata = dict(metadata) if isinstance(metadata, dict) else {}
+                metadata[CLE_METADATA_CATEGORIE] = categorie_bourse_pour_source(
+                    self.source_name, o.entreprise
+                )
+                data["metadata"] = metadata
                 res = supabase.table("offres").upsert(data, on_conflict="source_url").execute()
                 if res.data:
                     inserted += 1

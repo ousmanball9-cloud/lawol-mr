@@ -18,6 +18,9 @@ export type Offre = {
   contact_whatsapp?: string | null;
   source_name?: string | null;
   source_url?: string | null;
+  /** Qui finance la bourse — `gouvernementale | institutionnelle | fondation |
+   *  entreprise | inconnu` (enum backend). Absent sur les charges anciennes. */
+  categorie_bourse?: string | null;
   active: boolean;
 };
 
@@ -110,9 +113,30 @@ export const TYPES_FINANCEMENT: { valeur: string; label: string }[] = [
   { valeur: "inconnu", label: "Non précisé" },
 ];
 
+/**
+ * Catégories de bourse servies par l'API (`categorie_bourse`, filtre `?categorie=`).
+ * Cette liste ne porte QUE les valeurs filtrables : `inconnu` (et l'absence de
+ * valeur) ne s'affiche jamais et ne se filtre pas — zéro mensonge.
+ */
+export type CategorieBourse =
+  | "gouvernementale"
+  | "institutionnelle"
+  | "fondation"
+  | "entreprise";
+
+export const CATEGORIES_BOURSE: { valeur: CategorieBourse; label: string }[] = [
+  { valeur: "gouvernementale", label: "Gouvernementale" },
+  { valeur: "institutionnelle", label: "Institutionnelle" },
+  { valeur: "fondation", label: "Fondation" },
+  { valeur: "entreprise", label: "Entreprise" },
+];
+
 const LABELS_FILIERES = new Map(FILIERES.map((f) => [f.valeur, f.label]));
 const LABELS_PAYS = new Map(PAYS_ETUDES.map((p) => [p.valeur, p.label]));
 const LABELS_FINANCEMENT = new Map(TYPES_FINANCEMENT.map((t) => [t.valeur, t.label]));
+const LABELS_CATEGORIES = new Map<string, string>(
+  CATEGORIES_BOURSE.map((c) => [c.valeur, c.label])
+);
 
 /** Libellé lisible d'une filière (valeur enum → label, repli : snake_case → texte). */
 export function labelFiliere(valeur: string): string {
@@ -127,4 +151,16 @@ export function labelPays(valeur: string): string {
 /** Libellé lisible d'un type de financement. */
 export function labelFinancement(valeur: string): string {
   return LABELS_FINANCEMENT.get(valeur) ?? valeur.replace(/_/g, " ");
+}
+
+/** Libellé d'une catégorie de bourse ; `null` si inconnue ou absente (rien à
+ *  afficher : mieux vaut aucun badge qu'un badge « Inconnu »). */
+export function labelCategorieBourse(valeur: string | null | undefined): string | null {
+  if (!valeur) return null;
+  return LABELS_CATEGORIES.get(valeur) ?? null;
+}
+
+/** Vrai si la valeur est une catégorie filtrable (tout le reste → « toutes »). */
+export function estCategorieBourse(valeur: string | null | undefined): valeur is CategorieBourse {
+  return Boolean(valeur && LABELS_CATEGORIES.has(valeur));
 }

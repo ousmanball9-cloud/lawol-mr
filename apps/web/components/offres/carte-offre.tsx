@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Calendar, Clock, MapPin } from "lucide-react";
 import { BADGES_TYPE, TYPES_OFFRES } from "@/components/offre-detail-modal";
-import { labelPays } from "./types";
+import { labelCategorieBourse, labelPays } from "./types";
 import { joursRestants, parserDateLimite } from "./date-limite";
 import type { Offre } from "./types";
 
@@ -11,6 +11,9 @@ const SEUIL_URGENT_JOURS = 7;
 /**
  * Carte d'offre — titre bold, entreprise en petit, lieu · date, badge type.
  * Hover : bordure signature + léger soulèvement (cartes match de l'espace profil).
+ *
+ * CATÉGORIE DE BOURSE : badge discret (indigo clair) quand l'API la connaît ;
+ * `inconnu`/absent → aucun badge (jamais « Inconnu » affiché).
  *
  * ÉCHÉANCE (toujours lisible, même logique que /offres/[id] → date-limite.ts) :
  *   · J-n        → pastille indigo `bg-nuit`
@@ -26,6 +29,7 @@ export function CarteOffre({ offre }: { offre: Offre }) {
   // La LISTE ne sert qu'un aperçu (voir types.ts) ; une offre complète (détail,
   // similaires) porte `description`. Les deux cas affichent la même 2-lignes.
   const apercu = offre.description_apercu || offre.description;
+  const categorie = labelCategorieBourse(offre.categorie_bourse);
 
   return (
     <Link
@@ -84,6 +88,14 @@ export function CarteOffre({ offre }: { offre: Offre }) {
         >
           {TYPES_OFFRES[offre.type_offre] || offre.type_offre}
         </span>
+        {categorie && (
+          <span
+            data-probe="offre-categorie"
+            className="inline-flex items-center rounded-full border border-signature/25 bg-signature/5 px-2.5 py-1 text-[11px] font-semibold text-signature-deep"
+          >
+            {categorie}
+          </span>
+        )}
       </div>
     </Link>
   );

@@ -28,7 +28,7 @@ import {
   parserDateLimite,
   texteJoursRestants,
 } from "@/components/offres/date-limite";
-import { labelFiliere, type Offre } from "@/components/offres/types";
+import { labelFiliere, labelCategorieBourse, type Offre } from "@/components/offres/types";
 
 type Etat = "chargement" | "charge" | "erreur" | "introuvable";
 
@@ -131,6 +131,7 @@ export default function OffreDetailPage() {
   const typeLabel = TYPES_OFFRES[offre.type_offre] || offre.type_offre;
   const typeBadge =
     BADGES_TYPE[offre.type_offre] ?? "border border-border bg-muted text-muted-foreground";
+  const categorie = labelCategorieBourse(offre.categorie_bourse);
   const resumeJours = texteJoursRestants(jours);
 
   return (
@@ -155,6 +156,14 @@ export default function OffreDetailPage() {
                 {typeLabel}
               </span>
               <BadgeEcheance jours={jours} />
+              {categorie && (
+                <span
+                  data-probe="detail-categorie"
+                  className="inline-flex items-center rounded-full border border-signature/25 bg-signature/5 px-2.5 py-1 text-[11px] font-semibold text-signature-deep"
+                >
+                  {categorie}
+                </span>
+              )}
             </div>
 
             <h1

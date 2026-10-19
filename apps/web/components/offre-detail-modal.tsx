@@ -12,6 +12,7 @@ import {
   MessageCircle,
   X,
 } from "lucide-react";
+import { labelCategorieBourse } from "@/components/offres/types";
 
 /** Champs de l'offre exposés par GET /api/v1/matches (voir docs/brief-offre-detail.md). */
 export type OffreDetail = {
@@ -27,6 +28,9 @@ export type OffreDetail = {
   source_url?: string | null;
   source_name?: string | null;
   filieres_cibles?: string[];
+  /** Catégorie de bourse (`gouvernementale | institutionnelle | fondation |
+   *  entreprise | inconnu`) — absente des charges anciennes. */
+  categorie_bourse?: string | null;
 };
 
 export const TYPES_OFFRES: Record<string, string> = {
@@ -347,6 +351,7 @@ export function OffreDetailModal({ offre, postule, statut, enCours, onPostuler, 
 
   const date = parserDateLimite(offre.date_limite);
   const jours = joursRestants(date);
+  const categorie = labelCategorieBourse(offre.categorie_bourse);
   const filieres = offre.filieres_cibles ?? [];
   const email = offre.contact_email?.trim() || null;
   const whatsapp = offre.contact_whatsapp?.trim() || null;
@@ -375,14 +380,24 @@ export function OffreDetailModal({ offre, postule, statut, enCours, onPostuler, 
           <X className="h-4 w-4" />
         </button>
 
-        {/* 1. Badge type + titre */}
-        <span
-          className={`badge-offre inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${
-            BADGES_TYPE[offre.type_offre] ?? BADGE_OFFRE_NEUTRE
-          }`}
-        >
-          {TYPES_OFFRES[offre.type_offre] || offre.type_offre}
-        </span>
+        {/* 1. Badge type + catégorie + titre */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`badge-offre inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${
+              BADGES_TYPE[offre.type_offre] ?? BADGE_OFFRE_NEUTRE
+            }`}
+          >
+            {TYPES_OFFRES[offre.type_offre] || offre.type_offre}
+          </span>
+          {categorie && (
+            <span
+              data-probe="fiche-categorie"
+              className="inline-flex items-center rounded-full border border-signature/25 bg-signature/5 px-2.5 py-1 text-[11px] font-semibold text-signature-deep"
+            >
+              {categorie}
+            </span>
+          )}
+        </div>
         <h2 className="mt-3 pr-8 font-display text-xl font-bold leading-snug tracking-[-0.01em] text-foreground">{offre.titre}</h2>
 
         {/* 2. Entreprise + ville + source */}
