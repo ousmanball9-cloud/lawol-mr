@@ -162,7 +162,7 @@ export function Organisations() {
   const { publications } = bassin;
 
   return (
-    <section className="bg-background py-24 lg:py-32">
+    <section id="organisations" className="bg-background py-24 lg:py-32">
       <div className="container mx-auto px-4">
         <div className="mb-12 text-center">
           <p className="eyebrow mb-4 text-signature">Qui publie des offres</p>

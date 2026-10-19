@@ -73,13 +73,6 @@ const TYPES_BOURSES = [
   { icon: Clock, label: "Bourse d'échange", desc: "Séjours courts, 2 à 12 semaines" },
 ]
 
-// Sources d'offres réellement observées dans GET /api/v1/offres (source_name) :
-// liste tenue à jour à la main, aucune prétention de « partenariat ».
-const SOURCES = [
-  "Beta.mr", "Scholar Africa", "AfterSchool Africa", "Opportunities for Youth",
-  "Opportunity Desk", "LinkedIn", "Mauritel", "SNIM",
-]
-
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-background">
@@ -271,35 +264,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Sources */}
-      <section id="sources" className="border-y border-border bg-card py-24 lg:py-32">
-        <div className="container mx-auto px-4">
-          <div className="mb-12 text-center">
-            <p className="eyebrow mb-4 text-signature">
-              D&apos;où viennent les offres
-            </p>
-            <h2 className="mb-4 font-display text-3xl font-bold tracking-[-0.02em] text-ink lg:text-4xl">
-              Des canaux <span className="text-signature">identifiés, pas déclarés</span>
-            </h2>
-            <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-              Les sources observées sur les offres publiées — chacune reste affichée sur
-              la fiche, avec lien vers la page d&apos;origine.
-            </p>
-          </div>
-
-          <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2 lg:max-w-6xl lg:grid-cols-4">
-            {SOURCES.map((src) => (
-              <div
-                key={src}
-                className="rounded-lg border border-border bg-card px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground transition-colors duration-200 hover:border-signature hover:text-ink"
-              >
-                {src}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Badges de confiance (probe: trust-badges) */}
       <section className="border-y border-border bg-card py-16">
         <div className="container mx-auto px-4">
@@ -310,32 +274,6 @@ export default function HomePage() {
       {/* Qui publie les offres — logos codés en dur remplacés par un classement réel
           (composant client ; section entière rendue null si le relevé échoue) */}
       <Organisations />
-
-      {/* Bannières CTA — recruteurs / universités (pattern Jobteaser) */}
-      <section className="border-y border-border bg-card py-16">
-        <div className="container mx-auto px-4">
-          <div className="mx-auto grid max-w-2xl gap-6 md:grid-cols-1">
-            <div className="rounded-lg border border-border bg-background p-8 text-center">
-              <h3 className="mb-2 font-display text-2xl font-bold tracking-[-0.02em] text-ink">
-                Votre université ?
-              </h3>
-              <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
-                Offrez à vos étudiants un accès privilégié aux bourses qui correspondent
-                à leur filière, directement depuis leur profil LAWOL.mr.
-              </p>
-              <Link href="/contact">
-                <Button
-                  variant="outline"
-                  className="h-11 rounded-lg border-border px-6 transition-colors duration-150 hover:border-signature hover:text-signature"
-                >
-                  Devenir partenaire
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* CTA Final — bloc near-black, accent uniquement sur le bouton */}
       <section className="bg-background py-24 lg:py-32">

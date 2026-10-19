@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { TYPES_OFFRES } from "@/components/offre-detail-modal";
-import { ArrowLeft, ArrowRight, Check, Copy, Settings, UserMinus } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Copy, Download, Settings, UserMinus } from "lucide-react";
 
 /** Enum Ville du backend (ordre SQL), même liste que le schéma. */
 const VILLES = ["nouakchott", "nouadhibou", "kaedi", "rosso", "aleg", "autre"];
@@ -37,6 +37,9 @@ export default function ParametresPage() {
   const [sauvegarde, setSauvegarde] = useState<"repos" | "pending" | "ok" | "erreur">("repos");
   const [copie, setCopie] = useState(false);
   const [desinscriptionEnCours, setDesinscriptionEnCours] = useState(false);
+  // Export « mes données » (RGPD) : le middleware injecte le Bearer vers l'API
+  // pour /api/v1/profils/* — un simple fetch suffit, pas de nouvelle route.
+  const [exportEtat, setExportEtat] = useState<"repos" | "pending" | "ok" | "erreur">("repos");
 
   useEffect(() => {
     let actif = true;
@@ -124,6 +127,46 @@ export default function ParametresPage() {
     }
   }
 
+  /** Télécharge un Blob côté client (profil + candidatures + documents en JSON). */
+  function telechargerJson(nomFichier: string, donnees: unknown) {
+    const blob = new Blob([JSON.stringify(donnees, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nomFichier;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleExporter() {
+    setExportEtat("pending");
+    try {
+      // Les trois endpoints existants — le Bearer est injecté par le middleware.
+      const [profilRes, histRes, docsRes] = await Promise.all([
+        fetch(`/api/v1/profils/${telephone}`),
+        fetch(`/api/v1/profils/${telephone}/historique`),
+        fetch(`/api/v1/profils/${telephone}/documents`),
+      ]);
+      if (!profilRes.ok || !histRes.ok || !docsRes.ok) throw new Error();
+      const candidaturesBrut: unknown = await histRes.json();
+      const docsBrut: unknown = await docsRes.json();
+      const candidatures = Array.isArray(candidaturesBrut) ? candidaturesBrut : [];
+      const documents =
+        docsBrut && typeof docsBrut === "object" && Array.isArray((docsBrut as { documents?: unknown }).documents)
+          ? ((docsBrut as { documents: unknown[] }).documents ?? [])
+          : [];
+      telechargerJson(`lawol-mes-donnees-${telephone}.json`, {
+        exporte_le: new Date().toISOString(),
+        profil,
+        candidatures,
+        documents,
+      });
+      setExportEtat("ok");
+    } catch {
+      setExportEtat("erreur");
+    }
+  }
+
   if (chargement) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4">
@@ -190,7 +233,41 @@ export default function ParametresPage() {
           </Link>
         </section>
 
-        {/* 2. Préférences avancées */}
+        {/* 2. Mes données (export RGPD) */}
+        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+          <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
+            Mes données
+          </h2>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Télécharge une copie de ton profil, de tes candidatures et de tes
+            documents dans un fichier JSON.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExporter}
+              disabled={exportEtat === "pending"}
+              data-probe="export-donnees"
+              className="rounded-lg border-border transition-colors duration-150 hover:border-signature hover:text-signature"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {exportEtat === "pending" ? "Préparation..." : "Exporter mes données"}
+            </Button>
+            {exportEtat === "ok" && (
+              <span role="status" className="text-sm font-medium text-green-800">
+                Export téléchargé ✅
+              </span>
+            )}
+            {exportEtat === "erreur" && (
+              <span role="status" className="text-sm font-medium text-red-700">
+                Export impossible — réessaie.
+              </span>
+            )}
+          </div>
+        </section>
+
+        {/* 3. Préférences avancées */}
         <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
           <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
             Préférences avancées
@@ -299,7 +376,7 @@ export default function ParametresPage() {
         </div>
 
         <div className="min-w-0">
-        {/* 3. Parrainage */}
+        {/* 4. Parrainage */}
         <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
           <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
             Parrainage
@@ -338,7 +415,7 @@ export default function ParametresPage() {
           </div>
         </section>
 
-        {/* 4. Liens utiles */}
+        {/* 5. Liens utiles */}
         <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
           <h2 className="mb-3 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
             À propos
@@ -367,7 +444,7 @@ export default function ParametresPage() {
           </ul>
         </section>
 
-        {/* 5. Désinscription (discrète, bouton rouge) */}
+        {/* 6. Désinscription (discrète, bouton rouge) */}
         <section className="rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
           <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
             Désinscription

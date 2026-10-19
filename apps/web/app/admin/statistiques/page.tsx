@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, BarChart3, CalendarDays, Eye } from "lucide-react";
+import { AlertTriangle, BarChart3, CalendarDays, Download, Eye } from "lucide-react";
 
 /**
  * Page admin « Statistiques » — fréquentation du site.
@@ -33,6 +33,7 @@ export default function AdminStatistiquesPage() {
   const [stats, setStats] = useState<StatsVisites | null>(null);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState("");
+  const [exportEnCours, setExportEnCours] = useState(false);
 
   useEffect(() => {
     let annule = false;
@@ -69,18 +70,56 @@ export default function AdminStatistiquesPage() {
   const surTrenteJours = stats?.par_jour.reduce((somme, j) => somme + j.nb, 0) ?? 0;
   const maximum = Math.max(...(stats?.par_jour.map((j) => j.nb) ?? [0]), 1);
 
+  /** Export CSV du tableau (total + par jour) — BOM UTF-8, séparateur « ; »
+   *  (standard Excel FR). Côté client uniquement, aucune nouvelle API. */
+  function handleExporterCsv() {
+    if (!stats) return;
+    setExportEnCours(true);
+    try {
+      const lignes = [
+        "Jour;Visites",
+        `TOTAL (toutes périodes);${stats.total}`,
+        ...stats.par_jour.map((j) => `${j.jour};${j.nb}`),
+      ];
+      // BOM UTF-8 : sans lui Excel FR affiche des accents cassés.
+      const blob = new Blob([`﻿${lignes.join("\r\n")}`], {
+        type: "text/csv;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `lawol-statistiques-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExportEnCours(false);
+    }
+  }
+
   return (
     <div>
       {/* En-tête de page (même gabarit que les autres écrans admin) */}
       <div className="p-4 bg-white border-b border-gray-200 sm:flex sm:items-center sm:justify-between lg:mt-1.5">
-        <div className="w-full mb-1">
-          <h1 className="flex items-center gap-2 text-xl font-semibold text-ink sm:text-2xl">
-            <BarChart3 className="h-6 w-6 text-signature" aria-hidden="true" />
-            Statistiques
-          </h1>
-          <p className="mt-1 text-sm font-normal text-muted-foreground">
-            Fréquentation du site — total et détail des 30 derniers jours
-          </p>
+        <div className="w-full mb-1 sm:flex sm:items-center sm:justify-between sm:gap-4">
+          <div>
+            <h1 className="flex items-center gap-2 text-xl font-semibold text-ink sm:text-2xl">
+              <BarChart3 className="h-6 w-6 text-signature" aria-hidden="true" />
+              Statistiques
+            </h1>
+            <p className="mt-1 text-sm font-normal text-muted-foreground">
+              Fréquentation du site — total et détail des 30 derniers jours
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleExporterCsv}
+            disabled={!stats || exportEnCours}
+            data-probe="stats-export-csv"
+            className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm transition-colors duration-150 hover:border-signature hover:text-signature disabled:cursor-not-allowed disabled:opacity-50 sm:mt-0"
+          >
+            <Download className="h-4 w-4" aria-hidden="true" />
+            {exportEnCours ? "Export…" : "Exporter CSV"}
+          </button>
         </div>
       </div>
 
