@@ -326,8 +326,9 @@ export default function ProfilPage() {
     setActualisation(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/v1/matching/run", { method: "POST" });
-      if (!res.ok) throw new Error();
+      // « Actualiser » = recharger MES données. Le job global de matching est
+      // désormais gardé (admin/cron) : un appel public recevait 401 et
+      // affichait une erreur à l'étudiant alors que rien n'était cassé.
       await charger();
       setMessage({ ok: true, texte: "Offres actualisées !" });
     } catch {
