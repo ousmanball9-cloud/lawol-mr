@@ -1,5 +1,4 @@
-﻿# -*- coding: utf-8 -*-
-"""Harnais de preuve du moteur de matching — LAWOL.mr (lecture seule).
+﻿"""Harnais de preuve du moteur de matching — LAWOL.mr (lecture seule).
 
 Prouve la CONSTITUTION et la PERFORMANCE du moteur, sans écrire en base :
 
@@ -29,9 +28,9 @@ from pathlib import Path
 RACINE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RACINE))
 
-from apps.api.app.core.database import supabase  # noqa: E402
-from apps.api.app.modules.matching import engine  # noqa: E402
-from apps.api.app.modules.shared.models import Filiere, TypeOffre, Ville  # noqa: E402
+from apps.api.app.core.database import supabase
+from apps.api.app.modules.matching import engine
+from apps.api.app.modules.shared.models import Filiere, TypeOffre, Ville
 
 _checks: list[tuple[bool, str]] = []
 
@@ -46,19 +45,19 @@ AUJ = date(2026, 10, 20)
 
 def regles(**kw):
     """Appel de match_regles avec un profil « bourse » par défaut."""
-    base = dict(
-        profil_actif=True,
-        offre_active=True,
-        date_limite=AUJ + timedelta(days=30),
-        type_offre=TypeOffre.BOURSE.value,
-        types_recherches=[TypeOffre.BOURSE.value],
-        filiere_profil=Filiere.INFORMATIQUE.value,
-        filieres_interet=[],
-        filieres_cibles=[Filiere.INFORMATIQUE.value],
-        ville_profil=Ville.NOUAKCHOTT.value,
-        ville_offre=Ville.NOUAKCHOTT.value,
-        aujourdhui=AUJ,
-    )
+    base = {
+        "profil_actif": True,
+        "offre_active": True,
+        "date_limite": AUJ + timedelta(days=30),
+        "type_offre": TypeOffre.BOURSE.value,
+        "types_recherches": [TypeOffre.BOURSE.value],
+        "filiere_profil": Filiere.INFORMATIQUE.value,
+        "filieres_interet": [],
+        "filieres_cibles": [Filiere.INFORMATIQUE.value],
+        "ville_profil": Ville.NOUAKCHOTT.value,
+        "ville_offre": Ville.NOUAKCHOTT.value,
+        "aujourdhui": AUJ,
+    }
     base.update(kw)
     return engine.match_regles(**base)
 
@@ -138,16 +137,16 @@ def preuve_regles() -> None:
 # ------------------------------------------------------------------- 2. BARÈME
 def preuve_bareme() -> None:
     print("\n=== 2. BARÈME DE PERTINENCE (0-100) ===")
-    commun = dict(
-        filiere_profil=Filiere.INFORMATIQUE.value,
-        filieres_interet=[],
-        filieres_cibles=[Filiere.INFORMATIQUE.value],
-        ville_profil=Ville.NOUAKCHOTT.value,
-        ville_offre=Ville.NOUAKCHOTT.value,
-        date_scrape=AUJ,
-        date_limite=AUJ + timedelta(days=10),
-        aujourdhui=AUJ,
-    )
+    commun = {
+        "filiere_profil": Filiere.INFORMATIQUE.value,
+        "filieres_interet": [],
+        "filieres_cibles": [Filiere.INFORMATIQUE.value],
+        "ville_profil": Ville.NOUAKCHOTT.value,
+        "ville_offre": Ville.NOUAKCHOTT.value,
+        "date_scrape": AUJ,
+        "date_limite": AUJ + timedelta(days=10),
+        "aujourdhui": AUJ,
+    }
     s_min = engine.calculer_score_pertinence(
         **{
             **commun,
@@ -264,7 +263,7 @@ def preuve_selection() -> None:
             [(95, False), (80, True), (70, False), (60, True), (50, True), (40, True), (35, False)]
         )
     ]
-    retenus, spam, gen = engine.selectionner_candidats(cands, deja_semaine=0, deja_generiques=0)
+    retenus, _, _ = engine.selectionner_candidats(cands, deja_semaine=0, deja_generiques=0)
     check(
         len(retenus) == engine.MAX_MATCHES_PAR_SEMAINE,
         f"quota hebdo respecté ({len(retenus)})",
