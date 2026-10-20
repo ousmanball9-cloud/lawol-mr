@@ -75,11 +75,17 @@ function lireDossier(brut: unknown): DossierPret | null {
 }
 
 /** Message honnête associé à un refus serveur (aucune promesse d'envoi). */
-function messageEchec(status: number): string {
+function messageEchec(status: number, detail = ""): string {
   if (status === 401 || status === 403) {
     return "Ta session a expiré — reconnecte-toi pour générer ton dossier.";
   }
   if (status === 404) {
+    // `detail: "Not Found"` = la ROUTE n'existe pas (API pas encore déployée).
+    // Ne jamais dire « cette offre n'est plus disponible » dans ce cas : c'est
+    // faux et l'étudiant croirait que la bourse a disparu (mesuré le 20/10).
+    if (/^not found$/i.test(detail.trim())) {
+      return "Le service de génération est momentanément indisponible. Réessaie plus tard — aucun email n'a été envoyé.";
+    }
     return "Cette offre n'est plus disponible : le dossier ne peut pas être généré.";
   }
   return "Le dossier n'a pas pu être généré. Aucun email n'a été envoyé. Réessaie dans un instant.";
@@ -165,7 +171,14 @@ export function DossierPieces({ offreId }: { offreId: string }) {
         }
       );
       if (!res.ok) {
-        setMessage({ ok: false, texte: messageEchec(res.status) });
+        let detail = "";
+        try {
+          const corpsErreur = (await res.json()) as { detail?: unknown };
+          detail = typeof corpsErreur?.detail === "string" ? corpsErreur.detail : "";
+        } catch {
+          // Corps non JSON (proxy Next) : le statut suffit, message générique.
+        }
+        setMessage({ ok: false, texte: messageEchec(res.status, detail) });
         return;
       }
       const pret = lireDossier(await res.json());

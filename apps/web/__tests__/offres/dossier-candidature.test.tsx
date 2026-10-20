@@ -52,7 +52,12 @@ let appels: Appel[] = [];
 
 /** `fetch` mocké : coffre + génération, réponses configurables. */
 function mockerFetch(
-  options: { documents?: unknown; generationStatut?: number; generation?: unknown } = {}
+  options: {
+    documents?: unknown;
+    generationStatut?: number;
+    generation?: unknown;
+    generationDetail?: string;
+  } = {}
 ) {
   vi.stubGlobal(
     "fetch",
@@ -75,7 +80,7 @@ function mockerFetch(
               expire_dans: 60,
               pieces: ["CV_2026.pdf", "Releves_notes.pdf"],
             })
-          : { detail: "erreur" };
+          : { detail: options.generationDetail ?? "erreur" };
       return new Response(JSON.stringify(payload), {
         status: statut,
         headers: { "Content-Type": "application/json" },
@@ -139,6 +144,37 @@ describe("dossier de candidature — génération réelle", () => {
       telephone: TEL,
       pieces: ["doc-cv"],
     });
+  });
+
+  it("404 « Not Found » (route API absente) → service indisponible, JAMAIS « offre plus disponible »", async () => {
+    connecter();
+    mockerFetch({ generationStatut: 404, generationDetail: "Not Found" });
+    render(<DossierPieces offreId={OFFRE_ID} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /générer mon dossier/i }));
+
+    await waitFor(() =>
+      expect(probe("detail-dossier-message")?.textContent).toContain(
+        "momentanément indisponible"
+      )
+    );
+    expect(probe("detail-dossier-message")?.textContent).not.toContain(
+      "n'est plus disponible"
+    );
+  });
+
+  it("404 « Offre introuvable » (métier) → message d'offre expirée", async () => {
+    connecter();
+    mockerFetch({ generationStatut: 404, generationDetail: "Offre introuvable" });
+    render(<DossierPieces offreId={OFFRE_ID} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /générer mon dossier/i }));
+
+    await waitFor(() =>
+      expect(probe("detail-dossier-message")?.textContent).toContain(
+        "n'est plus disponible"
+      )
+    );
   });
 
   it("erreur serveur → message honnête, aucun lien de téléchargement", async () => {
