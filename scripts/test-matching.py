@@ -127,6 +127,13 @@ def preuve_regles() -> None:
         == (False, "financement_insuffisant"),
         "financement sous le minimum → refus",
     )
+    check(
+        regles(
+            type_financement_offre="inconnu",
+            financement_min_profil="fully_funded",
+        )[0],
+        "CORRIGÉ v2 : financement INCONNU n'est pas « insuffisant » → non écarté",
+    )
 
     # --- CORRIGÉ v2 : la règle VILLE ne s'applique plus aux bourses.
     # Avant : une bourse « nouakchott » éliminait tout étudiant de Nouadhibou.
@@ -280,6 +287,16 @@ def preuve_donnees(offres: list[dict]) -> None:
         for o in bourses
         if engine.est_bourse_generique(o.get("type_offre"), o.get("filieres_cibles"))
     ]
+    inconnus = sum(1 for o in bourses if o.get("type_financement") in (None, "inconnu"))
+    taux_fin = round(100 * inconnus / nb, 1) if nb else 0
+    print(
+        f"  -> financement inconnu/absent : {inconnus}/{nb} ({taux_fin} %) "
+        "→ critère ignoré dans le score, jamais filtré comme « insuffisant »"
+    )
+    check(
+        taux_fin < 80,
+        f"financement renseigné sur au moins 20 % du catalogue (mesuré : {100 - taux_fin:.1f} %)",
+    )
     seuil = round(engine.SEUIL_COUVERTURE_GENERIQUE * len(Filiere), 1)
     print(f"  -> générique = ≥ {seuil} filières distinctes sur {len(Filiere)}")
     check(

@@ -180,8 +180,15 @@ def match_regles(
         ):
             return False, "pays_non_favori"
 
-    # Financement minimum (nouveau P7)
-    if financement_min_profil and type_financement_offre:
+    # Financement minimum (P7) — un financement INCONNU n'est pas un financement
+    # insuffisant : il n'est pas jugeable. Le traiter comme le niveau le plus bas
+    # écartait 162/260 bourses (62,3 %) dès qu'un étudiant demandait « partiel »,
+    # sans qu'aucune ne soit réellement sous le seuil (défaut relevé le 20/10).
+    if (
+        financement_min_profil
+        and type_financement_offre
+        and type_financement_offre != TypeFinancement.INCONNU.value
+    ):
         ordre_financement = {
             TypeFinancement.FULLY_FUNDED.value: 4,
             TypeFinancement.PARTIEL.value: 3,
