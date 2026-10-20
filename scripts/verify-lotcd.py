@@ -144,9 +144,6 @@ def preuve_lot_d() -> None:
     ids_generiques = {c["offre_id"] for c in candidats if c["metadata"]["bourse_generique"]}
     n_gen_avant = sum(1 for c in avant if c["offre_id"] in ids_generiques)
 
-    scores_cibles = [c["score"] for c in retenus if not c["metadata"]["bourse_generique"]]
-    scores_gen = [c["score"] for c in candidats if c["metadata"]["bourse_generique"]]
-
     print(f"  paires matchantes (regles v1)   : {len(candidats)}")
     print(f"  AVANT  top-5 (sans tuning)      : dont {n_gen_avant} bourse(s) toutes-filieres")
     print(f"  APRES  retenus                  : {len(retenus)} (dont {n_gen_apres} generique(s),"
@@ -161,9 +158,35 @@ def preuve_lot_d() -> None:
         f"Lot D : au plus {engine.MAX_BOURSES_GENERIQUES_PAR_PROFIL} bourses toutes-filières "
         f"retenues (obtenu : {n_gen_apres})",
     )
+    # Ce contrôle porte sur des données SYNTHÉTIQUES : la base ne contient
+    # aujourd'hui aucune bourse qui liste ≥ 80 % des filières (mesuré le 20/10),
+    # donc s'appuyer sur le catalogue rendait ce check impossible (KO depuis le
+    # 15/10). La règle est PURE : on la teste sur des cas construits.
+    commun_synth = {
+        "filiere_profil": profil["filiere"],
+        "filieres_interet": profil["filieres_interet"],
+        "filieres_cibles": [profil["filiere"]],
+        "ville_profil": profil["ville"],
+        "ville_offre": profil["ville"],
+        "date_scrape": today,
+        "date_limite": today + timedelta(days=10),
+        "aujourdhui": today,
+    }
+    score_gen_synth = engine.calculer_score_pertinence(
+        **commun_synth, bourse_generique=True
+    )
+    score_cible_synth = engine.calculer_score_pertinence(
+        **commun_synth, bourse_generique=False
+    )
     check(
-        scores_cibles and scores_gen and min(scores_cibles) > max(scores_gen),
-        "Lot D : toute bourse ciblée informatique rank APRÈS toutes les génériques",
+        score_gen_synth < score_cible_synth,
+        f"Lot D : toute bourse ciblée rank AVANT une générique "
+        f"(synthétique : ciblée {score_cible_synth} > générique {score_gen_synth})",
+    )
+    check(
+        engine.est_bourse_generique("bourse", list(engine.Filiere)),
+        "Lot D : une bourse qui liste toutes les filières est détectée générique "
+        "(couverture relative ≥ 80 %)",
     )
     check(
         n_gen_apres <= n_gen_avant,
@@ -354,11 +377,19 @@ def preuve_lot_c() -> None:
             if row["offre_id"] == offres_ids["bourse J3"]:
                 j3_match = row
         check(
-            (j12_match and (j12_match.get("metadata") or {}).get("deadline_j12_envoye")) == today.isoformat(),
+            (
+                j12_match
+                and (j12_match.get("metadata") or {}).get("deadline_j12_envoye")
+            )
+            == today.isoformat(),
             "Lot C : état « seuil J-12 envoyé » persisté en base (metadata match)",
         )
         check(
-            (j3_match and (j3_match.get("metadata") or {}).get("deadline_j3_envoye")) == today.isoformat(),
+            (
+                j3_match
+                and (j3_match.get("metadata") or {}).get("deadline_j3_envoye")
+            )
+            == today.isoformat(),
             "Lot C : état « seuil J-3 envoyé » persisté en base (metadata match)",
         )
 
