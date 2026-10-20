@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || "";
+// Préfixe identique côté FastAPI (`apps/api/app/modules/auth/admin.py`) : la
+// valeur du cookie est DÉRIVÉE du secret serveur, jamais une constante publique.
+const PREFIXE_COOKIE = "lawol-admin|";
+
+function cookieAdminAttendu(hashAdmin: string): string {
+  if (!hashAdmin) return "";
+  return createHash("sha256").update(PREFIXE_COOKIE + hashAdmin, "utf8").digest("hex");
+}
 
 export async function POST(request: Request) {
   // Entrée non validée = 400, jamais un 500 (mesuré le 20/10 : un corps sans
@@ -27,7 +35,7 @@ export async function POST(request: Request) {
   }
 
   const response = NextResponse.json({ success: true });
-  response.cookies.set("lawol_admin", "authenticated", {
+  response.cookies.set("lawol_admin", cookieAdminAttendu(ADMIN_PASSWORD_HASH), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

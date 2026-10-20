@@ -14,6 +14,7 @@ jobs:
         run: |
           curl -X POST "https://lawol-mr-production.up.railway.app/api/v1/scraper/run" \
             -H "Content-Type: application/json" \
+            -H "x-admin-token: ${{ secrets.SCRAPER_TOKEN }}" \
             -d '{"run_matching": true}' \
             --max-time 600 \
             --fail \

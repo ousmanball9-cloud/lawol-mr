@@ -10,7 +10,9 @@ Prouve :
       clés publiques (les clés privées ne fuitent jamais) ; table absente ou vide
       → {} (jamais 500) ;
    2. PUT /api/v1/admin/parametres → 401 sans identité, 403 identité fausse,
-      200 avec cookie lawol_admin / x-admin-token / Authorization Bearer ;
+      200 avec cookie lawol_admin DÉRIVÉ (sha256("lawol-admin|" + hash)) /
+      x-admin-token / Authorization Bearer ; l'ancien cookie public
+      « authenticated » est refusé (403) ;
       réponse exactement {cle, valeur, modifie_le} ; upsert (une seule ligne par
       clé, modifie_le actualisé) ; valeur = n'importe quel JSON ;
    3. POST /api/v1/visites (public) → 201 {ok: true} ; chemin assaini (caractères
@@ -28,6 +30,7 @@ Usage : python -X utf8 scripts/test-parametres-visites.py
 Sortie : checks OK/KO — code retour 0 si tout est vert.
 """
 import copy
+import hashlib
 import os
 import sys
 import types
@@ -191,6 +194,11 @@ from apps.api.app.modules.parametres.routes import router  # noqa: E402
 # (jamais un secret réel) pour rendre la preuve déterministe quel que soit .env.
 TOKEN_ADMIN = "hash-admin-de-test-bidon"
 settings.ADMIN_PASSWORD_HASH = TOKEN_ADMIN
+# Cookie accepté par la garde : valeur DÉRIVÉE du secret (formule partagée avec
+# /api/admin/login) — la constante publique "authenticated" est refusée.
+COOKIE_ADMIN_DERIVE = hashlib.sha256(
+    ("lawol-admin|" + TOKEN_ADMIN).encode("utf-8")
+).hexdigest()
 
 app = FastAPI()
 app.include_router(router)
@@ -307,13 +315,20 @@ except ValueError:
     horodatage_ok = False
 check("modifie_le ISO 8601", horodatage_ok, str(c.get("modifie_le")))
 
-# cookie de session admin accepté, puis Authorization Bearer (même garde)
+# cookie de session admin (valeur DÉRIVÉE du secret, jamais "authenticated"),
+# puis Authorization Bearer (même garde)
 r = client.put(
     url_admin,
     json={"cle": "email_contact", "valeur": "hello@lawol.mr"},
     cookies={"lawol_admin": "authenticated"},
 )
-check("cookie lawol_admin=authenticated → 200", r.status_code == 200, ko(r))
+check("ancien cookie lawol_admin=authenticated → 403", r.status_code == 403, ko(r))
+r = client.put(
+    url_admin,
+    json={"cle": "email_contact", "valeur": "hello@lawol.mr"},
+    cookies={"lawol_admin": COOKIE_ADMIN_DERIVE},
+)
+check("cookie lawol_admin dérivé (sha256) → 200", r.status_code == 200, ko(r))
 r = client.put(
     url_admin,
     json={"cle": "mode_maintenance", "valeur": True},

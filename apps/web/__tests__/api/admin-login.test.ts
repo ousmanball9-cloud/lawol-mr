@@ -10,6 +10,9 @@ import { createHash } from "crypto";
 
 const MOT_DE_PASSE = "mot-de-passe-de-test";
 const HASH = createHash("sha256").update(MOT_DE_PASSE).digest("hex");
+// Valeur attendue du cookie : DÉRIVÉE du secret serveur (même formule que
+// `_admin_autorise` côté FastAPI) — jamais la constante publique "authenticated".
+const COOKIE_DERIVE = createHash("sha256").update("lawol-admin|" + HASH, "utf8").digest("hex");
 
 async function chargerRoute() {
   vi.resetModules();
@@ -59,13 +62,15 @@ describe("POST /api/admin/login", () => {
     expect(res.headers.get("set-cookie")).toBeNull();
   });
 
-  it("bon mot de passe → 200 + cookie lawol_admin httpOnly", async () => {
+  it("bon mot de passe → 200 + cookie lawol_admin DÉRIVÉ (httpOnly)", async () => {
     const { POST } = await chargerRoute();
     const res = await POST(requete(JSON.stringify({ password: MOT_DE_PASSE })));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ success: true });
     const cookie = res.headers.get("set-cookie") ?? "";
-    expect(cookie).toContain("lawol_admin=authenticated");
+    expect(cookie).toContain(`lawol_admin=${COOKIE_DERIVE}`);
+    // La valeur constante et publique n'est plus jamais posée (faille 20/10).
+    expect(cookie).not.toContain("lawol_admin=authenticated");
     expect(cookie.toLowerCase()).toContain("httponly");
   });
 });

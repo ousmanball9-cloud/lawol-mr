@@ -7,7 +7,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const auth = cookieStore.get("lawol_admin");
 
   // Éviter la boucle de redirection sur la page login elle-même
-  if ((!auth || auth.value !== "authenticated") && !children?.toString().includes("AdminLoginPage")) {
+  // Le cookie n'est plus une constante publique : c'est le hash dérivé du
+  // secret serveur (`sha256("lawol-admin|" + ADMIN_PASSWORD_HASH)`), la seule
+  // valeur acceptée par la garde FastAPI `_admin_autorise`. Le layout admin ne
+  // vérifie donc que la PRÉSENCE du cookie : la sécurité (401/403) est dans
+  // l'API, pas dans l'UI.
+  if (!auth && !children?.toString().includes("AdminLoginPage")) {
     redirect("/admin-login");
   }
 

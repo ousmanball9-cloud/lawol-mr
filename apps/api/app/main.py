@@ -6,6 +6,7 @@ from uuid import UUID
 
 from apps.api.app.core.config import settings
 from apps.api.app.core.database import supabase
+from apps.api.app.modules.auth.admin import _admin_autorise
 from apps.api.app.modules.auth.garde import garde_profil, session_profil
 from apps.api.app.modules.dashboard.summary import (
     calculer_resume,
@@ -40,7 +41,7 @@ from apps.api.app.modules.shared.models import (
     TypeOffre,
 )
 from apps.api.app.modules.whatsapp.webhook import router as whatsapp_router
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -289,12 +290,18 @@ async def create_offre(offre: OffreStageCreate):
 
 # ---------- Scraper ----------
 @app.post("/api/v1/scraper/run")
-async def trigger_scraper(source: str | None = None, run_matching: bool = False):
+async def trigger_scraper(
+    request: Request, source: str | None = None, run_matching: bool = False
+):
     """Lance le scraping de toutes les sources (ou d'une seule via ?source=beta_mr).
 
     Si run_matching=True, le matching est recalculé juste après le scraping
     et ses stats sont ajoutées à la réponse.
+
+    GARDÉ : tâche de maintenance (écrit en base) — 401 sans identité, 403 si
+    l'identité est fausse (aucune écriture dans ces deux cas).
     """
+    _admin_autorise(request)
 
     scrapers = get_scrapers()
     if source:
@@ -322,8 +329,12 @@ async def trigger_scraper(source: str | None = None, run_matching: bool = False)
 
 # ---------- Matching ----------
 @app.post("/api/v1/matching/run")
-async def trigger_matching():
-    """Recalcule les matches entre profils actifs et offres actives."""
+async def trigger_matching(request: Request):
+    """Recalcule les matches entre profils actifs et offres actives.
+
+    GARDÉ : 401 sans identité, 403 si l'identité est fausse.
+    """
+    _admin_autorise(request)
     stats = run_matching_job()
     return {
         "paires_examinees": stats["examines"],
@@ -334,20 +345,27 @@ async def trigger_matching():
 
 # ---------- Notifications ----------
 @app.post("/api/v1/notifications/run")
-async def trigger_notifications():
-    """Envoie les matches non notifiés aux étudiants via WhatsApp."""
+async def trigger_notifications(request: Request):
+    """Envoie les matches non notifiés aux étudiants via WhatsApp.
+
+    GARDÉ : 401 sans identité, 403 si l'identité est fausse.
+    """
+    _admin_autorise(request)
     from apps.api.app.modules.whatsapp.notifier import run_notification_job
     stats = run_notification_job()
     return stats
 
 
 @app.post("/api/v1/notifications/deadlines")
-async def trigger_deadlines():
+async def trigger_deadlines(request: Request):
     """Rappels J-12 / J-3 des bourses déjà matchées (Lot C).
 
     Idempotent : chaque seuil ne part qu'une seule fois par match (état
     persisté dans matches.metadata). Opt-out respecté (profils actif=false).
+
+    GARDÉ : 401 sans identité, 403 si l'identité est fausse.
     """
+    _admin_autorise(request)
     from apps.api.app.modules.whatsapp.notifier import run_deadline_job
     return run_deadline_job()
 
