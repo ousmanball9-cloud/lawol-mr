@@ -32,7 +32,7 @@ RACINE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RACINE))
 
 from apps.api.app.core.database import supabase  # noqa: E402
-from apps.api.app.modules.matching import engine  # noqa: E402
+from apps.api.app.modules.matching import engine, extraction  # noqa: E402
 from apps.api.app.modules.shared.models import (  # noqa: E402
     Filiere,
     TypeOffre,
@@ -170,6 +170,7 @@ def preuve_bareme() -> None:
     print("\n=== 2. BARÈME v2 : NORMALISÉ, SANS SATURATION ===")
     poids = [
         engine.POIDS_FILIERE,
+        engine.POIDS_NIVEAU,
         engine.POIDS_FINANCEMENT,
         engine.POIDS_FRAICHEUR,
         engine.POIDS_URGENCE,
@@ -246,13 +247,73 @@ def preuve_bareme() -> None:
         f"urgence continue : J-13 ({s_j13}) et J-15 ({s_j15}) diffèrent de {s_j13 - s_j15} pt",
     )
 
+    # --- Barème v3 : le NIVEAU entre au barème (couverture mesurée 84 %).
+    s_meme = score(
+        niveau_profil="master", niveaux_offre=frozenset({"master"})
+    )
+    s_plus_haut = score(
+        niveau_profil="master", niveaux_offre=frozenset({"doctorat"})
+    )
+    s_plus_bas = score(
+        niveau_profil="master", niveaux_offre=frozenset({"licence"})
+    )
+    check(
+        s_meme > s_plus_bas > s_plus_haut,
+        f"niveau : même ({s_meme}) > en dessous ({s_plus_bas}) > au-dessus ({s_plus_haut})",
+    )
+    check(
+        s_plus_haut >= engine.SCORE_MIN_PERTINENCE,
+        f"une bourse PhD reste visible pour un M2 ({s_plus_haut} ≥ 30) — jamais exclue",
+    )
+    s_span = score(
+        niveau_profil="master", niveaux_offre=frozenset({"master", "doctorat"})
+    )
+    check(
+        s_span == s_meme,
+        "une bourse qui couvre master ET doctorat vaut le même niveau exact",
+    )
+
+    # --- Couverture du score : combien de poids sont réellement applicables ?
+    commun_couv = dict(
+        filiere_profil=Filiere.INFORMATIQUE.value,
+        filieres_interet=[],
+        filieres_cibles=[Filiere.INFORMATIQUE.value],
+        ville_profil=Ville.NOUAKCHOTT.value,
+        ville_offre=Ville.NOUAKCHOTT.value,
+        date_scrape=AUJ,
+        date_limite=AUJ + timedelta(days=10),
+        type_offre=TypeOffre.BOURSE.value,
+        aujourdhui=AUJ,
+    )
+    couv_nu = engine.poids_applicables(**commun_couv)
+    couv_complet = engine.poids_applicables(
+        **commun_couv,
+        niveau_profil="master",
+        niveaux_offre=frozenset({"master"}),
+        type_financement_offre="fully_funded",
+    )
+    check(
+        (couv_nu, couv_complet) == (55, 90),
+        f"couverture : {couv_nu}/100 sans donnée → {couv_complet}/100 avec niveau + financement",
+    )
+    part_adequation = round(100 * (35 + 20 + 15) / couv_complet)
+    check(
+        part_adequation == 78,
+        f"part du score qui mesure l'ADÉQUATION : {part_adequation} % "
+        "(barème v2 : 60 %, les dates pesaient 40 %)",
+    )
+    check(
+        couv_complet >= 80,
+        "couverture cible atteinte sur une bourse complète (≥ 80/100 applicables)",
+    )
+
 
 # ------------------------------------------------------- 3. DONNÉES RÉELLES
 def _offres_reelles() -> list[dict]:
     res = (
         supabase.table("offres")
         .select(
-            "id, titre, type_offre, ville, pays_etudes, type_financement, "
+            "id, titre, description, type_offre, ville, pays_etudes, type_financement, "
             "filieres_cibles, date_limite, date_scrape"
         )
         .eq("active", True)
@@ -589,14 +650,279 @@ def preuve_performance() -> None:
         )
 
 
+# ------------------------------------------------ EXTRACTION TEXTE (précision)
+# Étiquetage HUMAIN de 19 offres réelles (21/10/2026), préfixe d'id → (niveaux
+# affirmables d'après le texte, financement affirmable d'après le texte).
+# None = le texte n'affirme rien (l'extracteur ne doit surtout pas inventer).
+ETIQUETTES: dict[str, tuple[set[str], str | None]] = {
+    "00bcbbb1": ({"master"}, "fully_funded"),
+    "0e108f61": ({"doctorat"}, None),
+    "1dea44c3": ({"master"}, "fully_funded"),
+    "28055817": ({"master"}, None),
+    "372ca54e": ({"doctorat", "master"}, "partiel"),
+    "4674213a": (set(), "partiel"),
+    "54fa668d": ({"doctorat", "master"}, "fully_funded"),
+    "63888867": ({"master"}, "fully_funded"),
+    "6ff0dcda": ({"licence"}, "fully_funded"),
+    "7dd05e2c": ({"licence"}, "fully_funded"),
+    "898388ed": ({"doctorat", "master"}, "fully_funded"),
+    "91dd79f1": (set(), "fully_funded"),
+    "9d9025b4": ({"doctorat", "master"}, "fully_funded"),
+    "a8ffc67f": ({"doctorat"}, None),
+    "b478bce3": ({"master"}, "partiel"),
+    "c1033645": ({"licence", "master"}, "fully_funded"),
+    "d2338d26": ({"doctorat"}, "partiel"),
+    "dc9d6d37": ({"doctorat"}, "fully_funded"),
+    "f6d0c66d": ({"master"}, "fully_funded"),
+}
+
+
+def preuve_extraction(offres: list[dict]) -> None:
+    print("\n=== 3bis. EXTRACTION TEXTE : précision mesurée, pas déclarée ===")
+    index = {o["id"][:8]: o for o in offres}
+    justes_n = justes_f = vus = 0
+    for prefixe, (attendus, fin_attendue) in ETIQUETTES.items():
+        o = index.get(prefixe)
+        if o is None:
+            continue  # offre retirée du catalogue : hors mesure, jamais comptée juste
+        vus += 1
+        texte = f"{o.get('titre') or ''} {o.get('description') or ''}"
+        obtenus = extraction.extraire_niveaux(texte)
+        obtenu_f = extraction.extraire_financement(texte)
+        if set(obtenus) == attendus:
+            justes_n += 1
+        else:
+            print(
+                f"  écart niveau {prefixe} : attendu {sorted(attendus)}, "
+                f"obtenu {sorted(obtenus)}"
+            )
+        if obtenu_f == fin_attendue:
+            justes_f += 1
+        else:
+            print(
+                f"  écart financement {prefixe} : attendu {fin_attendue}, "
+                f"obtenu {obtenu_f}"
+            )
+    print(f"  échantillon encore en base : {vus}/{len(ETIQUETTES)}")
+    check(vus >= 15, f"échantillon étiqueté toujours mesurable ({vus}/19)")
+    check(justes_n == vus, f"niveau extrait exact : {justes_n}/{vus}")
+    check(justes_f == vus, f"financement extrait exact : {justes_f}/{vus}")
+
+    # Le champ structuré reste prioritaire : l'extraction ne remplace jamais
+    # une donnée écrite par le scraper.
+    o = index.get("28055817")
+    if o is not None:
+        check(
+            extraction.financement_effectif(
+                {**o, "type_financement": "fully_funded"}
+            )
+            == "fully_funded",
+            "champ structuré prioritaire sur la lecture du texte",
+        )
+
+    bourses = [o for o in offres if o.get("type_offre") == TypeOffre.BOURSE.value]
+    n_niv = sum(1 for o in bourses if extraction.niveaux_effectifs(o))
+    n_fin = sum(1 for o in bourses if extraction.financement_effectif(o))
+    taux_niv = round(100 * n_niv / len(bourses)) if bourses else 0
+    taux_fin = round(100 * n_fin / len(bourses)) if bourses else 0
+    print(
+        f"  couverture catalogue : niveau {n_niv}/{len(bourses)} ({taux_niv} %) | "
+        f"financement {n_fin}/{len(bourses)} ({taux_fin} %) — avant extraction : "
+        "niveau 0 %, financement 38 %"
+    )
+    check(
+        taux_niv >= 80 and taux_fin >= 80,
+        f"les deux critères v3 dépassent le seuil d'activation de 80 % "
+        f"(niveau {taux_niv} %, financement {taux_fin} %)",
+    )
+
+
+# ------------------------------------------- GARANTIE DE COUVERTURE (produit)
+def preuve_garantie(offres: list[dict]) -> None:
+    """Définition produit retenue (21/10) : tout profil éligible doit avoir
+    ≥ 5 offres à ≥ 60, chacune avec une raison lisible.
+
+    Mesure sur TOUTE la matrice filière × niveau × ville, pas sur un profil
+    favorable : c'est la garantie qui compte, pas l'exemple.
+    """
+    print("\n=== 7. GARANTIE DE COUVERTURE : ≥ 5 offres à ≥ 60 pour tout profil ===")
+    bourses = [o for o in offres if o.get("type_offre") == TypeOffre.BOURSE.value]
+    aujourdhui = date.today()
+
+    combos: list[tuple[str, str, str, int, int]] = []
+    for filiere in Filiere:
+        for niveau in ("licence", "master", "doctorat"):
+            for ville in (Ville.NOUAKCHOTT.value, Ville.NOUADHIBOU.value):
+                eligibles = 0
+                servies = 0
+                for o in bourses:
+                    if filiere.value not in (o.get("filieres_cibles") or []):
+                        continue
+                    try:
+                        limite = date.fromisoformat(o["date_limite"])
+                        scrape = date.fromisoformat(o.get("date_scrape") or "")
+                    except (TypeError, ValueError):
+                        continue
+                    eligibles += 1
+                    s = engine.calculer_score_pertinence(
+                        filiere_profil=filiere.value,
+                        filieres_interet=[],
+                        filieres_cibles=o.get("filieres_cibles") or [],
+                        ville_profil=ville,
+                        ville_offre=o.get("ville") or "",
+                        date_scrape=scrape,
+                        date_limite=limite,
+                        bourse_generique=engine.est_bourse_generique(
+                            o.get("type_offre"), o.get("filieres_cibles")
+                        ),
+                        type_financement_offre=extraction.financement_effectif(o),
+                        niveau_profil=niveau,
+                        niveaux_offre=extraction.niveaux_effectifs(o),
+                        type_offre=o.get("type_offre"),
+                        aujourdhui=aujourdhui,
+                    )
+                    if s >= 60:
+                        servies += 1
+                combos.append((filiere.value, niveau, ville, servies, eligibles))
+
+    servis = [c for c in combos if c[3] >= 5]
+    part = round(100 * len(servis) / len(combos))
+    print(
+        f"  {len(servis)}/{len(combos)} combinaisons filière × niveau × ville "
+        f"atteignent 5 offres à ≥ 60 ({part} %)"
+    )
+
+    # Décomposition honnête : la rareté vient-elle du CATALOGUE ou du SCORE ?
+    riches = [c for c in combos if c[4] >= 5]  # le catalogue a de quoi servir
+    conserves = [c for c in riches if c[3] >= 5]  # et le score n'a rien coupé
+    vide_catalogue = [c for c in combos if c[4] < 5]
+    print(
+        f"  combinaisons où le catalogue a ≥ 5 offres éligibles : {len(riches)}"
+        f" → le score en garde ≥ 5 dans {len(conserves)} cas"
+    )
+    print(
+        f"  combinaisons où le catalogue est déjà pauvre (< 5 offres) : "
+        f"{len(vide_catalogue)} → trou d'INGESTION, pas de barème"
+    )
+    pires = sorted(vide_catalogue, key=lambda c: (c[4], c[0]))[:6]
+    print("  les moins couvertes par le catalogue :")
+    for filiere, niveau, ville, n, elig in pires:
+        print(f"     {filiere:22s} {niveau:9s} {ville:12s} → {elig} éligible(s), {n} ≥ 60")
+    check(
+        len(vide_catalogue) > 0,
+        f"le trou d'ingestion est identifié ({len(vide_catalogue)} combinaisons) — "
+        "c'est le backlog de sources, pas un défaut du score",
+    )
+    if riches:
+        taux_conservation = round(100 * len(conserves) / len(riches))
+        print(f"  conservation par le score : {taux_conservation} % des cas riches")
+        check(
+            taux_conservation >= 80,
+            f"le barème ne détruit pas la couverture du catalogue ({taux_conservation} %)",
+        )
+
+
+# ------------------------------------------------- AVANT/APRÈS v2 → v3 (figé)
+def _score_v2(
+    *,
+    filiere_profil: str,
+    filieres_cibles: list[str],
+    date_scrape: date,
+    date_limite: date,
+    bourse_generique: bool,
+    type_financement_offre: str | None,
+) -> int:
+    """Réplique FIGÉE du barème v2 (poids 45/15/15/15/10, sans niveau)."""
+    criteres: list[tuple[int, float]] = [
+        (45, engine.SATISFACTION_FILIERE_GENERIQUE if bourse_generique else (
+            1.0 if filiere_profil in set(filieres_cibles) else 0.0
+        )),
+        (15, max(0.0, 1.0 - max(0, (AUJ - date_scrape).days) / engine.FRAICHEUR_JOURS)),
+        (15, engine._satisfaction_urgence(date_limite, AUJ)),
+    ]
+    if type_financement_offre in ("fully_funded", "partiel", "auto_finance"):
+        criteres.append(
+            (15, {"fully_funded": 1.0, "partiel": 0.6, "auto_finance": 0.2}[
+                type_financement_offre
+            ])
+        )
+    total = sum(p for p, _ in criteres)
+    return round(100 * sum(p * s for p, s in criteres) / total) if total else 0
+
+
+def preuve_v2_v3(offres: list[dict]) -> None:
+    print("\n=== 8. EFFET DU PASSAGE v2 → v3 (même profil, mêmes offres) ===")
+    bourses = [o for o in offres if o.get("type_offre") == TypeOffre.BOURSE.value]
+    profil_filiere = Filiere.INFORMATIQUE.value
+    lignes: list[tuple[str, int, int]] = []
+    for o in bourses:
+        if profil_filiere not in (o.get("filieres_cibles") or []):
+            continue
+        try:
+            limite = date.fromisoformat(o["date_limite"])
+            scrape = date.fromisoformat(o.get("date_scrape") or "")
+        except (TypeError, ValueError):
+            continue
+        fin = extraction.financement_effectif(o)
+        genere = engine.est_bourse_generique(o.get("type_offre"), o.get("filieres_cibles"))
+        avant = _score_v2(
+            filiere_profil=profil_filiere,
+            filieres_cibles=o.get("filieres_cibles") or [],
+            date_scrape=scrape,
+            date_limite=limite,
+            bourse_generique=genere,
+            type_financement_offre=fin,
+        )
+        apres = engine.calculer_score_pertinence(
+            filiere_profil=profil_filiere,
+            filieres_interet=[],
+            filieres_cibles=o.get("filieres_cibles") or [],
+            ville_profil=Ville.NOUAKCHOTT.value,
+            ville_offre=o.get("ville") or "",
+            date_scrape=scrape,
+            date_limite=limite,
+            bourse_generique=genere,
+            type_financement_offre=fin,
+            niveau_profil="master",
+            niveaux_offre=extraction.niveaux_effectifs(o),
+            type_offre=o.get("type_offre"),
+            aujourdhui=AUJ,
+        )
+        lignes.append((o.get("titre") or "?", avant, apres))
+
+    for titre, avant, apres in sorted(lignes, key=lambda x: -x[2])[:3]:
+        print(f"  {titre[:56]:56s} v2={avant:3d} → v3={apres:3d}")
+    bas = [x for x in sorted(lignes, key=lambda x: x[2])[:3]]
+    for titre, avant, apres in bas:
+        print(f"  {titre[:56]:56s} v2={avant:3d} → v3={apres:3d}")
+
+    exclues_phd = sum(
+        1
+        for o in bourses
+        if profil_filiere in (o.get("filieres_cibles") or [])
+        and extraction.niveaux_effectifs(o) == {"doctorat"}
+    )
+    print(
+        f"  bourses visant SEULEMENT le doctorat : {exclues_phd} "
+        "→ pénalisées (0,2) mais jamais exclues pour un profil master"
+    )
+    check(
+        len({a for _, a, _ in lignes}) < len({b for _, _, b in lignes}),
+        "v3 sépare mieux que v2 (moins de scores identiques sur le même lot)",
+    )
+
+
 def main() -> int:
     print("Harnais matching LAWOL.mr — lecture seule")
     offres = _offres_reelles()
     preuve_regles()
     preuve_bareme()
     preuve_donnees(offres)
+    preuve_extraction(offres)
     preuve_selection()
     preuve_avant_apres(offres)
+    preuve_garantie(offres)
+    preuve_v2_v3(offres)
     preuve_performance()
     ko = [c for c in _checks if not c[0]]
     print(f"\n=== BILAN : {len(_checks) - len(ko)}/{len(_checks)} checks verts ===")

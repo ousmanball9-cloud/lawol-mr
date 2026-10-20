@@ -41,6 +41,13 @@ from collections import Counter
 from datetime import date, timedelta
 
 from apps.api.app.core.database import supabase
+from apps.api.app.modules.matching.extraction import (
+    financement_effectif,
+    niveaux_effectifs,
+)
+from apps.api.app.modules.matching.extraction import (
+    niveau_profil as famille_niveau,
+)
 from apps.api.app.modules.shared.models import (
     Filiere,
     PaysEtudes,
@@ -57,10 +64,11 @@ logger = logging.getLogger(__name__)
 # donnée manque n'est PAS applicable : il ne favorise ni ne pénalise (barème v1 :
 # somme brute 120 > 100 → saturation à 100, deux offres très différentes
 # obtenaient le même score).
-POIDS_FILIERE = 45
+POIDS_FILIERE = 35
+POIDS_NIVEAU = 20
 POIDS_FINANCEMENT = 15
-POIDS_FRAICHEUR = 15
-POIDS_URGENCE = 15
+POIDS_FRAICHEUR = 10
+POIDS_URGENCE = 10
 # Le lieu (`ville`) ne décrit un candidat que pour un stage/emploi : pour une
 # bourse, la ville de l'offre est la DESTINATION d'études (scrapers : 100 %
 # `nouakchott`), donc le critère n'est pas applicable.
@@ -270,6 +278,97 @@ def _satisfaction_localisation(
     return 0.0
 
 
+# Progression académique : la seule échelle de comparaison des niveaux.
+ORDRE_NIVEAU = {"licence": 0, "master": 1, "doctorat": 2}
+
+
+def _satisfaction_niveau(
+    niveau_profil: str | None, niveaux_offre: frozenset[str] | None
+) -> float | None:
+    """Adéquation niveau du candidat / niveaux visés par la bourse (0 → 1).
+
+    - même niveau visé par la bourse                  → 1.0
+    - bourse qui vise SEULEMENT plus haut (M2 → PhD)  → 0.2 (jamais exclu :
+      l'extraction par mention peut se tromper, une exclusion cacherait une
+      bourse éligible — mesuré : 219/260 (84 %) de couverture)
+    - bourse qui vise SEULEMENT plus bas (M2 → L)     → 0.35
+    - niveau du profil ou de l'offre inconnu          → None (critère retiré)
+    """
+    if not niveau_profil or not niveaux_offre:
+        return None
+    rang_profil = ORDRE_NIVEAU.get(niveau_profil)
+    if rang_profil is None:
+        return None
+    rangs_offre = {ORDRE_NIVEAU[n] for n in niveaux_offre if n in ORDRE_NIVEAU}
+    if not rangs_offre:
+        return None
+    if rang_profil in rangs_offre:
+        return 1.0
+    if min(rangs_offre) > rang_profil:
+        return 0.2
+    return 0.35
+
+
+def _criteres(
+    *,
+    filiere_profil: str,
+    filieres_interet: list[str],
+    filieres_cibles: list[str],
+    ville_profil: str,
+    ville_offre: str,
+    date_scrape: date,
+    date_limite: date,
+    bourse_generique: bool = False,
+    type_financement_offre: str | None = None,
+    niveau_profil: str | None = None,
+    niveaux_offre: frozenset[str] | None = None,
+    type_offre: str | None = None,
+    aujourdhui: date | None = None,
+) -> list[tuple[int, float]]:
+    """Critères APPLICABLES : liste de `(poids, satisfaction)`.
+
+    Source unique du barème : le score et la couverture en dérivent tous les
+    deux, donc ils ne peuvent pas diverger.
+    """
+    aujourdhui = aujourdhui or date.today()
+    criteres: list[tuple[int, float]] = [
+        (
+            POIDS_FILIERE,
+            _satisfaction_filiere(
+                filiere_profil, filieres_interet, filieres_cibles, bourse_generique
+            ),
+        ),
+        (POIDS_FRAICHEUR, _satisfaction_fraicheur(date_scrape, aujourdhui)),
+        (POIDS_URGENCE, _satisfaction_urgence(date_limite, aujourdhui)),
+    ]
+
+    satisfaction_niveau = _satisfaction_niveau(niveau_profil, niveaux_offre)
+    if satisfaction_niveau is not None:
+        criteres.append((POIDS_NIVEAU, satisfaction_niveau))
+
+    satisfaction_financement = _satisfaction_financement(type_financement_offre)
+    if satisfaction_financement is not None:
+        criteres.append((POIDS_FINANCEMENT, satisfaction_financement))
+
+    satisfaction_localisation = _satisfaction_localisation(
+        ville_profil, ville_offre, type_offre
+    )
+    if satisfaction_localisation is not None:
+        criteres.append((POIDS_LOCALISATION, satisfaction_localisation))
+
+    return criteres
+
+
+def poids_applicables(**criteres_kwargs) -> int:
+    """Somme des poids réellement applicables (0-100) = couverture du score.
+
+    Un score de 80 sur 100 applicables n'est pas un 80 sur 75 : la couverture
+    est publiée à côté du score pour que l'affichage ne mente pas.
+    Mêmes paramètres que `calculer_score_pertinence`.
+    """
+    return sum(poids for poids, _ in _criteres(**criteres_kwargs))
+
+
 def calculer_score_pertinence(
     *,
     filiere_profil: str,
@@ -284,51 +383,47 @@ def calculer_score_pertinence(
     pays_favoris_profil: list[str] | None = None,
     type_financement_offre: str | None = None,
     financement_min_profil: str | None = None,
+    niveau_profil: str | None = None,
+    niveaux_offre: frozenset[str] | None = None,
     type_offre: str | None = None,
     aujourdhui: date | None = None,
 ) -> int:
-    """Score de pertinence 0-100, NORMALISÉ (barème v2).
+    """Score de pertinence 0-100, NORMALISÉ (barème v3).
 
     `score = 100 × Σ(poids × satisfaction) / Σ(poids applicables)`
 
-    - filière      45 : exacte 1.0 · intérêt 0.6 · bourse générique 0.35
+    - filière      35 : exacte 1.0 · intérêt 0.6 · bourse générique 0.35
+    - niveau       20 : même niveau 1.0 · au-dessus 0.2 · en dessous 0.35
     - financement  15 : fully 1.0 · partiel 0.6 · auto 0.2 (absent = ignoré)
-    - fraîcheur    15 : linéaire sur FRAICHEUR_JOURS
-    - urgence      15 : linéaire de URGENCE_JOUR_MAX à URGENCE_JOUR_MIN
+    - fraîcheur    10 : linéaire sur FRAICHEUR_JOURS
+    - urgence      10 : linéaire de URGENCE_JOUR_MAX à URGENCE_JOUR_MIN
     - localisation 10 : uniquement hors bourse (lieu réel du poste)
 
+    Barème v3 (21/10/2026) : le niveau entre au barème parce que sa donnée est
+    désormais mesurée à 84 % (extraction texte, `matching/extraction.py`) et le
+    financement à 80 % (contre 38 % en colonne). Avant, pour une bourse,
+    `Σ(poids applicables)` valait 75 dont 30 (40 %) de dates : le score disait
+    « fraîche et urgente », pas « elle te correspond ».
+
     Un critère dont la donnée manque est retiré du dénominateur : il ne
-    favorise ni ne pénalise. La somme des poids vaut 100, mais le score est
-    normalisé par les seuls critères applicables → il ne peut pas saturer
-    artificiellement (barème v1 : somme brute 120, plafonnée à 100).
-
-    `pays_favoris` n'est plus un bonus : c'est un FILTRE (match_regles). Le
-    compter deux fois avantageait la moitié du catalogue où `pays_etudes` est
-    renseigné (53 % de valeurs absentes mesurées le 20/10).
+    favorise ni ne pénalise. `pays_favoris` est un FILTRE (match_regles), plus
+    un bonus : le compter deux fois avantageait la moitié du catalogue.
     """
-    aujourdhui = aujourdhui or date.today()
-
-    criteres: list[tuple[int, float]] = [
-        (
-            POIDS_FILIERE,
-            _satisfaction_filiere(
-                filiere_profil, filieres_interet, filieres_cibles, bourse_generique
-            ),
-        ),
-        (POIDS_FRAICHEUR, _satisfaction_fraicheur(date_scrape, aujourdhui)),
-        (POIDS_URGENCE, _satisfaction_urgence(date_limite, aujourdhui)),
-    ]
-
-    satisfaction_financement = _satisfaction_financement(type_financement_offre)
-    if satisfaction_financement is not None:
-        criteres.append((POIDS_FINANCEMENT, satisfaction_financement))
-
-    satisfaction_localisation = _satisfaction_localisation(
-        ville_profil, ville_offre, type_offre
+    criteres = _criteres(
+        filiere_profil=filiere_profil,
+        filieres_interet=filieres_interet,
+        filieres_cibles=filieres_cibles,
+        ville_profil=ville_profil,
+        ville_offre=ville_offre,
+        date_scrape=date_scrape,
+        date_limite=date_limite,
+        bourse_generique=bourse_generique,
+        type_financement_offre=type_financement_offre,
+        niveau_profil=niveau_profil,
+        niveaux_offre=niveaux_offre,
+        type_offre=type_offre,
+        aujourdhui=aujourdhui,
     )
-    if satisfaction_localisation is not None:
-        criteres.append((POIDS_LOCALISATION, satisfaction_localisation))
-
     poids_total = sum(poids for poids, _ in criteres)
     if not poids_total:
         return 0
@@ -471,6 +566,12 @@ def run_matching_job() -> dict:
     compte_semaine = Counter(m["profil_id"] for m in matches_semaine_res.data)
 
     # 6. Calcul
+    # Signaux lus dans le TEXTE, calculés UNE fois par offre (jamais par couple
+    # profil × offre) : ~330 µs/offre, soit ~90 ms pour le catalogue — mais
+    # 90 s si on les recalculait pour 1 000 profils.
+    signaux = {
+        o["id"]: (niveaux_effectifs(o), financement_effectif(o)) for o in offres_dedup
+    }
     nouveaux = []
     stats = {
         "examines": 0,
@@ -490,6 +591,7 @@ def run_matching_job() -> dict:
         seuil_pertinence = prefs.get("seuil_pertinence")
         pays_favoris = set(prefs.get("pays_favoris") or [])
         financement_min = prefs.get("financement_min")
+        niveau_candidat = famille_niveau(p.get("niveau"))
         candidats = []
         for o in offres_dedup:
             stats["examines"] += 1
@@ -540,12 +642,12 @@ def run_matching_job() -> dict:
                 ville_offre=o["ville"],
                 pays_etudes_offre=o.get("pays_etudes"),
                 pays_favoris_profil=list(pays_favoris) if pays_favoris else None,
-                type_financement_offre=o.get("type_financement"),
+                type_financement_offre=signaux[o["id"]][1],
                 financement_min_profil=financement_min,
             )
             if not ok:
                 continue
-            score = calculer_score_pertinence(
+            criteres_kw = dict(
                 filiere_profil=p["filiere"],
                 filieres_interet=p.get("filieres_interet", []),
                 filieres_cibles=o.get("filieres_cibles", []),
@@ -558,10 +660,14 @@ def run_matching_job() -> dict:
                 ),
                 pays_etudes_offre=o.get("pays_etudes"),
                 pays_favoris_profil=list(pays_favoris) if pays_favoris else None,
-                type_financement_offre=o.get("type_financement"),
+                type_financement_offre=signaux[o["id"]][1],
                 financement_min_profil=financement_min,
+                niveau_profil=niveau_candidat,
+                niveaux_offre=signaux[o["id"]][0],
                 type_offre=o.get("type_offre"),
             )
+            score = calculer_score_pertinence(**criteres_kw)
+            couverture = poids_applicables(**criteres_kw)
             if score < SCORE_MIN_PERTINENCE:
                 stats["ignores_score_faible"] += 1
                 continue
@@ -578,12 +684,23 @@ def run_matching_job() -> dict:
                     # Clé de tri interne (préfixe `_`) : retirée avant l'insert.
                     "_date_limite": date_limite.isoformat(),
                     "metadata": {
-                        "regle": "v1",
+                        "regle": "v3",
                         "raison": raison,
                         "content_hash": o.get("metadata", {}).get("content_hash", ""),
                         # Lot D : trace pour l'UI/debug + quota du selectionneur
                         "bourse_generique": est_bourse_generique(
                             o.get("type_offre"), o.get("filieres_cibles")
+                        ),
+                        # Transparence : un 100 sur 3 critères n'est pas un 100
+                        # sur 6. La couverture accompagne toujours le score.
+                        "couverture": couverture,
+                        "niveau_bourse": sorted(signaux[o["id"]][0]),
+                        "financement_lu": (
+                            "colonne"
+                            if o.get("type_financement") not in (None, "inconnu")
+                            else "texte"
+                            if signaux[o["id"]][1]
+                            else "absent"
                         ),
                     },
                 }
