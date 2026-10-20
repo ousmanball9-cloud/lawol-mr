@@ -8,6 +8,7 @@ from apps.api.app.core.config import settings
 from apps.api.app.core.database import supabase
 from apps.api.app.modules.auth.admin import _admin_autorise
 from apps.api.app.modules.auth.garde import garde_profil, session_profil
+from apps.api.app.modules.candidatures.routes import router as candidatures_router
 from apps.api.app.modules.dashboard.summary import (
     calculer_resume,
     calculer_score_profil,
@@ -81,6 +82,9 @@ app.include_router(profils_router)
 
 # ---------- Coffre-fort de documents de l'étudiant (CV, relevés, lettres) ----------
 app.include_router(documents_router)
+
+# ---------- Dossier de candidature généré (PDF privé + lien signé 60 s) ----------
+app.include_router(candidatures_router)
 
 # ---------- Centre d'alertes in-app (calculé à la volée, sans table SQL) ----------
 app.include_router(notifications_router)

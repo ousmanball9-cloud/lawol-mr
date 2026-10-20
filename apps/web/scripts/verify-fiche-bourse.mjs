@@ -5,7 +5,9 @@
  * VRAIES données de l'API (offres réelles) :
  *   1. financement affiché honnêtement (bourse connue + bourse « inconnu ») ;
  *   2. bloc « dossier » : pièces usuelles génériques + lien coffre-fort ;
- *   3. non connecté → invitation à se connecter, et `detail-cta` toujours là.
+ *   3. non connecté → invitation à se connecter, et `detail-cta` toujours là ;
+ *   4. session locale → le GÉNÉRATEUR de dossier est monté (cases du coffre ou
+ *      message « coffre vide », zone lettre, bouton) sans lien avant génération.
  *
  * Usage : `node scripts/verify-fiche-bourse.mjs [baseUrl]`
  *   (attendu : `next dev` déjà lancé — défaut http://127.0.0.1:3011)
@@ -131,6 +133,49 @@ async function lireFiche(cdp) {
       };
     })()`
   );
+}
+
+/**
+ * Repères du GÉNÉRATEUR de dossier (fiche vue avec une session locale).
+ * Le coffre-fort réel n'est pas accessible au script (aucun identifiant) : on
+ * accepte donc soit des cases à cocher, soit le message honnête « coffre vide ».
+ */
+async function lireGenerateur(cdp) {
+  return evaluate(
+    cdp,
+    `(() => {
+      const texte = (sel) => { const el = document.querySelector(sel); return el ? (el.textContent || "").trim() : null; };
+      const bloc = texte('[data-probe="detail-dossier-generateur"]') || "";
+      return {
+        present: !!document.querySelector('[data-probe="detail-dossier-generateur"]'),
+        bouton: texte('[data-probe="detail-dossier-generer"]'),
+        cases: document.querySelectorAll('[data-probe="detail-dossier-case"]').length,
+        lettre: !!document.querySelector('[data-probe="detail-dossier-lettre"]'),
+        coffreVide: /coffre-fort est vide/i.test(bloc),
+        lienDossier: !!document.querySelector('[data-probe="detail-dossier-lien"]'),
+        coffreHref: document.querySelector('[data-probe="detail-coffre-lien"]')?.getAttribute("href") ?? null,
+      };
+    })()`
+  );
+}
+
+/** Attend que le générateur ait résolu son coffre (cases OU message « vide »). */
+async function attendreGenerateur(cdp, timeoutMs = 15000) {
+  const debut = Date.now();
+  while (Date.now() - debut < timeoutMs) {
+    const pret = await evaluate(
+      cdp,
+      `(() => {
+        if (!document.querySelector('[data-probe="detail-dossier-generateur"]')) return false;
+        const nb = document.querySelectorAll('[data-probe="detail-dossier-case"]').length;
+        const bloc = document.querySelector('[data-probe="detail-dossier-generateur"]');
+        return nb > 0 || /coffre-fort est vide/i.test(bloc?.textContent || "");
+      })()`
+    );
+    if (pret) return true;
+    await sleep(300);
+  }
+  return false;
 }
 
 async function capture(cdp, fichier) {
@@ -270,6 +315,60 @@ async function main() {
       totalNouvelles: resultats.reduce((n, r) => n + (r.nouvellesErreursConsole?.length ?? 0), 0),
       fiche: null,
     });
+
+    // CAS « connecté local » : le générateur de dossier doit être monté sur la
+    // fiche (cases du coffre ou message honnête « coffre vide » + lettre +
+    // bouton), et le lien de téléchargement ne doit exister QU'APRÈS génération.
+    // Cookie posé à la main (payload seul : le script n'a aucun identifiant) et
+    // retiré à la fin pour ne pas fausser les cas anonymes d'une exécution suivante.
+    erreursConsole.length = 0;
+    const jetonLocal = `${Buffer.from(
+      JSON.stringify({ tel: "2221234567", exp: Math.floor(Date.now() / 1000) + 3600 })
+    )
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "")}.signature-factice`;
+    await evaluate(cdp, `document.cookie = "lawol_token=${jetonLocal}; path=/"`);
+    await cdp.send("Page.navigate", { url: `${BASE}/offres/${financee.id}` });
+    if (!(await attendreFiche(cdp))) throw new Error(`fiche non rendue (connecté) : ${financee.id}`);
+    if (!(await attendreGenerateur(cdp))) {
+      throw new Error("générateur de dossier non résolu (coffre ni cases ni message vide)");
+    }
+    const generateur = await lireGenerateur(cdp);
+    const hauteurConnecte = await capture(cdp, "connecte-1440.png");
+    await evaluate(cdp, `document.cookie = "lawol_token=; path=/; max-age=0"`);
+
+    const erreursGenerateur = [];
+    if (!generateur.present) erreursGenerateur.push("générateur de dossier absent (session posée)");
+    if (!/Générer mon dossier|Régénérer mon dossier/.test(generateur.bouton ?? "")) {
+      erreursGenerateur.push(`bouton « Générer mon dossier » absent (${generateur.bouton})`);
+    }
+    if (!generateur.lettre) erreursGenerateur.push("zone lettre de motivation absente");
+    if (generateur.cases === 0 && !generateur.coffreVide) {
+      erreursGenerateur.push("aucune case à cocher ET aucun message de coffre vide");
+    }
+    if (generateur.lienDossier) erreursGenerateur.push("lien de dossier affiché avant toute génération");
+    if (generateur.coffreHref !== "/profil/2221234567/documents") {
+      erreursGenerateur.push(`lien coffre-fort connecté inattendu (${generateur.coffreHref})`);
+    }
+    const nouvellesGenerateur = erreursConsole
+      .filter((e) => !preexistantes.has(cle(e)))
+      .map((e) => e.replace(/\s+/g, " ").slice(0, 800));
+    if (nouvellesGenerateur.length > 0) {
+      erreursGenerateur.push(
+        `erreurs console imputables au générateur : ${nouvellesGenerateur.join(" || ")}`
+      );
+    }
+    resultats.push({
+      label: "generateur",
+      offre: financee.id,
+      erreurs: erreursGenerateur,
+      hauteur: hauteurConnecte,
+      generateur,
+      nouvellesErreursConsole: nouvellesGenerateur,
+      fiche: null,
+    });
     cdp.close();
   } finally {
     chrome.kill();
@@ -287,7 +386,9 @@ async function main() {
 
   for (const r of resultats) {
     const statut = r.erreurs.length === 0 ? "OK " : "KO ";
-    const detail = !r.fiche
+    const detail = r.generateur
+      ? `générateur présent=${r.generateur.present} cases=${r.generateur.cases} coffre vide=${r.generateur.coffreVide} lettre=${r.generateur.lettre} hauteur=${r.hauteur}px`
+      : !r.fiche
       ? `avertissements préexistants (témoin /offres) = ${r.preexistantes.length}, imputables à la fiche = ${r.totalNouvelles}`
       : `financement="${r.fiche.financement}" pièces=${r.fiche.pieces} anonyme=${r.fiche.suiviAnonyme} hauteur=${r.hauteur}px`;
     console.log(`${statut} ${r.label.padEnd(10)} ${r.erreurs.length === 0 ? detail : r.erreurs.join(" | ")}`);

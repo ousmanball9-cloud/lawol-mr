@@ -20,6 +20,7 @@ const PREFIXES_BEARER = [
   "/api/v1/profils/",
   "/api/v1/matches",
   "/api/v1/dashboard/",
+  "/api/v1/candidatures/",
 ];
 
 type PayloadSession = { tel?: string; exp?: number };
@@ -113,5 +114,6 @@ export const config = {
     "/api/v1/matches",
     "/api/v1/matches/:path*",
     "/api/v1/dashboard/:path*",
+    "/api/v1/candidatures/:path*",
   ],
 };
