@@ -115,7 +115,7 @@ describe("financement — libellé honnête, jamais de montant ni de taux", () =
 
 describe("dossier — pièces usuelles génériques + coffre-fort", () => {
   it("présente une liste générique (jamais « exigé pour cette bourse ») et vise /connexion sans session", async () => {
-    const { container } = render(<DossierPieces />);
+    const { container } = render(<DossierPieces offreId={OFFRE_ID} />);
     const bloc = container.querySelector('[data-probe="detail-dossier"]');
     expect(bloc?.textContent).toContain("Liste générique");
     expect(bloc?.textContent).toContain("vérifie toujours l'annonce officielle");
@@ -132,7 +132,8 @@ describe("dossier — pièces usuelles génériques + coffre-fort", () => {
 
   it("connecté → lien vers le coffre-fort de l'espace personnel", async () => {
     connecter();
-    render(<DossierPieces />);
+    mockerFetch();
+    render(<DossierPieces offreId={OFFRE_ID} />);
     await waitFor(() =>
       expect(screen.getByRole("link", { name: /coffre-fort/i })).toHaveAttribute(
         "href",

@@ -271,7 +271,7 @@ export default function OffreDetailPage() {
 
           {/* 6 · DOSSIER — pièces usuelles génériques + coffre-fort, puis suivi
               de candidature (statut / « J'ai postulé ») si un match existe */}
-          <DossierPieces />
+          <DossierPieces offreId={offre.id} />
           <SuiviCandidature offreId={offre.id} />
 
           {/* 7 · SOURCE & POSTULER — source_name + CTA « Voir l'offre originale » */}
