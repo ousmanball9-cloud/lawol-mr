@@ -1,4 +1,5 @@
 """Classe de base des scrapers — contrat commun pour toutes les sources."""
+import re
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import Iterable
@@ -10,6 +11,45 @@ from apps.api.app.modules.scraper.engine import (
     type_offre_pour_source,
 )
 from apps.api.app.modules.shared.models import OffreStageCreate
+
+# Clé metadata qui conserve la trace des filières écartées (drift d'enum SQL).
+CLE_METADATA_FILIERES_IGNOREES = "filieres_ignorees_base"
+# Nombre maximal d'élagages par offre (une valeur d'enum refusée par essai).
+_MAX_ELAGAGES = 5
+# Valeur de repli : elle existe dans l'enum SQL d'origine (schema.sql).
+_FILIERE_REPLI = "autre"
+
+_PATTERN_ENUM_FILIERE = re.compile(r'invalid input value for enum filiere:\s*"([^"]+)"')
+
+
+def _elaguer_filiere_refusee(data: dict, erreur: Exception, ignorees: list[str]) -> bool:
+    """Retire de ``filieres_cibles`` la valeur d'enum refusée par la base.
+
+    Pourquoi : ``models.Filiere`` (code) et l'enum PostgreSQL ``filiere``
+    peuvent diverger — une valeur ajoutée côté Python sans migration SQL fait
+    échouer l'upsert et l'offre ENTIÈRE est perdue (mesuré le 26/10/2026 :
+    ``genie_procedes`` refusé, des dizaines d'offres perdues par collecte).
+    Ici l'offre survit, la filière fautive est tracée dans
+    ``metadata['filieres_ignorees_base']`` et l'insertion est rejouée.
+
+    Retourne True si un élagage a eu lieu (donc : réessayer).
+    """
+    trouve = _PATTERN_ENUM_FILIERE.search(str(erreur))
+    if not trouve:
+        return False
+    refusee = trouve.group(1)
+    actuelles = list(data.get("filieres_cibles") or [])
+    restantes = [f for f in actuelles if f != refusee]
+    if len(restantes) == len(actuelles):
+        return False
+    data["filieres_cibles"] = restantes or [_FILIERE_REPLI]
+    ignorees.append(refusee)
+    # La trace doit être posée AVANT la nouvelle tentative d'upsert, sinon la
+    # clé n'existerait que dans un dict jamais envoyé.
+    metadata = dict(data.get("metadata") or {})
+    metadata[CLE_METADATA_FILIERES_IGNOREES] = list(ignorees)
+    data["metadata"] = metadata
+    return True
 
 
 class BaseScraper(ABC):
@@ -49,7 +89,19 @@ class BaseScraper(ABC):
                     self.source_name, o.entreprise
                 )
                 data["metadata"] = metadata
-                res = supabase.table("offres").upsert(data, on_conflict="source_url").execute()
+                ignorees: list[str] = []
+                res = None
+                for _ in range(_MAX_ELAGAGES):
+                    try:
+                        res = supabase.table("offres").upsert(
+                            data, on_conflict="source_url"
+                        ).execute()
+                        break
+                    except Exception as e:  # noqa: BLE001
+                        if not _elaguer_filiere_refusee(data, e, ignorees):
+                            raise
+                if res is None:
+                    raise RuntimeError("upsert impossible après élagages d'enum")
                 if res.data:
                     inserted += 1
             except Exception as e:  # noqa: BLE001 — log et continue
