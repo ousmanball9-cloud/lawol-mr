@@ -122,6 +122,7 @@ def offre(filieres: list[str], url: str = "https://exemple.mr/a") -> OffreStageC
 
 def installer(faux: FauxSupabase) -> None:
     base_mod.supabase = faux
+    base_mod._FILIERES_REFUSEES.clear()  # isolation entre cas
 
 
 def main() -> int:
@@ -178,6 +179,18 @@ def main() -> int:
     ecrit = faux.ecrits[0] if faux.ecrits else {}
     check(insere == 1 and erreurs == 0, "offre insérée après élagage")
     check(ecrit.get("filieres_cibles") == ["informatique"], f"filières conservées : {ecrit.get('filieres_cibles')}")
+
+    print("=== 7. la valeur refusée est mémorisée : zéro aller-retour ensuite ===")
+    faux = FauxSupabase({"informatique", "autre"})
+    base_mod.supabase = faux
+    base_mod._FILIERES_REFUSEES.clear()
+    FauxScraper().save([offre(["genie_procedes"], url="https://exemple.mr/c")])
+    appels_apres_premiere = faux.appels
+    faux.appels = 0
+    insere, erreurs = FauxScraper().save([offre(["genie_procedes"], url="https://exemple.mr/d")])
+    check(appels_apres_premiere == 2, f"1re offre : refus + reprise = 2 appels (appels={appels_apres_premiere})")
+    check(insere == 1 and erreurs == 0, "2e offre insérée")
+    check(faux.appels == 1, f"2e offre : UN seul appel, la valeur est mémorisée (appels={faux.appels})")
 
     ok = sum(1 for c, _ in CHECKS if c)
     print(f"\n=== BILAN : {ok}/{len(CHECKS)} checks verts ===")

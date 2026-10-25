@@ -15,11 +15,20 @@ from apps.api.app.modules.shared.models import OffreStageCreate
 # Clé metadata qui conserve la trace des filières écartées (drift d'enum SQL).
 CLE_METADATA_FILIERES_IGNOREES = "filieres_ignorees_base"
 # Nombre maximal d'élagages par offre (une valeur d'enum refusée par essai).
-_MAX_ELAGAGES = 5
+# 40 couvre l'écart constaté le 26/10 (25 valeurs absentes de la base) ; le coût
+# est payé UNE fois par process grâce à `_FILIERES_REFUSEES`, ensuite les
+# offres sont filtrées avant tout appel réseau.
+_MAX_ELAGAGES = 40
 # Valeur de repli : elle existe dans l'enum SQL d'origine (schema.sql).
 _FILIERE_REPLI = "autre"
 
 _PATTERN_ENUM_FILIERE = re.compile(r'invalid input value for enum filiere:\s*"([^"]+)"')
+
+# Mémoire PROCESS des valeurs refusées par l'enum de la base : une valeur
+# apprise une fois est élaguée SANS nouvel aller-retour pour toutes les offres
+# suivantes (mesuré le 26/10 : l'écart portait sur ~25 valeurs, un retry par
+# offre aurait multiplié les requêtes).
+_FILIERES_REFUSEES: set[str] = set()
 
 
 def _elaguer_filiere_refusee(data: dict, erreur: Exception, ignorees: list[str]) -> bool:
@@ -28,9 +37,9 @@ def _elaguer_filiere_refusee(data: dict, erreur: Exception, ignorees: list[str])
     Pourquoi : ``models.Filiere`` (code) et l'enum PostgreSQL ``filiere``
     peuvent diverger — une valeur ajoutée côté Python sans migration SQL fait
     échouer l'upsert et l'offre ENTIÈRE est perdue (mesuré le 26/10/2026 :
-    ``genie_procedes`` refusé, des dizaines d'offres perdues par collecte).
-    Ici l'offre survit, la filière fautive est tracée dans
-    ``metadata['filieres_ignorees_base']`` et l'insertion est rejouée.
+    des dizaines d'offres perdues par collecte). Ici l'offre survit, la
+    filière fautive est mémorisée (``_FILIERES_REFUSEES``) et tracée dans
+    ``metadata['filieres_ignorees_base']``, puis l'insertion est rejouée.
 
     Retourne True si un élagage a eu lieu (donc : réessayer).
     """
@@ -38,6 +47,7 @@ def _elaguer_filiere_refusee(data: dict, erreur: Exception, ignorees: list[str])
     if not trouve:
         return False
     refusee = trouve.group(1)
+    _FILIERES_REFUSEES.add(refusee)
     actuelles = list(data.get("filieres_cibles") or [])
     restantes = [f for f in actuelles if f != refusee]
     if len(restantes) == len(actuelles):
@@ -47,9 +57,29 @@ def _elaguer_filiere_refusee(data: dict, erreur: Exception, ignorees: list[str])
     # La trace doit être posée AVANT la nouvelle tentative d'upsert, sinon la
     # clé n'existerait que dans un dict jamais envoyé.
     metadata = dict(data.get("metadata") or {})
-    metadata[CLE_METADATA_FILIERES_IGNOREES] = list(ignorees)
+    metadata[CLE_METADATA_FILIERES_IGNOREES] = sorted(
+        set(metadata.get(CLE_METADATA_FILIERES_IGNOREES) or []) | set(ignorees)
+    )
     data["metadata"] = metadata
     return True
+
+
+def _filtrer_filieres_connues_comme_refusees(data: dict) -> None:
+    """Écarte d'emblée les valeurs déjà refusées par la base dans ce process."""
+    if not _FILIERES_REFUSEES:
+        return
+    actuelles = list(data.get("filieres_cibles") or [])
+    restantes = [f for f in actuelles if f not in _FILIERES_REFUSEES]
+    if len(restantes) == len(actuelles):
+        return
+    data["filieres_cibles"] = restantes or [_FILIERE_REPLI]
+    metadata = dict(data.get("metadata") or {})
+    metadata[CLE_METADATA_FILIERES_IGNOREES] = sorted(
+        set(metadata.get(CLE_METADATA_FILIERES_IGNOREES) or [])
+        | (set(actuelles) - set(restantes))
+    )
+    data["metadata"] = metadata
+
 
 
 class BaseScraper(ABC):
@@ -89,6 +119,7 @@ class BaseScraper(ABC):
                     self.source_name, o.entreprise
                 )
                 data["metadata"] = metadata
+                _filtrer_filieres_connues_comme_refusees(data)
                 ignorees: list[str] = []
                 res = None
                 for _ in range(_MAX_ELAGAGES):
