@@ -57,15 +57,29 @@ def main() -> int:
         # l'app Meta sera configurée — jamais de perte.
         from apps.api.app.core.config import settings
 
-        if settings.META_WHATSAPP_TOKEN and settings.META_PHONE_NUMBER_ID:
+        # Un canal mort ne doit JAMAIS faire echouer la collecte : les matches
+        # restent en attente (notifie=false) et repartent au run suivant.
+        whatsapp_pret = bool(
+            settings.META_WHATSAPP_TOKEN and settings.META_PHONE_NUMBER_ID
+        )
+        email_pret = bool(
+            settings.SMTP_HOST and settings.SMTP_USER and settings.SMTP_PASSWORD
+        )
+        if whatsapp_pret or email_pret:
             from apps.api.app.modules.whatsapp.notifier import (
                 run_deadline_job,
                 run_notification_job,
             )
 
-            print(f"notifications: {run_notification_job()}")
+            try:
+                print(f"notifications: {run_notification_job()}")
+            except Exception as exc:  # noqa: BLE001 - canal down = retry au run suivant
+                print(f"notifications: ERREUR {type(exc).__name__}: {exc}")
             # Lot C : rappels J-12/J-3 des bourses déjà matchées (2×/jour)
-            print(f"rappels deadline: {run_deadline_job()}")
+            try:
+                print(f"rappels deadline: {run_deadline_job()}")
+            except Exception as exc:  # noqa: BLE001 - canal down = retry au run suivant
+                print(f"rappels deadline: ERREUR {type(exc).__name__}: {exc}")
         else:
             print("notifications: skip (cles META_WHATSAPP absentes — matches conserves en attente)")
 
