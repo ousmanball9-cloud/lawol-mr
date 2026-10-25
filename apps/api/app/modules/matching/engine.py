@@ -364,9 +364,27 @@ def poids_applicables(**criteres_kwargs) -> int:
 
     Un score de 80 sur 100 applicables n'est pas un 80 sur 75 : la couverture
     est publiée à côté du score pour que l'affichage ne mente pas.
-    Mêmes paramètres que `calculer_score_pertinence`.
+    Mêmes paramètres que `calculer_score_pertinence` (filtre les kwargs
+    inconnus de `_criteres` : `pays_etudes_offre`, `pays_favoris_profil`,
+    `financement_min_profil` qui sont des filtres, pas des critères de score).
     """
-    return sum(poids for poids, _ in _criteres(**criteres_kwargs))
+    _CRITERES_PARAMS = {
+        "filiere_profil",
+        "filieres_interet",
+        "filieres_cibles",
+        "ville_profil",
+        "ville_offre",
+        "date_scrape",
+        "date_limite",
+        "bourse_generique",
+        "type_financement_offre",
+        "niveau_profil",
+        "niveaux_offre",
+        "type_offre",
+        "aujourdhui",
+    }
+    filtered = {k: v for k, v in criteres_kwargs.items() if k in _CRITERES_PARAMS}
+    return sum(poids for poids, _ in _criteres(**filtered))
 
 
 def calculer_score_pertinence(

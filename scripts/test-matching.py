@@ -27,6 +27,7 @@ import sys
 import time
 from datetime import date, timedelta
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 RACINE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RACINE))
@@ -650,6 +651,77 @@ def preuve_performance() -> None:
         )
 
 
+# ------------------------------------------------ CHEMIN PROD (run_matching_job)
+def _mock_supabase_for_run_job() -> MagicMock:
+    """Construit un mock Supabase minimal pour run_matching_job (zéro réseau)."""
+    m = MagicMock()
+
+    # Profils actifs
+    profil = {
+        "id": "profil-test-1",
+        "actif": True,
+        "types_recherches": [TypeOffre.BOURSE.value],
+        "filiere": Filiere.INFORMATIQUE.value,
+        "filieres_interet": [],
+        "ville": Ville.NOUAKCHOTT.value,
+        "niveau": "master",
+        "metadata": {
+            "prefs_avancees": {
+                "pays_favoris": ["france"],
+                "financement_min": "fully_funded",
+                "seuil_pertinence": 40,
+            }
+        },
+    }
+    m.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [profil]
+
+    # Offres actives non expirées
+    offre = {
+        "id": "offre-test-1",
+        "active": True,
+        "statut_publication": "active",
+        "type_offre": TypeOffre.BOURSE.value,
+        "ville": Ville.NOUAKCHOTT.value,
+        "pays_etudes": "france",
+        "type_financement": "fully_funded",
+        "filieres_cibles": [Filiere.INFORMATIQUE.value],
+        "date_limite": (date.today() + timedelta(days=10)).isoformat(),
+        "date_scrape": date.today().isoformat(),
+        "titre": "Bourse Master Informatique France",
+        "entreprise": "Campus France",
+        "metadata": {},
+    }
+    m.table.return_value.select.return_value.eq.return_value.gte.return_value.execute.return_value.data = [offre]
+
+    # Matches existants (vide)
+    m.table.return_value.select.return_value.execute.return_value.data = []
+
+    # Matches cette semaine (vide)
+    m.table.return_value.select.return_value.gte.return_value.execute.return_value.data = []
+
+    # Insert (on vérifie juste qu'on arrive là sans planter)
+    m.table.return_value.insert.return_value.execute.return_value.data = [{"id": "match-1"}]
+
+    return m
+
+
+def preuve_chemin_prod() -> None:
+    """Appelle run_matching_job avec Supabase mocké — doit passer sans 500."""
+    print("\n=== 9. CHEMIN PROD : run_matching_job (mock Supabase, zéro réseau) ===")
+    mock_sb = _mock_supabase_for_run_job()
+
+    with patch("apps.api.app.modules.matching.engine.supabase", mock_sb):
+        stats = engine.run_matching_job()
+
+    check(stats["examines"] >= 1, f"examine au moins 1 couple : {stats['examines']}")
+    check(stats["matches"] >= 1, f"créé au moins 1 match : {stats['matches']}")
+    check(stats["ignores_deja"] == 0, "aucun doublon ignoré (base vide)")
+    check(stats["ignores_score_faible"] == 0, "score ≥ seuil")
+    check(stats["ignores_prefs"] == 0, "préférences respectées (pays france, fully_funded)")
+    check(stats["ignores_generiques"] == 0, "pas de bourse générique ici")
+    print(f"  -> stats : {stats}")
+
+
 # ------------------------------------------------ EXTRACTION TEXTE (précision)
 # Étiquetage HUMAIN de 19 offres réelles (21/10/2026), préfixe d'id → (niveaux
 # affirmables d'après le texte, financement affirmable d'après le texte).
@@ -924,6 +996,7 @@ def main() -> int:
     preuve_garantie(offres)
     preuve_v2_v3(offres)
     preuve_performance()
+    preuve_chemin_prod()
     ko = [c for c in _checks if not c[0]]
     print(f"\n=== BILAN : {len(_checks) - len(ko)}/{len(_checks)} checks verts ===")
     for _, libelle in ko:
