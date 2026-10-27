@@ -16,12 +16,9 @@ type Prefs = {
   seuil_pertinence: number;
 };
 
-type ProfilAvecPrefs = {
+type PrefsAvanceesResponse = {
   telephone: string;
-  nom: string;
-  prenom: string;
-  // Champ non exposé par l'API actuelle : préchargement « si présent »
-  metadata?: { prefs_avancees?: Partial<Prefs> } | null;
+  prefs_avancees: Prefs;
 };
 
 const PREFS_DEFAUT: Prefs = { villes_exclues: [], types_masques: [], seuil_pertinence: 0 };
@@ -30,7 +27,7 @@ export default function ParametresPage() {
   const params = useParams();
   const router = useRouter();
   const telephone = params.telephone as string;
-  const [profil, setProfil] = useState<ProfilAvecPrefs | null>(null);
+  const [profil, setProfil] = useState<{ telephone: string; nom: string; prenom: string } | null>(null);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState("");
   const [prefs, setPrefs] = useState<Prefs>(PREFS_DEFAUT);
@@ -45,20 +42,16 @@ export default function ParametresPage() {
     let actif = true;
     (async () => {
       try {
-        const res = await fetch(`/api/v1/profils/${telephone}`);
-        if (!res.ok) throw new Error();
-        const p: ProfilAvecPrefs = await res.json();
+        const [profilRes, prefsRes] = await Promise.all([
+          fetch(`/api/v1/profils/${telephone}`),
+          fetch(`/api/v1/profils/${telephone}/preferences`),
+        ]);
+        if (!profilRes.ok || !prefsRes.ok) throw new Error();
+        const p = await profilRes.json();
+        const prefsData: PrefsAvanceesResponse = await prefsRes.json();
         if (!actif) return;
         setProfil(p);
-        // Préchargement depuis profils.metadata['prefs_avancees'] si présent
-        const sauvees = p.metadata?.prefs_avancees;
-        if (sauvees) {
-          setPrefs({
-            villes_exclues: sauvees.villes_exclues ?? PREFS_DEFAUT.villes_exclues,
-            types_masques: sauvees.types_masques ?? PREFS_DEFAUT.types_masques,
-            seuil_pertinence: sauvees.seuil_pertinence ?? PREFS_DEFAUT.seuil_pertinence,
-          });
-        }
+        setPrefs(prefsData.prefs_avancees);
       } catch {
         if (actif) setErreur("Erreur de chargement du profil");
       } finally {

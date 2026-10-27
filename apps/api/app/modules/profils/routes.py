@@ -23,6 +23,7 @@ from apps.api.app.modules.auth.session import (
 )
 from apps.api.app.modules.shared.models import (
     ConnexionProfilRequete,
+    PreferencesAvancees,
     PreferencesAvanceesUpdate,
     ProfilEtudiant,
     ProfilEtudiantCreate,
@@ -212,6 +213,36 @@ async def maj_preferences_avancees(
     if not maj.data:
         raise HTTPException(500, "Erreur lors de la mise à jour des préférences")
     return {"telephone": telephone, "prefs_avancees": fusion}
+
+
+# ---------- Consultation préférences (GET gardé : réservé au propriétaire) ----------
+@router.get("/{telephone}/preferences")
+async def get_preferences_avancees(
+    telephone: str, _session: str = Depends(garde_profil)
+):
+    """Retourne les préférences avancées fusionnées avec les défauts.
+
+    Défauts : villes_exclues=[], types_masques=[], seuil_pertinence=0,
+    pays_favoris=[], financement_min=None.
+    """
+    res = supabase.table("profils").select("id, metadata").eq("telephone", telephone).execute()
+    if not res.data:
+        raise HTTPException(404, "Profil non trouvé")
+
+    metadata = res.data[0].get("metadata")
+    metadata = dict(metadata) if isinstance(metadata, dict) else {}
+    prefs_avancees = metadata.get("prefs_avancees")
+    prefs_avancees = dict(prefs_avancees) if isinstance(prefs_avancees, dict) else {}
+
+    # Fusion : défauts + valeurs enregistrées (pas d'écrasement des clés absentes)
+    fusion = PreferencesAvancees(
+        villes_exclues=prefs_avancees.get("villes_exclues", []),
+        types_masques=prefs_avancees.get("types_masques", []),
+        seuil_pertinence=prefs_avancees.get("seuil_pertinence", 0),
+        pays_favoris=prefs_avancees.get("pays_favoris", []),
+        financement_min=prefs_avancees.get("financement_min"),
+    )
+    return {"telephone": telephone, "prefs_avancees": fusion.model_dump(mode="json")}
 
 
 # ---------- Historique (GET gardé : réservé au propriétaire) ----------
