@@ -1,0 +1,44 @@
+name: Résumé hebdomadaire étudiant
+
+# Un seul email par étudiant et par semaine ISO (anti-doublon porté par
+# profils.metadata['dernier_resume']) : relancer ce workflow 10 fois dans la
+# même semaine n'envoie rien de plus. Lundi 7h UTC = 7h Mauritanie (UTC+0).
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:  # bouton « Run workflow » (relance manuelle, idempotente)
+
+jobs:
+  resume-hebdo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Même leçon que scraper-cron : un secret ABSENT produisait un simple
+      # « 401 » indiscernable d'un jeton faux. On le dit avant d'appeler.
+      - name: Vérifier que le secret existe
+        env:
+          JETON: ${{ secrets.SCRAPER_TOKEN }}
+        run: |
+          if [ -z "$JETON" ]; then
+            echo "::error::Secret SCRAPER_TOKEN ABSENT. Le créer dans Settings > Secrets and variables > Actions > onglet SECRETS (pas Variables), nom exact SCRAPER_TOKEN, valeur = ADMIN_PASSWORD_HASH."
+            exit 1
+          fi
+          echo "Secret présent (longueur ${#JETON})"
+
+      - name: Envoyer le résumé de la semaine
+        env:
+          JETON: ${{ secrets.SCRAPER_TOKEN }}
+        run: |
+          code=$(curl -s -o /tmp/reponse.txt -w "%{http_code}" \
+            -X POST "https://lawol-mr-production.up.railway.app/api/v1/notifications/resume-hebdo?appliquer=true" \
+            -H "x-admin-token: $JETON" \
+            --max-time 300)
+          echo "HTTP $code"
+          cat /tmp/reponse.txt
+          echo
+          case "$code" in
+            200) echo "::notice::Résumé hebdomadaire traité" ;;
+            401) echo "::error::401 = AUCUN jeton reçu (secret vide ou nom différent)"; exit 1 ;;
+            403) echo "::error::403 = jeton reçu mais FAUX (valeur différente de ADMIN_PASSWORD_HASH)"; exit 1 ;;
+            *)   echo "::error::Échec HTTP $code"; exit 1 ;;
+          esac

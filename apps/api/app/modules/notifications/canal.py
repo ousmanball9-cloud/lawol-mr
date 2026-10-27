@@ -40,6 +40,59 @@ def whatsapp_configure() -> bool:
     return bool(settings.META_WHATSAPP_TOKEN and settings.META_PHONE_NUMBER_ID)
 
 
+def _envoyer_email_avec_repli(adresse: str, sujet: str, texte: str) -> bool:
+    """Envoie un email : SMTP d'abord, API HTTP en repli. `True` si un canal passe.
+
+    Extraction de la branche email historique (aucun changement de
+    comportement) pour que le résumé hebdomadaire réutilise EXACTEMENT la même
+    stratégie de repli au lieu d'en réécrire une deuxième, qui divergerait.
+    """
+    # 1. SMTP (avec fallback 465 interne à `email_sender`)
+    if email_configure():
+        try:
+            envoyer_email(adresse, sujet, texte)
+            return True
+        except Exception as exc:  # noqa: BLE001
+            print(f"⚠️ SMTP email en échec ({adresse}) : {exc}")
+    else:
+        print("ℹ️ SMTP non configuré — tentative API email...")
+
+    # 2. API HTTP (Brevo/SendGrid) si SMTP a échoué ou n'est pas configuré
+    print("🔍 DEBUG canal: email_ok=False, checking email_api_configure()...")
+    if email_api_configure():
+        try:
+            envoyer_email_api(adresse, sujet, texte)
+            print(f"✅ Email envoyé via API ({adresse})")
+            return True
+        except Exception as exc:  # noqa: BLE001
+            print(f"⚠️ API email en échec ({adresse}) : {exc}")
+    else:
+        print("ℹ️ Aucun canal email configuré (ni SMTP ni API)")
+    return False
+
+
+def envoyer_email_profil(
+    profil: dict, texte: str, *, sujet: str = SUJET_DEFAUT
+) -> dict:
+    """Envoie UN profil par EMAIL uniquement (jamais WhatsApp).
+
+    Utilisé par le résumé hebdomadaire : un récapitulatif de semaine se lit et
+    se garde, ce n'est pas un message instantané. Le destinataire vient
+    toujours du profil (aucun relais ouvert) et l'adresse est validée.
+
+    Contrat : `{"email": bool, "ok": bool, "raison": str}` — `raison` explique
+    un refus (adresse absente/invalide) pour que l'appelant distingue « pas
+    d'adresse » d'une « panne d'envoi ».
+    """
+    adresse = str((profil or {}).get("email") or "").strip()
+    if not adresse:
+        return {"email": False, "ok": False, "raison": "adresse absente"}
+    if not valider_email(adresse):
+        return {"email": False, "ok": False, "raison": "adresse invalide"}
+    ok = _envoyer_email_avec_repli(adresse, sujet, texte)
+    return {"email": ok, "ok": ok, "raison": "" if ok else "aucun canal email"}
+
+
 def envoyer_notification(
     profil: dict,
     texte: str,
@@ -75,27 +128,6 @@ def envoyer_notification(
     # 2. Repli — email (jamais si WhatsApp a réussi : zéro doublon)
     email_ok = False
     if not whatsapp_ok and adresse and valider_email(adresse):
-        # 2a. Tentative SMTP (avec fallback 465 interne)
-        if email_configure():
-            try:
-                envoyer_email(adresse, sujet, texte)
-                email_ok = True
-            except Exception as exc:  # noqa: BLE001
-                print(f"⚠️ SMTP email en échec ({adresse}) : {exc}")
-        else:
-            print("ℹ️ SMTP non configuré — tentative API email...")
-
-        # 2b. Fallback API HTTP (Brevo/SendGrid) si SMTP a échoué ou non configuré
-        if not email_ok:
-            print(f"🔍 DEBUG canal: email_ok={email_ok}, checking email_api_configure()...")
-            if email_api_configure():
-                try:
-                    envoyer_email_api(adresse, sujet, texte)
-                    email_ok = True
-                    print(f"✅ Email envoyé via API ({adresse})")
-                except Exception as exc:  # noqa: BLE001
-                    print(f"⚠️ API email en échec ({adresse}) : {exc}")
-            else:
-                print("ℹ️ Aucun canal email configuré (ni SMTP ni API)")
+        email_ok = _envoyer_email_avec_repli(adresse, sujet, texte)
 
     return {"whatsapp": whatsapp_ok, "email": email_ok, "ok": whatsapp_ok or email_ok}

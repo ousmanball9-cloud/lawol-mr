@@ -383,6 +383,22 @@ async def trigger_deadlines(request: Request):
     return run_deadline_job()
 
 
+@app.post("/api/v1/notifications/resume-hebdo")
+async def trigger_resume_hebdo(request: Request, appliquer: bool = False):
+    """Résumé hebdomadaire par email (un seul par profil et par semaine ISO).
+
+    `appliquer=false` (défaut) = simulation : le bilan dit ce qui PARTIRAIT,
+    sans écrire ni envoyer. Le workflow hebdomadaire appelle `?appliquer=true`.
+
+    GARDÉ : 401 sans identité, 403 si l'identité est fausse (aucune écriture
+    dans ces deux cas).
+    """
+    _admin_autorise(request)
+    from apps.api.app.modules.notifications.resume_hebdo import run_resume_hebdo
+
+    return run_resume_hebdo(appliquer=appliquer)
+
+
 def _colonne_absente(exc: Exception) -> bool:
     """Vrai UNIQUEMENT si l'erreur PostgREST vient d'une colonne manquante.
 
