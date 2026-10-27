@@ -23,8 +23,6 @@ from apps.api.app.modules.profils.routes import router as profils_router
 from apps.api.app.modules.scraper.engine import (
     CATEGORIES_BOURSE,
     CategorieBourse,
-    sources_bourse_connues,
-    sources_classifiees,
 )
 from apps.api.app.modules.scraper.sources.catalogue import get_scrapers
 from apps.api.app.modules.shared.models import (
@@ -193,16 +191,21 @@ async def list_offres(
     if type_offre:
         query = query.eq("type_offre", type_offre.value)
     if categorie:
+        # Source de vérité UNIQUE : `metadata['categorie_bourse']`, écrit à
+        # l'ingestion et repris par `scripts/backfill-categorie.py`.
+        #
+        # Avant le 27/10/2026, le filtre raisonnait par LISTE DE SOURCES
+        # (`sources_classifiees`) alors que le badge lisait `metadata` : les deux
+        # pouvaient diverger, et comme les sources réelles sont des agrégateurs
+        # (afterschool-africa, scholar-africa…), la liste était vide de sens.
+        # `inconnu` = clé absente OU valeur « inconnu » (aucune offre n'échappe).
         if categorie == CategorieBourse.INCONNU:
-            # « inconnu » = tout SAUF les sources dont le financeur est connu.
-            # `offres.source_name` est NOT NULL (schéma) : aucune ligne n'échappe
-            # au filtre par exclusion.
-            query = query.not_.in_("source_name", sources_bourse_connues())
+            query = query.or_(
+                "metadata->>categorie_bourse.is.null,"
+                "metadata->>categorie_bourse.eq.inconnu"
+            )
         else:
-            noms_sources = sources_classifiees(categorie.value)
-            if not noms_sources:
-                return []  # catégorie sans source classée (ex. « entreprise »)
-            query = query.in_("source_name", noms_sources)
+            query = query.eq("metadata->>categorie_bourse", categorie.value)
 
     motif = _motif_recherche(q) if q else None
     if motif:
@@ -241,21 +244,22 @@ async def categories_offres() -> dict[str, int]:
     """Comptage RÉEL des offres actives à échéance future, par catégorie.
 
     Réponse : `{"gouvernementale": n, "institutionnelle": n, "fondation": n,
-    "entreprise": n, "inconnu": n}`. `inconnu` compte tout ce qui n'est pas
-    classé (aucune source de financeur connu).
+    "entreprise": n, "inconnu": n}`. Comptage sur `metadata['categorie_bourse']`
+    — la MÊME valeur que le badge et le filtre (une seule vérité ; avant le
+    27/10 le comptage passait par les sources, donc il ne correspondait ni au
+    badge ni au filtre).
     """
     compteurs: dict[str, int] = {}
     for categorie in CATEGORIES_BOURSE:
         if categorie == CategorieBourse.INCONNU.value:
-            requete = _requete_offres_actives().not_.in_(
-                "source_name", sources_bourse_connues()
+            requete = _requete_offres_actives().or_(
+                "metadata->>categorie_bourse.is.null,"
+                "metadata->>categorie_bourse.eq.inconnu"
             )
         else:
-            noms_sources = sources_classifiees(categorie)
-            if not noms_sources:
-                compteurs[categorie] = 0
-                continue
-            requete = _requete_offres_actives().in_("source_name", noms_sources)
+            requete = _requete_offres_actives().eq(
+                "metadata->>categorie_bourse", categorie
+            )
         res = requete.execute()
         compteurs[categorie] = res.count or 0
     return compteurs
@@ -276,7 +280,12 @@ async def detail_offre(offre_id: str):
     )
     if not res.data:
         raise HTTPException(404, "Offre introuvable")
-    return OffreStagePublic.model_validate(res.data[0])
+    # Contrat de la FICHE : le texte intégral est dans `description`, l'aperçu
+    # de carte reste vide (il n'a de sens que dans la liste). Le repli du modèle
+    # garantit un aperçu sur les CARTES ; ici on le neutralise explicitement.
+    return OffreStagePublic.model_validate(res.data[0]).model_copy(
+        update={"description_apercu": None}
+    )
 
 
 @app.post("/api/v1/offres", status_code=201)

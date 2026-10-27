@@ -215,6 +215,7 @@ class OffreStagePublic(BaseModel):
                     data.get("metadata"),
                     data.get("source_name"),
                     data.get("entreprise") or "",
+                    data.get("titre") or "",
                 ),
             }
         return data

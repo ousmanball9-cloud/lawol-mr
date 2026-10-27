@@ -56,8 +56,16 @@ class _FauxNot:
         return self._table
 
 
+def _valeur(ligne, colonne):
+    """Valeur d'une colonne, y compris un chemin jsonb `metadata->>clé`."""
+    if colonne == "metadata->>categorie_bourse":
+        md = ligne.get("metadata")
+        return md.get("categorie_bourse") if isinstance(md, dict) else None
+    return ligne.get(colonne)
+
+
 class _FauxTable:
-    """Chaîne minimale : select/eq/gte/in_/not_.in_/order/range/upsert."""
+    """Chaîne minimale : select/eq/gte/in_/or_/not_.in_/order/range/upsert."""
 
     def __init__(self, base, nom):
         self._base, self._nom = base, nom
@@ -82,6 +90,11 @@ class _FauxTable:
         self._filtres.append(("in", colonne, list(valeurs)))
         return self
 
+    def or_(self, expression):
+        """`or=(metadata->>categorie_bourse.is.null,...eq.inconnu)`."""
+        self._filtres.append(("or", expression, None))
+        return self
+
     @property
     def not_(self):
         return _FauxNot(self)
@@ -101,13 +114,33 @@ class _FauxTable:
         lignes = [copy.deepcopy(ligne) for ligne in self._base.offres]
         for operation, colonne, valeur in self._filtres:
             if operation == "eq":
-                lignes = [lg for lg in lignes if lg.get(colonne) == valeur]
+                lignes = [lg for lg in lignes if _valeur(lg, colonne) == valeur]
             elif operation == "gte":
-                lignes = [lg for lg in lignes if str(lg.get(colonne) or "") >= str(valeur)]
+                lignes = [lg for lg in lignes if str(_valeur(lg, colonne) or "") >= str(valeur)]
             elif operation == "in":
-                lignes = [lg for lg in lignes if lg.get(colonne) in valeur]
+                lignes = [lg for lg in lignes if _valeur(lg, colonne) in valeur]
             elif operation == "not_in":
-                lignes = [lg for lg in lignes if lg.get(colonne) not in valeur]
+                lignes = [lg for lg in lignes if _valeur(lg, colonne) not in valeur]
+            elif operation == "or":
+                # Sémantique PostgREST des deux formes utilisées par la route.
+                conditions = []
+                for morceau in colonne.split(","):
+                    morceau = morceau.strip()
+                    if morceau.endswith(".is.null"):
+                        conditions.append(
+                            (morceau[: -len(".is.null")], None, True)
+                        )
+                    elif ".eq." in morceau:
+                        col, val = morceau.split(".eq.", 1)
+                        conditions.append((col, val, False))
+                lignes = [
+                    lg
+                    for lg in lignes
+                    if any(
+                        (_valeur(lg, col) is None) if est_null else (_valeur(lg, col) == val)
+                        for col, val, est_null in conditions
+                    )
+                ]
         if self._range:
             debut, fin = self._range
             lignes = lignes[debut : fin + 1]
@@ -149,8 +182,10 @@ OFFRES = [
     # 1 : DAAD officiel (daad.de) → gouvernementale, metadata riche à préserver
     _ligne("11111111-1111-1111-1111-111111111111", "daad",
            {"categorie_bourse": "gouvernementale", "content_hash": "aaa"}),
-    # 2 : Erasmus+ (programme de l'UE) → institutionnelle, metadata vide (legacy)
-    _ligne("22222222-2222-2222-2222-222222222222", "erasmus", {}),
+    # 2 : Erasmus+ (programme de l'UE) → institutionnelle (valeur écrite par le
+    #     backfill : le filtre ne lit QUE metadata, jamais la source)
+    _ligne("22222222-2222-2222-2222-222222222222", "erasmus",
+           {"categorie_bourse": "institutionnelle"}),
     # 3 : fondation
     _ligne("33333333-3333-3333-3333-333333333333", "mastercard-foundation",
            {"categorie_bourse": "fondation"}),
@@ -161,9 +196,11 @@ OFFRES = [
     # 6 : Campus France (gouvernementale) mais ÉCHUE → jamais comptée
     _ligne("66666666-6666-6666-6666-666666666666", "campus-france",
            {"categorie_bourse": "gouvernementale"}, jours=-5),
-    # 7 : metadata hors taxonomie → inconnu
+    # 7 : valeur invalide en base (« bidon ») → normalisée « inconnu » par la
+    #     reprise (`backfill-categorie.py`) ; lue telle quelle, elle serait
+    #     inconnue aussi. Le filtre ne lit que des valeurs de la taxonomie.
     _ligne("77777777-7777-7777-7777-777777777777", "source-inconnue-xyz",
-           {"categorie_bourse": "bidon"}),
+           {"categorie_bourse": "inconnu"}),
     # 8 : daadscholarship.com = BLOG privé, pas le DAAD officiel → inconnu
     _ligne("88888888-8888-8888-8888-888888888888", "daad-scholarship", {}),
 ]
@@ -182,6 +219,7 @@ from apps.api.app.modules.scraper.engine import (
     CATEGORIE_BOURSE_PAR_SOURCE,
     CATEGORIES_BOURSE,
     CategorieBourse,
+    _cle_source,
     categorie_bourse_pour_offre,
     categorie_bourse_pour_source,
     sources_bourse_connues,
@@ -272,11 +310,25 @@ check("« Government Scholarship Program » → gouvernementale",
 check("« Gouvernement du Brésil » (cas MESRS réel) → gouvernementale",
       categorie_bourse_pour_source("MESRS Mauritanie", "Gouvernement du Brésil")
       == "gouvernementale", "")
-check("organisme privé sans mot-clé → inconnu",
+check("organisme privé nommé (TotalEnergies) → entreprise",
       categorie_bourse_pour_source("portail-x", "TotalEnergies Mauritanie")
-      == "inconnu", "")
+      == "entreprise", "")
 check("source classée PRIME sur l'organisme (beta_mr + ambassade → inconnu)",
       categorie_bourse_pour_source("beta_mr", "Ambassade de France") == "inconnu", "")
+
+# --- Mots-clés ambigus : ne doivent PAS classer (défaut inconnu) ---
+check("mot-clé ambigu « government » seul (pas « government scholarship ») → inconnu",
+      categorie_bourse_pour_source("portail-x", "Government Agency XYZ")
+      == "inconnu", "")
+check("mot-clé ambigu « ministry » seul (pas « ministry of education ») → inconnu",
+      categorie_bourse_pour_source("portail-x", "Ministry of Something")
+      == "inconnu", "")
+check("mot-clé ambigu « embassy » seul (pas nom de pays) → inconnu",
+      categorie_bourse_pour_source("portail-x", "Embassy Office")
+      == "inconnu", "")
+check("mot-clé ambigu « consulate » seul → inconnu",
+      categorie_bourse_pour_source("portail-x", "Consulate General Services")
+      == "inconnu", "")
 
 
 # ===================== 3. Listes de sources dérivées =========================
@@ -302,6 +354,90 @@ inst = sources_classifiees("institutionnelle")
 check("institutionnelle contient erasmus/erasmus-plus, PAS campus-france",
       {"erasmus", "erasmus-plus"} <= set(inst) and "campus-france" not in inst,
       str(inst))
+
+# --- Normalisation - / _ (formes DB) ---
+check("daad-scholarship (forme DB tiret) → daad_scholarship (même clé canonique)",
+      _cle_source("daad-scholarship") == "daad_scholarship", "")
+check("DAAD-Scholarship (casse + tiret) → daad_scholarship",
+      _cle_source("DAAD-Scholarship") == "daad_scholarship", "")
+check("daad scholarship (espace) → daad_scholarship",
+      _cle_source("daad scholarship") == "daad_scholarship", "")
+check("mastercard-foundation (tiret) → mastercard_foundation",
+      _cle_source("mastercard-foundation") == "mastercard_foundation", "")
+check("campus-france (tiret) → campus_france",
+      _cle_source("campus-france") == "campus_france", "")
+
+# --- Cas positifs par catégorie (nouvelles sources) ---
+print("\n3b. engine — cas positifs par catégorie (nouvelles sources)")
+# Gouvernementale
+check("chevening (UK government) → gouvernementale",
+      categorie_bourse_pour_source("chevening") == "gouvernementale", "")
+check("fulbright (US government) → gouvernementale",
+      categorie_bourse_pour_source("fulbright") == "gouvernementale", "")
+check("australia_awards → gouvernementale",
+      categorie_bourse_pour_source("australia_awards") == "gouvernementale", "")
+check("mext (Japan government) → gouvernementale",
+      categorie_bourse_pour_source("mext") == "gouvernementale", "")
+check("kgsp (Korea government) → gouvernementale",
+      categorie_bourse_pour_source("kgsp") == "gouvernementale", "")
+check("turkiye_burslari → gouvernementale",
+      categorie_bourse_pour_source("turkiye_burslari") == "gouvernementale", "")
+check("swiss_government_excellence → gouvernementale",
+      categorie_bourse_pour_source("swiss_government_excellence") == "gouvernementale", "")
+
+# Institutionnelle
+check("erasmus_mundus → institutionnelle",
+      categorie_bourse_pour_source("erasmus_mundus") == "institutionnelle", "")
+check("commonwealth_scholarship → institutionnelle",
+      categorie_bourse_pour_source("commonwealth_scholarship") == "institutionnelle", "")
+check("eacea (EU agency) → institutionnelle",
+      categorie_bourse_pour_source("eacea") == "institutionnelle", "")
+check("sciences_po (université) → institutionnelle",
+      categorie_bourse_pour_source("sciences_po") == "institutionnelle", "")
+check("afd (agence française) → institutionnelle",
+      categorie_bourse_pour_source("afd") == "institutionnelle", "")
+check("giz (agence allemande) → institutionnelle",
+      categorie_bourse_pour_source("giz") == "institutionnelle", "")
+check("usaid (agence US) → institutionnelle",
+      categorie_bourse_pour_source("usaid") == "institutionnelle", "")
+check("unesco (ONU) → institutionnelle",
+      categorie_bourse_pour_source("unesco") == "institutionnelle", "")
+check("banque_mondiale → institutionnelle",
+      categorie_bourse_pour_source("banque_mondiale") == "institutionnelle", "")
+
+# Fondation
+check("ford_foundation → fondation",
+      categorie_bourse_pour_source("ford_foundation") == "fondation", "")
+check("gates_foundation → fondation",
+      categorie_bourse_pour_source("gates_foundation") == "fondation", "")
+check("rockefeller_foundation → fondation",
+      categorie_bourse_pour_source("rockefeller_foundation") == "fondation", "")
+check("wellcome_trust → fondation",
+      categorie_bourse_pour_source("wellcome_trust") == "fondation", "")
+check("open_society_foundations → fondation",
+      categorie_bourse_pour_source("open_society_foundations") == "fondation", "")
+check("al_ghurair_foundation → fondation",
+      categorie_bourse_pour_source("al_ghurair_foundation") == "fondation", "")
+check("sawiris_foundation → fondation",
+      categorie_bourse_pour_source("sawiris_foundation") == "fondation", "")
+
+# Entreprise
+check("ocp (Maroc) → entreprise",
+      categorie_bourse_pour_source("ocp") == "entreprise", "")
+check("attijariwafa (banque) → entreprise",
+      categorie_bourse_pour_source("attijariwafa") == "entreprise", "")
+check("maroc_telecom → entreprise",
+      categorie_bourse_pour_source("maroc_telecom") == "entreprise", "")
+check("inwi → entreprise",
+      categorie_bourse_pour_source("inwi") == "entreprise", "")
+check("orange → entreprise",
+      categorie_bourse_pour_source("orange") == "entreprise", "")
+check("shell → entreprise",
+      categorie_bourse_pour_source("shell") == "entreprise", "")
+check("bp → entreprise",
+      categorie_bourse_pour_source("bp") == "entreprise", "")
+check("exxonmobil → entreprise",
+      categorie_bourse_pour_source("exxonmobil") == "entreprise", "")
 
 
 # ===================== 4. Écriture (save) ====================================
@@ -363,10 +499,37 @@ _ScraperTest("portail-x").save(
     [_offre("Bourse de l'ambassade", "portail-x", {"autre_cle": "gardée"})]
 )
 data_amb = FAUX.upserts[-1][1]
-check("organisme « Exemple SARL » → inconnu, clé voisine conservée",
-      data_amb["metadata"]["categorie_bourse"] == "inconnu"
+check("titre nommant une ambassade → gouvernementale, clé voisine conservée",
+      data_amb["metadata"]["categorie_bourse"] == "gouvernementale"
       and data_amb["metadata"].get("autre_cle") == "gardée",
       str(data_amb["metadata"]))
+
+# Règle du 27/10 : le financeur est souvent nommé dans le TITRE (les sources
+# réelles sont des agrégateurs neutres). On ne devine jamais : seul un indice
+# explicite classe, et « fully funded » (montant) ne fait pas une fondation.
+_ScraperTest("afterschool-africa").save(
+    [_offre("University of Melbourne Graduate Research Scholarships", "afterschool-africa",
+            entreprise="afterschool-africa")]
+)
+check("agrégateur + « University of… » → institutionnelle",
+      FAUX.upserts[-1][1]["metadata"]["categorie_bourse"] == "institutionnelle",
+      str(FAUX.upserts[-1][1]["metadata"]))
+
+_ScraperTest("scholar-africa").save(
+    [_offre("Mastercard Foundation Scholars Program 2027", "scholar-africa",
+            entreprise="scholar-africa")]
+)
+check("« Mastercard Foundation » → fondation",
+      FAUX.upserts[-1][1]["metadata"]["categorie_bourse"] == "fondation",
+      str(FAUX.upserts[-1][1]["metadata"]))
+
+_ScraperTest("opportunities-for-youth").save(
+    [_offre("Fully Funded Scholarships for African Students", "opportunities-for-youth",
+            entreprise="opportunities-for-youth")]
+)
+check("« fully funded » seul (montant) → inconnu, PAS fondation",
+      FAUX.upserts[-1][1]["metadata"]["categorie_bourse"] == "inconnu",
+      str(FAUX.upserts[-1][1]["metadata"]))
 
 _ScraperTest("MESRS Mauritanie").save(
     [_offre("Bourse au Brésil", "MESRS Mauritanie",
@@ -376,6 +539,34 @@ data_mesrs = FAUX.upserts[-1][1]
 check("cas MESRS : « Gouvernement du Brésil » → gouvernementale",
       data_mesrs["metadata"]["categorie_bourse"] == "gouvernementale",
       str(data_mesrs["metadata"]))
+
+# --- Non-écrasement des autres clés metadata ---
+_ScraperTest("daad").save(
+    [_offre("Bourse DAAD 2027", "daad",
+            metadata={"content_hash": "abc123", "custom_field": "valeur", "autre": 42})]
+)
+data_preserve = FAUX.upserts[-1][1]
+check("metadata : toutes les clés existantes sont CONSERVÉES (content_hash, custom_field, autre)",
+      data_preserve["metadata"].get("content_hash") == "abc123"
+      and data_preserve["metadata"].get("custom_field") == "valeur"
+      and data_preserve["metadata"].get("autre") == 42,
+      str(data_preserve["metadata"]))
+check("metadata : categorie_bourse ajoutée sans toucher aux autres",
+      data_preserve["metadata"]["categorie_bourse"] == "gouvernementale"
+      and len(data_preserve["metadata"]) == 4,
+      str(data_preserve["metadata"]))
+
+# Source classée + metadata legacy existant → on REMPLACE la clé categorie_bourse seulement
+_ScraperTest("mastercard_foundation").save(
+    [_offre("MCF Scholars", "mastercard_foundation",
+            metadata={"categorie_bourse": "inconnu", "content_hash": "xyz", "version": 1})]
+)
+data_replace = FAUX.upserts[-1][1]
+check("metadata legacy avec mauvaise categorie_bourse → REMPLACÉE par la bonne (fondation)",
+      data_replace["metadata"]["categorie_bourse"] == "fondation"
+      and data_replace["metadata"].get("content_hash") == "xyz"
+      and data_replace["metadata"].get("version") == 1,
+      str(data_replace["metadata"]))
 
 
 # ===================== 5. Lecture publique ===================================
@@ -389,13 +580,17 @@ check("ligne legacy SANS metadata, source non classée → inconnu (jamais de 50
       OffreStagePublic.model_validate(
           _ligne("44444444-4444-4444-4444-444444444444", "scholar-africa")
       ).categorie_bourse == "inconnu", "")
-check("ligne legacy SANS metadata, source classée (DAAD officiel) → gouvernementale",
-      categorie_bourse_pour_offre(None, "daad") == "gouvernementale",
+check("ligne legacy SANS metadata, source classée (DAAD officiel) → inconnu EN LECTURE",
+      categorie_bourse_pour_offre(None, "daad") == "inconnu",
       categorie_bourse_pour_offre(None, "daad"))
-check("ligne legacy SANS metadata, daad-scholarship (blog) → inconnu",
-      categorie_bourse_pour_offre(None, "daad-scholarship") == "inconnu",
+check("… mais la règle d'ÉCRITURE la classe gouvernementale (backfill/ingestion)",
+      categorie_bourse_pour_source("daad") == "gouvernementale",
+      categorie_bourse_pour_source("daad"))
+check("ligne legacy SANS metadata, daad-scholarship (blog) → inconnu des deux côtés",
+      categorie_bourse_pour_offre(None, "daad-scholarship") == "inconnu"
+      and categorie_bourse_pour_source("daad-scholarship") == "inconnu",
       categorie_bourse_pour_offre(None, "daad-scholarship"))
-check("valeur hors taxonomie → repli sur la règle par source (inconnu ici)",
+check("valeur hors taxonomie → inconnu (jamais devinée en lecture)",
       categorie_bourse_pour_offre({"categorie_bourse": "bidon"}) == "inconnu", "")
 check("metadata absente/None et source inconnue → inconnu",
       categorie_bourse_pour_offre(None) == "inconnu", "")
@@ -438,7 +633,7 @@ check("?categorie=institutionnelle → erasmus (offre 2)",
 inconnu = asyncio.run(
     list_offres(type_offre=None, categorie=CategorieBourse.INCONNU, limit=50, offset=0)
 )
-check("?categorie=inconnu → tout SAUF les sources classées (4, 5, 7, 8)",
+check("?categorie=inconnu → lignes sans clé valide (4, 5, 7, 8) et RIEN d'autre",
       _indices(inconnu) == {4, 5, 7, 8}, str(_indices(inconnu)))
 
 fondation = asyncio.run(

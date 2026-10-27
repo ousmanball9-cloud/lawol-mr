@@ -73,27 +73,146 @@ _CATEGORIE_DEFAUT = "bourse"
 # vaut « inconnu » (jamais deviné). Les sources d'EMPLOI existantes sont
 # explicitement « inconnu » : ce ne sont pas des bourses.
 CATEGORIE_BOURSE_PAR_SOURCE: dict[str, str] = {
-    # Bourses d'État / programmes publics RÉELS (domaine officiel) : DAAD
-    # (daad.de, service financé par l'État fédéral) et Eiffel (bourse du
-    # ministère français des Affaires étrangères). Erasmus+ est un programme
-    # de l'Union européenne (institution supranationale, pas un État).
+    # --- GOUVERNEMENTALE : ambassades, consulats, ministères, bourses d'État ---
     "daad": CategorieBourse.GOUVERNEMENTALE.value,
     "eiffel": CategorieBourse.GOUVERNEMENTALE.value,
+    "campus_france": CategorieBourse.GOUVERNEMENTALE.value,
+    # Ambassades / consulats / ministères identifiés par source
+    "ambassade_france": CategorieBourse.GOUVERNEMENTALE.value,
+    "ambassade_usa": CategorieBourse.GOUVERNEMENTALE.value,
+    "ambassade_allemagne": CategorieBourse.GOUVERNEMENTALE.value,
+    "ambassade_chine": CategorieBourse.GOUVERNEMENTALE.value,
+    "ambassade_maroc": CategorieBourse.GOUVERNEMENTALE.value,
+    "ambassade_senegal": CategorieBourse.GOUVERNEMENTALE.value,
+    "ambassade_tunisie": CategorieBourse.GOUVERNEMENTALE.value,
+    "consulat_france": CategorieBourse.GOUVERNEMENTALE.value,
+    "consulat_allemagne": CategorieBourse.GOUVERNEMENTALE.value,
+    "ministere_enseignement_superieur": CategorieBourse.GOUVERNEMENTALE.value,
+    "ministere_affaires_etrangeres": CategorieBourse.GOUVERNEMENTALE.value,
+    "gouvernement_mauritanie": CategorieBourse.GOUVERNEMENTALE.value,
+    "mesrs": CategorieBourse.GOUVERNEMENTALE.value,
+    "mesrs_mauritanie": CategorieBourse.GOUVERNEMENTALE.value,
+    # Programmes "government scholarship" explicites
+    "chevening": CategorieBourse.GOUVERNEMENTALE.value,
+    "fulbright": CategorieBourse.GOUVERNEMENTALE.value,
+    "australia_awards": CategorieBourse.GOUVERNEMENTALE.value,
+    "new_zealand_awards": CategorieBourse.GOUVERNEMENTALE.value,
+    "swiss_government_excellence": CategorieBourse.GOUVERNEMENTALE.value,
+    "hungary_scholarship": CategorieBourse.GOUVERNEMENTALE.value,
+    "turkiye_burslari": CategorieBourse.GOUVERNEMENTALE.value,
+    "chinese_government_scholarship": CategorieBourse.GOUVERNEMENTALE.value,
+    "japanese_government_scholarship": CategorieBourse.GOUVERNEMENTALE.value,
+    "korean_government_scholarship": CategorieBourse.GOUVERNEMENTALE.value,
+    "mext": CategorieBourse.GOUVERNEMENTALE.value,
+    "kgsp": CategorieBourse.GOUVERNEMENTALE.value,
+    "csc_scholarship": CategorieBourse.GOUVERNEMENTALE.value,
+
+    # --- INSTITUTIONNELLE : universités, agences, programmes intergouvernementaux ---
     "erasmus": CategorieBourse.INSTITUTIONNELLE.value,
     "erasmus_plus": CategorieBourse.INSTITUTIONNELLE.value,
-    # Campus France opère les bourses du gouvernement français (BGF).
-    "campus_france": CategorieBourse.GOUVERNEMENTALE.value,
-    # ATTENTION (mesuré 20/10/2026) : `daadscholarship.com` est un BLOG privé
-    # WordPress, pas le DAAD officiel (daad.de) — ses articles parlent de
-    # n'importe quel pays. Le classer « gouvernementale » affichait 25 offres
-    # mensongères. Il reste donc « inconnu ».
-    "daad_scholarship": CategorieBourse.INCONNU.value,
-    # Fondation privée.
+    "erasmus_mundus": CategorieBourse.INSTITUTIONNELLE.value,
+    "eacea": CategorieBourse.INSTITUTIONNELLE.value,
+    # Commonwealth
+    "commonwealth_scholarship": CategorieBourse.INSTITUTIONNELLE.value,
+    "commonwealth_split_site": CategorieBourse.INSTITUTIONNELLE.value,
+    "commonwealth_shared": CategorieBourse.INSTITUTIONNELLE.value,
+    # Universités / agences connues
+    "universite_paris": CategorieBourse.INSTITUTIONNELLE.value,
+    "universite_lyon": CategorieBourse.INSTITUTIONNELLE.value,
+    "universite_bordeaux": CategorieBourse.INSTITUTIONNELLE.value,
+    "sciences_po": CategorieBourse.INSTITUTIONNELLE.value,
+    "institut_agro": CategorieBourse.INSTITUTIONNELLE.value,
+    "onema": CategorieBourse.INSTITUTIONNELLE.value,
+    "anr": CategorieBourse.INSTITUTIONNELLE.value,
+    "cnrs": CategorieBourse.INSTITUTIONNELLE.value,
+    "inserm": CategorieBourse.INSTITUTIONNELLE.value,
+    "ird": CategorieBourse.INSTITUTIONNELLE.value,
+    "cirad": CategorieBourse.INSTITUTIONNELLE.value,
+    "afd": CategorieBourse.INSTITUTIONNELLE.value,
+    "expertise_france": CategorieBourse.INSTITUTIONNELLE.value,
+    "giz": CategorieBourse.INSTITUTIONNELLE.value,
+    "usaid": CategorieBourse.INSTITUTIONNELLE.value,
+    "jica": CategorieBourse.INSTITUTIONNELLE.value,
+    "koica": CategorieBourse.INSTITUTIONNELLE.value,
+    "unicef": CategorieBourse.INSTITUTIONNELLE.value,
+    "unesco": CategorieBourse.INSTITUTIONNELLE.value,
+    "banque_mondiale": CategorieBourse.INSTITUTIONNELLE.value,
+    "bid": CategorieBourse.INSTITUTIONNELLE.value,
+    "bdeac": CategorieBourse.INSTITUTIONNELLE.value,
+    "badi": CategorieBourse.INSTITUTIONNELLE.value,
+    "onudi": CategorieBourse.INSTITUTIONNELLE.value,
+    "fao": CategorieBourse.INSTITUTIONNELLE.value,
+    "pnud": CategorieBourse.INSTITUTIONNELLE.value,
+    "oim": CategorieBourse.INSTITUTIONNELLE.value,
+    "hcr": CategorieBourse.INSTITUTIONNELLE.value,
+    "ocha": CategorieBourse.INSTITUTIONNELLE.value,
+    "unwomen": CategorieBourse.INSTITUTIONNELLE.value,
+    "unfpa": CategorieBourse.INSTITUTIONNELLE.value,
+    "unhabitat": CategorieBourse.INSTITUTIONNELLE.value,
+
+    # --- FONDATION : fondations privées / philanthropiques ---
     "mastercard_foundation": CategorieBourse.FONDATION.value,
-    # Sources d'EMPLOI : aucune bourse → inconnu (pas une catégorie de bourse).
+    "mastercard_foundation_scholars": CategorieBourse.FONDATION.value,
+    "ford_foundation": CategorieBourse.FONDATION.value,
+    "gates_foundation": CategorieBourse.FONDATION.value,
+    "bill_melinda_gates_foundation": CategorieBourse.FONDATION.value,
+    "rockefeller_foundation": CategorieBourse.FONDATION.value,
+    "carnegie_foundation": CategorieBourse.FONDATION.value,
+    "mellon_foundation": CategorieBourse.FONDATION.value,
+    "soros_foundation": CategorieBourse.FONDATION.value,
+    "open_society_foundations": CategorieBourse.FONDATION.value,
+    "wellcome_trust": CategorieBourse.FONDATION.value,
+    "chan_zuckerberg_initiative": CategorieBourse.FONDATION.value,
+    "a_gha_khan_foundation": CategorieBourse.FONDATION.value,
+    "m_foundation": CategorieBourse.FONDATION.value,
+    "al_ghurair_foundation": CategorieBourse.FONDATION.value,
+    "sawiris_foundation": CategorieBourse.FONDATION.value,
+    "nasseef_foundation": CategorieBourse.FONDATION.value,
+    "drosos_foundation": CategorieBourse.FONDATION.value,
+    "africa_leadership_university": CategorieBourse.FONDATION.value,
+    "mfwa": CategorieBourse.FONDATION.value,
+
+    # --- ENTREPRISE : programmes de bourses d'entreprises ---
+    "total_energies": CategorieBourse.ENTREPRISE.value,
+    "bn_m": CategorieBourse.ENTREPRISE.value,
+    "attijariwafa": CategorieBourse.ENTREPRISE.value,
+    "bmci": CategorieBourse.ENTREPRISE.value,
+    "bci": CategorieBourse.ENTREPRISE.value,
+    "sgb": CategorieBourse.ENTREPRISE.value,
+    "cimr": CategorieBourse.ENTREPRISE.value,
+    "ocp": CategorieBourse.ENTREPRISE.value,
+    "maroc_telecom": CategorieBourse.ENTREPRISE.value,
+    "inwi": CategorieBourse.ENTREPRISE.value,
+    "orange": CategorieBourse.ENTREPRISE.value,
+    "airtel": CategorieBourse.ENTREPRISE.value,
+    "moov": CategorieBourse.ENTREPRISE.value,
+    "shell": CategorieBourse.ENTREPRISE.value,
+    "bp": CategorieBourse.ENTREPRISE.value,
+    "exxonmobil": CategorieBourse.ENTREPRISE.value,
+    "chevron": CategorieBourse.ENTREPRISE.value,
+    "eni": CategorieBourse.ENTREPRISE.value,
+    "repsol": CategorieBourse.ENTREPRISE.value,
+    "glencore": CategorieBourse.ENTREPRISE.value,
+    "kinross": CategorieBourse.ENTREPRISE.value,
+    "barrick": CategorieBourse.ENTREPRISE.value,
+    "anglogold": CategorieBourse.ENTREPRISE.value,
+    "newmont": CategorieBourse.ENTREPRISE.value,
+    "riotinto": CategorieBourse.ENTREPRISE.value,
+    "bhp": CategorieBourse.ENTREPRISE.value,
+    "vale": CategorieBourse.ENTREPRISE.value,
+
+    # --- ATTENTION : daadscholarship.com = BLOG privé, PAS le DAAD officiel ---
+    # (daad.de) — ses articles parlent de n'importe quel pays. Le classer
+    # « gouvernementale » affichait 25 offres mensongères. Il reste « inconnu ».
+    "daad_scholarship": CategorieBourse.INCONNU.value,
+    "daad_scholarship_com": CategorieBourse.INCONNU.value,
+
+    # --- Sources d'EMPLOI : aucune bourse → inconnu (pas une catégorie de bourse) ---
     "beta_mr": CategorieBourse.INCONNU.value,
     "linkedin": CategorieBourse.INCONNU.value,
     "anpe": CategorieBourse.INCONNU.value,
+    # Ces entreprises publient des RECRUTEMENTS (emploi/stage) — pas de bourse.
+    # Leur catégorie de FINANCEUR reste "inconnu" (ce ne sont pas des bourses).
     "mauritel": CategorieBourse.INCONNU.value,
     "snim": CategorieBourse.INCONNU.value,
     "bnm": CategorieBourse.INCONNU.value,
@@ -101,12 +220,84 @@ CATEGORIE_BOURSE_PAR_SOURCE: dict[str, str] = {
 }
 
 # Repli sur l'ORGANISME (colonne `entreprise` des offres bourses) : seuls des
-# financeurs publics explicites sont reconnus — « government scholarship »,
-# « bourse du gouvernement »… Tout le reste reste « inconnu ».
+# financeurs publics EXPLICITES sont reconnus — « government scholarship »,
+# « ministry of education », « embassy of France », « bourse du gouvernement »…
+# Les mots isolés (ministry, embassy, government, consulate) NE classent PAS.
 _MOTS_FINANCEUR_PUBLIC = re.compile(
-    r"\b(?:ambassades?|consulats?|minist[èe]res?|ministry|ministries|embassy|"
-    r"government\s+scholarships?|state\s+scholarships?|"
-    r"bourse\s+du\s+gouvernement|gouvernement)\b",
+    r"(?:"
+    r"\bambassade\s+(?:de|du|des|d')\s*[\w\u00C0-\u017F]+"
+    r"|\bconsulat\s+(?:de|du|des|d')\s*[\w\u00C0-\u017F]+"
+    r"|\bconsulat\s+g[eé]n[eé]ral"
+    r"|\bminist[eè]re\s+(?:de|du|des|d')\s*[\w\u00C0-\u017F']+"
+    r"|\bministry\s+of\s+(?:education|higher\s+education|foreign\s+affairs)"
+    r"|\bembassy\s+of\s+\s*[\w\u00C0-\u017F]+"
+    r"|\bgovernment\s+scholarships?"
+    r"|\bstate\s+scholarships?"
+    r"|\bbourse\s+du\s+gouvernement"
+    r"|\bgouvernement\s+(?:du|de|d')\s*[\w\u00C0-\u017F]+"
+    r")",
+    re.IGNORECASE,
+)
+
+# ---------------------------------------------------------------------------
+# AXE FINANCEUR — indices TEXTUELS (titre + organisme).
+#
+# Mesure du 27/10/2026 : les 11 sources réellement en base sont des agrégateurs
+# (afterschool-africa, scholar-africa, opportunities-for-youth, daad-scholarship…)
+# qui publient des bourses de TOUS financeurs. Classer par source ne disait donc
+# rien (408/408 « inconnu »). Le financeur est en revanche souvent NOMMÉ dans le
+# titre : « Government of Ireland… » (9), « University of… » (93), « Foundation »
+# (32), « Erasmus » (24), « DAAD » (42).
+#
+# Règle : uniquement des formules EXPLICITES (« government scholarship »,
+# « foundation », « university »…) — jamais un mot isolé ambigu. `fund` est
+# volontairement EXCLU : « fully funded » (102 occurrences) parle du montant,
+# pas d'une fondation.
+# ---------------------------------------------------------------------------
+_MOTS_ETAT = re.compile(
+    r"(?:"
+    r"\bgovernment\b"
+    r"|\bgouvernement\b"
+    r"|\bminist[eè]re\s+(?:de|du|des|d')\s*[\w\u00C0-\u017F']+"
+    r"|\bministry\s+of\b"
+    r"|\bambassade\b|\bembassy\b|\bconsulat\b|\bconsulate\b"
+    r"|\bstate\s+scholarships?\b"
+    r"|\bbourse\s+d[’']?\s*[eé]tat"
+    r"|\bchevening\b|\bfulbright\b|\baustralia\s+awards\b"
+    r"|\bmext\b|\bkgsp\b|\bcsc\s+scholarship\b|\beiffel\b"
+    r")",
+    re.IGNORECASE,
+)
+
+_MOTS_FONDATION = re.compile(
+    r"(?:"
+    r"\bfoundation\b|\bfondation\b"
+    r"|\bmastercard\s+foundation\b|\bford\s+foundation\b"
+    r"|\bgates\s+foundation\b|\brockefeller\b|\bwellcome\s+trust\b"
+    r"|\bopen\s+society\b|\bmo\s+ibrahim\b"
+    r")",
+    re.IGNORECASE,
+)
+
+_MOTS_ENTREPRISE = re.compile(
+    r"(?:"
+    r"\bsnim\b|\bbnm\b|\bmauritel\b|\btotal\s*energies\b|\btotalenergies\b"
+    r"|\bmauritanian\s+copper\s+mines\b|\bkinross\b|\biamb\b"
+    r"|\bsoci[eé]t[eé]\s+mauritanienne\b|\bbanque\s+mauritanienne\b"
+    r"|\bcaisse\s+nationale\s+de\s+solidarit[eé]\b"
+    r"|\battijariwafa\b|\battijari\b|\bmaroc\s+telecom\b|\borange\b"
+    r"|\bshell\b|\bexxonmobil\b|\bocp\b|\bdeloitte\b|\bpwc\b|\bkpmg\b"
+    r")",
+    re.IGNORECASE,
+)
+
+_MOTS_INSTITUTION = re.compile(
+    r"(?:"
+    r"\buniversit[eé]\b|\buniversity\b|\binstitut\b|\binstitute\b"
+    r"|\bschool\b|\bcollege\b|\bpolytechnic\b|\bacademy\b"
+    r"|\berasmus\b|\bdaad\b|\bcampus\s+france\b|\bcommonwealth\b"
+    r"|\bunesco\b|\bbanque\s+mondiale\b|\bworld\s+bank\b|\bafd\b|\bgiz\b"
+    r")",
     re.IGNORECASE,
 )
 
@@ -162,19 +353,41 @@ def _variantes_db(cle: str) -> list[str]:
     return sorted({cle, cle.replace("_", "-")})
 
 
-def categorie_bourse_pour_source(source_name: str | None, organisme: str = "") -> str:
-    """Catégorie FINANCEUR d'une offre selon sa source (jamais devinée).
+def categorie_bourse_pour_source(
+    source_name: str | None, organisme: str = "", titre: str = ""
+) -> str:
+    """Catégorie FINANCEUR d'une offre (jamais devinée).
 
-    · source présente dans `CATEGORIE_BOURSE_PAR_SOURCE` → sa catégorie ;
-    · sinon, l'organisme porte un mot-clé public explicite (ambassade,
-      ministère, consulat, « government scholarship »…) → ``gouvernementale`` ;
-    · sinon → ``inconnu`` (l'absence d'information n'est pas une catégorie).
+    Ordre de lecture — du plus sûr au moins sûr :
+      1. la SOURCE est classée explicitement (`CATEGORIE_BOURSE_PAR_SOURCE`) ;
+      2. le TEXTE nomme un financeur : État/ambassade/ministère, fondation,
+         entreprise connue, puis université/institution ;
+      3. sinon ``inconnu`` — l'absence d'information n'est pas une catégorie.
+
+    `titre` est indispensable pour les agrégateurs (afterschool-africa,
+    scholar-africa…) : la source y est neutre, c'est l'intitulé qui nomme le
+    financeur. Mesure du 27/10 : 0 % classé sans le titre, ~60 % avec.
     """
     categorie = CATEGORIE_BOURSE_PAR_SOURCE.get(_cle_source(source_name))
     if categorie is not None:
         return categorie
-    if _MOTS_FINANCEUR_PUBLIC.search(organisme or ""):
+
+    texte = f"{organisme or ''} {titre or ''}".strip()
+    if not texte:
+        return CATEGORIE_BOURSE_DEFAUT
+
+    # Organisme : règle STRICTE (une « Government Agency » n'est pas un
+    # financeur, seule une formule explicite compte). Titre : le financeur y est
+    # nommé (« Government of Ireland… », « MEXT »), donc la lecture peut être
+    # plus large SANS devenir devinette.
+    if _MOTS_FINANCEUR_PUBLIC.search(organisme or "") or _MOTS_ETAT.search(titre or ""):
         return CategorieBourse.GOUVERNEMENTALE.value
+    if _MOTS_FONDATION.search(texte):
+        return CategorieBourse.FONDATION.value
+    if _MOTS_ENTREPRISE.search(texte):
+        return CategorieBourse.ENTREPRISE.value
+    if _MOTS_INSTITUTION.search(texte):
+        return CategorieBourse.INSTITUTIONNELLE.value
     return CATEGORIE_BOURSE_DEFAUT
 
 
@@ -182,19 +395,27 @@ def categorie_bourse_pour_offre(
     metadata: dict | None,
     source_name: str | None = None,
     organisme: str = "",
+    titre: str = "",
 ) -> str:
-    """Catégorie LUE sur une offre, cohérente avec le filtre `?categorie=`.
+    """Catégorie LUE sur une offre — `metadata['categorie_bourse']`, un point.
 
-    · `metadata['categorie_bourse']` valide → priorité (valeur écrite en base) ;
-    · sinon (ligne legacy sans metadata, ou valeur hors taxonomie) → MÊME règle
-      que le filtre serveur : `categorie_bourse_pour_source(...)` ;
-    · source non classée et organisme muet → ``inconnu``.
+    INVARIANT (décidé le 27/10/2026) : la valeur lue ici est EXACTEMENT celle
+    sur laquelle filtre `?categorie=` et que compte `/offres/categories`. Le
+    badge et le filtre ne peuvent donc plus se contredire (le repli calculé à
+    la lecture produisait des cartes badgées « institutionnelle » rangées dans
+    « inconnu » par le filtre).
+
+    Conséquence assumée : une ligne sans clé (legacy, insertion manuelle) est
+    ``inconnu`` — ce qui est vrai — jusqu'à ce que la règle d'écriture
+    (`categorie_bourse_pour_source`) ou `scripts/backfill-categorie.py` la
+    classe. `source_name`/`organisme`/`titre` restent acceptés pour ne pas
+    casser les appelants, mais ne servent plus à deviner ici.
     """
     if isinstance(metadata, dict):
         valeur = metadata.get(CLE_METADATA_CATEGORIE)
         if isinstance(valeur, str) and valeur.strip().lower() in CATEGORIES_BOURSE:
             return valeur.strip().lower()
-    return categorie_bourse_pour_source(source_name, organisme)
+    return CATEGORIE_BOURSE_DEFAUT
 
 
 def sources_classifiees(categorie: str | None) -> list[str]:
