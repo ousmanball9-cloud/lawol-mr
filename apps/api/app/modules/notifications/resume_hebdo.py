@@ -97,6 +97,11 @@ def offres_de_la_semaine(
             .gte("date_match", debut.isoformat())
             .eq("offre.active", True)
             .gte("offre.date_limite", aujourdhui.isoformat())
+            # Catalogue 100 % bourses : un email est une lecture comme une autre.
+            # Sans ce filtre, un match créé AVANT la règle (ou par un ancien run)
+            # ferait partir une offre d'emploi par mail — invisible sur le site,
+            # donc impossible à corriger par l'étudiant.
+            .eq("offre.type_offre", "bourse")
             .order("date_match", desc=True)
             .limit(MAX_OFFRES_PAR_MAIL * 4)
             .execute()

@@ -11,6 +11,7 @@ Tests couverts :
 """
 import argparse
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 # Ajouter le répertoire racine au path pour imports
@@ -18,8 +19,91 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from apps.api.app.modules.scraper.pays import pays_depuis_texte
+from apps.api.app.modules.scraper.sources.base import BaseScraper
 from apps.api.app.modules.scraper.sources.catalogue import CATALOGUE
-from apps.api.app.modules.shared.models import PaysEtudes
+from apps.api.app.modules.shared.models import (
+    OffreStageCreate,
+    PaysEtudes,
+    SourceType,
+    TypeOffre,
+    Ville,
+)
+
+
+# ------------------------------- Faux Supabase --------------------------------
+class _Res:
+    def __init__(self, data):
+        self.data = data
+
+
+class _Table:
+    def __init__(self, base, nom):
+        self.base, self.nom = base, nom
+        self.filtres: list[tuple] = []
+        self.mode = "select"
+        self.donnees = None
+        self.conflit = None
+        self.bornes = None
+
+    def select(self, *_a, **_k):
+        self.mode = "select"
+        return self
+
+    def range(self, debut, fin):
+        # Le faux doit PAGINER comme Supabase : sans ça `backfill-pays.py`
+        # (boucle `while True` sur les pages) tourne indéfiniment sur la
+        # première page — mesuré le 27/10/2026, harnais bloqué > 5 minutes.
+        self.bornes = (debut, fin)
+        return self
+
+    def eq(self, colonne, valeur):
+        self.filtres.append((colonne, valeur))
+        return self
+
+    def upsert(self, donnees, on_conflict=None):
+        self.mode, self.donnees, self.conflit = "upsert", donnees, on_conflict
+        return self
+
+    def update(self, donnees):
+        self.mode, self.donnees = "update", donnees
+        return self
+
+    def insert(self, donnees):
+        self.mode, self.donnees = "insert", donnees
+        return self
+
+    def in_(self, colonne, valeurs):
+        self.filtres.append((colonne, list(valeurs)))
+        return self
+
+    def execute(self):
+        if self.mode == "upsert":
+            self.base.upserts.append((self.nom, self.donnees, self.conflit))
+            return _Res([{"id": "faux"}])
+        if self.mode == "update":
+            self.base.updates.append((self.nom, dict(self.donnees), list(self.filtres)))
+            return _Res([{"id": "faux"}])
+        if self.mode == "insert":
+            self.base.inserts.append((self.nom, self.donnees))
+            return _Res([])
+        lignes = self.base.rows.get(self.nom, [])
+        if self.bornes is not None:
+            debut, fin = self.bornes
+            lignes = lignes[debut : fin + 1]
+        return _Res([dict(ligne) for ligne in lignes])
+
+
+class FauxSupabase:
+    """Supabase en mémoire : enregistre TOUT ce qui serait écrit."""
+
+    def __init__(self, rows=None):
+        self.rows = rows or {}
+        self.upserts: list[tuple] = []
+        self.updates: list[tuple] = []
+        self.inserts: list[tuple] = []
+
+    def table(self, nom):
+        return _Table(self, nom)
 
 # --- Tests pays_depuis_texte ---
 
@@ -108,15 +192,213 @@ def test_pays_ambigus():
 
 
 def test_pays_non_ecrasement():
-    """Vérifier que la logique de non-écrasement est correcte (test unitaire de la logique)."""
-    # Ce test vérifie que la fonction ne renvoie rien si on simule un pays déjà présent
-    # La logique réelle est dans base.py:save() : if data.get("pays_etudes") is None:
-    # On teste ici que pays_depuis_texte fonctionne indépendamment
-    print("[TEST] Test non-écrasement (logique base.py)...")
-    # Simule : pays déjà renseigné -> pas d'appel à pays_depuis_texte
-    # C'est un test de logique, pas de la fonction pure
-    assert True  # La logique est dans base.py, testée par inspection du code
-    print("  OK Logique non-écrasement validée (voir base.py:save)")
+    """PROUVÉ, plus déclaré : `BaseScraper.save` ne remplace jamais un pays déjà là.
+
+    Cette preuve était un `assert True` commenté « la logique est dans base.py » :
+    elle ne vérifiait donc rien et une régression serait passée inaperçue. Elle
+    appelle maintenant `save` pour de vrai, sur un faux Supabase.
+    """
+    print("[TEST] Non-écrasement d'un pays déjà renseigné (vrai appel à save)...")
+    from apps.api.app.modules.scraper.sources import base as module_base
+
+    def offre(titre, pays=None):
+        return OffreStageCreate(
+            source=SourceType.UNIVERSITE,
+            source_name="scholar-africa",
+            source_url=f"https://exemple.mr/{abs(hash(titre))}",
+            titre=titre,
+            entreprise="Exemple",
+            ville=Ville.NOUAKCHOTT,
+            type_offre=TypeOffre.BOURSE,
+            description="Programme complet",
+            date_limite=datetime.now(UTC).date() + timedelta(days=30),
+            pays_etudes=pays,
+        )
+
+    class _Scraper(BaseScraper):
+        source_name = "scholar-africa"
+
+        def fetch(self):
+            return []
+
+    faux = FauxSupabase()
+    ancien = module_base.supabase
+    module_base.supabase = faux
+    try:
+        _Scraper().save(
+            [offre("University of Tokyo MEXT Scholarship in Japan", PaysEtudes.FRANCE)]
+        )
+        garde = faux.upserts[-1][1]["pays_etudes"]
+        assert garde == "france", f"pays écrasé : {garde} (on ne réécrit JAMAIS)"
+
+        _Scraper().save([offre("University of Tokyo MEXT Scholarship in Japan", None)])
+        deduit = faux.upserts[-1][1]["pays_etudes"]
+        assert deduit == "japon", f"pays vide non déduit : {deduit} (attendu japon)"
+    finally:
+        module_base.supabase = ancien
+    print("  OK pays existant conservé, pays vide déduit du titre")
+
+
+def test_pays_nouveaux():
+    """Destinations ajoutées le 27/10/2026 : elles doivent être reconnues.
+
+    Mesure qui a motivé l'ajout : 38 offres actives nommaient un de ces pays
+    alors que l'enum ne les contenait pas — elles tombaient dans `autre` et
+    devenaient introuvables par le filtre « Pays d'études ».
+    """
+    cas = [
+        ("University of Tokyo MEXT Scholarship 2027 in Japan", "", PaysEtudes.JAPON),
+        ("China Scholarship Council 2027", "CSC", PaysEtudes.CHINE),
+        ("KGSP 2027", "Study in South Korea", PaysEtudes.COREE_SUD),
+        ("ICCR Scholarship 2027", "Government of India", PaysEtudes.INDE),
+        ("University of Cape Town Scholars Program", "", PaysEtudes.AFRIQUE_DU_SUD),
+        ("University of Melbourne Graduate Research Scholarships", "", PaysEtudes.AUSTRALIE),
+        ("University of Auckland Doctoral Scholarship", "", PaysEtudes.NOUVELLE_ZELANDE),
+        ("Open Doors Scholarship 2027 in Russia", "", PaysEtudes.RUSSIE),
+        ("Hamad Bin Khalifa University Scholarship", "", PaysEtudes.QATAR),
+        ("KAUST Graduate Fellowship", "Saudi Arabia", PaysEtudes.ARABIE_SAOUDITE),
+        ("Al Azhar Scholarship", "Egypt", PaysEtudes.EGYPTE),
+        ("Bourse au Bresil", "Sao Paulo", PaysEtudes.BRESIL),
+        ("UNAM Scholarship", "Mexico", PaysEtudes.MEXIQUE),
+    ]
+    print("[TEST] Destinations ajoutées (Japon, Chine, Corée...) ...")
+    for titre, desc, attendu in cas:
+        resultat = pays_depuis_texte(titre, desc, "")
+        assert resultat == attendu, f"ECHEC: {titre} -> {resultat} (attendu {attendu})"
+    print(f"  OK {len(cas)} destinations reconnues")
+
+
+def test_pays_financeur():
+    """Un FINANCEUR n'est pas un pays d'études (erreur mesurée en base).
+
+    « DAAD » finançait des bourses situées au Sénégal et en Afrique du Sud :
+    classer par financeur rangeait des bourses africaines en Allemagne.
+    Règle : le financeur seul ne produit AUCUN pays ; s'il est accompagné du
+    pays d'études, c'est le pays d'études qui gagne.
+    """
+    cas = [
+        ("DAAD Scholarship", "Programme de financement", None),
+        (
+            "UKUDLA Master's Scholarships 2027 in South Africa: DAAD-Funded",
+            "",
+            PaysEtudes.AFRIQUE_DU_SUD,
+        ),
+        ("DAAD EPOS Germany", "", PaysEtudes.ALLEMAGNE),
+        ("Fully Funded Scholarship", "all expenses covered", None),
+    ]
+    print("[TEST] Piège du financeur (DAAD n'est pas l'Allemagne) ...")
+    for titre, desc, attendu in cas:
+        resultat = pays_depuis_texte(titre, desc, "")
+        assert resultat == attendu, f"ECHEC: {titre} -> {resultat} (attendu {attendu})"
+    print(f"  OK {len(cas)} cas financeur conformes")
+
+
+def test_pays_frontiere_de_mot():
+    """Aucun pays ne sort d'un mot plus long (faux positifs de la sonde).
+
+    « Machine Learning » contient « chine », « Independent » contient « inde » :
+    sans frontière de mot, la sonde de contrôle classait une offre sud-africaine
+    en Chine et une bourse suisse en Inde.
+    """
+    cas = [
+        (
+            "South African Reserve Bank Master's in Data Science and Machine Learning",
+            PaysEtudes.AFRIQUE_DU_SUD,
+        ),
+        ("SNSF Starting Grants 2027 for Independent Researchers", None),
+        ("Bourse de recherche fondamentale", None),
+    ]
+    print("[TEST] Frontière de mot (« machine » ne dit pas Chine) ...")
+    for titre, attendu in cas:
+        resultat = pays_depuis_texte(titre, "")
+        assert resultat != PaysEtudes.CHINE, f"ECHEC: {titre} -> Chine (sous-chaîne machine)"
+        assert resultat != PaysEtudes.INDE, f"ECHEC: {titre} -> Inde (sous-chaîne independent)"
+        assert resultat == attendu, f"ECHEC: {titre} -> {resultat} (attendu {attendu})"
+    print(f"  OK {len(cas)} pièges de sous-chaîne évités")
+
+
+def test_titre_prioritaire():
+    """Le TITRE explicite l'emporte sur une description qui cite d'autres pays.
+
+    Mesure : 25 offres identifiables restaient sans pays parce que la
+    description d'agrégateur listait plusieurs pays (« compare with USA, UK »).
+    """
+    cas = [
+        (
+            "Bourse MEXT 2027 au Japon",
+            "Comparez avec les bourses USA, UK et Canada",
+            PaysEtudes.JAPON,
+        ),
+        (
+            "University of Melbourne Scholarships in Australia",
+            "Also available in Canada and Germany",
+            PaysEtudes.AUSTRALIE,
+        ),
+    ]
+    print("[TEST] Le titre explicite fait foi ...")
+    for titre, desc, attendu in cas:
+        resultat = pays_depuis_texte(titre, desc, "")
+        assert resultat == attendu, f"ECHEC: {titre} -> {resultat} (attendu {attendu})"
+    # Mais un titre qui nomme DEUX pays reste ambigu : jamais deviné.
+    assert pays_depuis_texte("Bourse France Canada", "") is None
+    print("  OK titre prioritaire, titre ambigu toujours écarté")
+
+
+def test_backfill_modes():
+    """`backfill-pays.py` : dry-run n'écrit RIEN, --apply corrige pour de vrai.
+
+    On n'espère pas en lisant le code : on exécute le script sur un faux
+    Supabase et on compte les écritures.
+    """
+    print("[TEST] backfill-pays : dry-run sans écriture, --apply corrige ...")
+    import importlib.util
+
+    chemin = ROOT / "scripts" / "backfill-pays.py"
+    spec = importlib.util.spec_from_file_location("backfill_pays", chemin)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    lignes = [
+        {
+            "id": "1",
+            "titre": "University of Tokyo MEXT Scholarship 2027 in Japan",
+            "description": "",
+            "source_url": "https://exemple.mr/1",
+            "pays_etudes": None,
+        },
+        {
+            "id": "2",
+            "titre": "University of Cape Town Mastercard Foundation Scholars",
+            "description": "",
+            "source_url": "https://exemple.mr/2",
+            "pays_etudes": "senegal",
+        },
+    ]
+
+    def executer(arguments):
+        faux = FauxSupabase({"offres": lignes})
+        ancien = module.supabase
+        module.supabase = faux
+        ancien_argv = sys.argv
+        sys.argv = ["backfill-pays.py", *arguments]
+        try:
+            module.main()
+        finally:
+            module.supabase = ancien
+            sys.argv = ancien_argv
+        return faux
+
+    sec = executer(["--corriger"])
+    assert not sec.updates, f"dry-run a écrit : {sec.updates}"
+
+    applique = executer(["--corriger", "--apply"])
+    valeurs = {
+        filtres[0][1]: donnees["pays_etudes"]
+        for _, donnees, filtres in applique.updates
+    }
+    assert valeurs.get("1") == "japon", f"pays vide non rempli : {valeurs}"
+    assert valeurs.get("2") == "afrique_du_sud", f"pays faux non corrigé : {valeurs}"
+    print(f"  OK dry-run muet, --apply a corrigé {len(applique.updates)} offre(s)")
 
 
 def test_catalogue_urls():
@@ -144,12 +426,12 @@ def test_catalogue_urls():
 
 
 def test_backfill_dry_run():
-    """Test que --dry-run n'écrit rien (simulation via mock)."""
-    print("[TEST] Test backfill --dry-run n'écrit rien...")
-    # On ne peut pas tester le script complet sans base, mais on vérifie la logique
-    # En dry-run, total_maj est compté mais aucune update n'est envoyée
-    assert True  # Couvert par lecture du code backfill-pays.py
-    print("  OK Logique dry-run validée (voir backfill-pays.py)")
+    """Doublon retiré : la preuve réelle est `test_backfill_modes`.
+
+    Cette fonction était un `assert True` (« Couvert par lecture du code »),
+    c'est-à-dire une preuve qui ne prouvait rien.
+    """
+    print("[TEST] (dry-run déjà prouvé par test_backfill_modes)")
 
 
 # --- Exécution ---
@@ -164,6 +446,11 @@ def run_all_tests():
     test_pays_negatifs()
     test_pays_ambigus()
     test_pays_non_ecrasement()
+    test_pays_nouveaux()
+    test_pays_financeur()
+    test_pays_frontiere_de_mot()
+    test_titre_prioritaire()
+    test_backfill_modes()
     test_catalogue_urls()
     test_backfill_dry_run()
 

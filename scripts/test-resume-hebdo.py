@@ -245,13 +245,22 @@ def main() -> int:
             print(f"    ! erreur profil {detail['profil']} : {detail.get('erreur')}")
     amina = par_tel.get("22230000001", ("", ""))
     check("22230000001" in par_tel, f"envois : {sorted(par_tel)}")
-    check("2 nouvelles offres" in amina[0], f"sujet = {amina[0]!r}")
+    check("1 nouvelle offre" in amina[0], f"sujet = {amina[0]!r}")
     check("Bourse Chevening 2027" in amina[1], "titre présent dans le corps")
-    check("Data Analyst Junior" in amina[1], "2ᵉ offre présente")
+    # DÉCISION PRODUIT (rappelée par l'utilisateur le 27/10) : le site ne
+    # présente QUE des bourses. Un email qui glisserait une offre d'emploi
+    # contredirait le produit — et l'étudiant ne peut même pas la retrouver sur
+    # le site pour la masquer. L'emploi junior du jeu de données doit donc être
+    # ABSENT (il est présent exprès, comme piège).
     check(
-        amina[1].count("Emploi junior") == 1
+        "Data Analyst Junior" not in amina[1],
+        "aucune offre d'emploi dans l'email (catalogue 100 % bourses)",
+        amina[1][:200],
+    )
+    check(
+        amina[1].count("Emploi junior") == 0
         and amina[1].count("Bourse d'études") == 1,
-        "type réel affiché (1 bourse + 1 emploi, jamais de badge faux)",
+        "une seule ligne, libellée « Bourse d'études »",
         amina[1][:200],
     )
     check("/offres/o1" in amina[1], "lien vers la fiche")
