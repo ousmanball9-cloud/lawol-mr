@@ -46,7 +46,7 @@ class _Resultat:
 class _FauxTable:
     def __init__(self, base, nom):
         self._base, self._nom, self._mode = base, nom, "select"
-        self._filtres, self._donnees = [], None
+        self._filtres, self._ou, self._donnees = [], [], None
         self._limite = None
 
     def select(self, colonnes="*", count=None):
@@ -55,6 +55,11 @@ class _FauxTable:
 
     def eq(self, colonne, valeur):
         self._filtres.append((colonne, valeur))
+        return self
+
+    def or_(self, expression):
+        """`or=(col.is.null,col.neq.v)` — sémantique SQL reproduite."""
+        self._ou.append(expression)
         return self
 
     def gte(self, colonne, valeur):
@@ -78,11 +83,27 @@ class _FauxTable:
         raise AssertionError("insert non attendu dans cette preuve")
 
     def execute(self):
+        # Les filtres `offre.<colonne>` viennent de la jointure PostgREST
+        # (`offre:offres!inner`) : ce mock ne la modélise pas, on les ignore.
         lignes = [
             ligne
             for ligne in self._base.tables.setdefault(self._nom, [])
-            if all(ligne.get(c) == v for c, v in self._filtres)
+            if all(
+                ligne.get(c) == v for c, v in self._filtres if not c.startswith("offre.")
+            )
         ]
+        for expression in self._ou:
+            conditions = []
+            for morceau in expression.split(","):
+                morceau = morceau.strip()
+                if morceau.endswith(".is.null"):
+                    conditions.append(lambda l, c=morceau[: -len(".is.null")]: l.get(c) is None)
+                elif ".neq." in morceau:
+                    col, val = morceau.split(".neq.", 1)
+                    conditions.append(
+                        lambda l, c=col, v=val: l.get(c) is not None and l.get(c) != v
+                    )
+            lignes = [l for l in lignes if any(test(l) for test in conditions)]
         if self._mode == "select":
             if self._limite is not None:
                 lignes = lignes[: self._limite]

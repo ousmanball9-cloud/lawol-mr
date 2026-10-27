@@ -105,13 +105,45 @@ class _Reponse:
         self.status_code = 200
 
 
+APPELS: list[str] = []
+
+
 def _get_factice(url):
-    """Remplace `mesrs._get` : aucune socket ouverte, URL inconnue = 404/échec."""
+    """Remplace `mesrs._get_mesrs` : aucune socket ouverte, URL inconnue = échec.
+
+    Piège mesuré le 27/10/2026 : ce harnais patchait `mesrs._get`, or le scraper
+    n'utilise plus cette fonction — la robustesse HTTP du 27/10 a introduit
+    `_get_mesrs` (timeout 30 s, 2 tentatives). Le mock ne servait donc plus à
+    rien : le harnais « zéro réseau » ouvrait de vraies sockets, attendait
+    2 × 30 s par URL et rendait des résultats faux (0 offre). Un harnais qui
+    patche un nom que le code n'appelle plus est un harnais DÉBRANCHÉ : il faut
+    vérifier le point d'entrée réel, pas seulement le nom qui « existait avant ».
+    """
+    APPELS.append(url)
     page = PAGES.get(url)
     return _Reponse(page) if page is not None else None
 
 
-mesrs._get = _get_factice
+# Références réelles conservées AVANT le remplacement (mode `--dry-run`).
+_GET_MESRS_REEL = mesrs._get_mesrs
+_HTTPX_REEL = mesrs.httpx
+mesrs._get_mesrs = _get_factice
+
+
+class _ReseauInterdit:
+    """Toute sortie réseau lève immédiatement, avec la cause exacte.
+
+    Sans ce garde-fou, renommer le point d'entrée HTTP de la source ne fait pas
+    ÉCHOUER ce harnais : il attend 2 × 30 s puis rend « 0 offre » (défaut mesuré
+    le 27/10/2026). Mieux vaut une erreur immédiate et explicite qu'un faux vert
+    ou une attente muette.
+    """
+
+    def __getattr__(self, nom):
+        raise AssertionError(
+            f"appel réseau interdit ici (mesrs.httpx.{nom}) : le faux "
+            "`_get_mesrs` n'est plus branché sur ce que la source appelle"
+        )
 
 
 def carte(url, titre, badge="For Students"):
@@ -171,6 +203,9 @@ def raisons(rapport):
 
 def checks_mockes():
     """Joue tous les cas mockés (zéro réseau) et remplit CHECKS."""
+    # Réseau INTERDIT pendant tout le mode mocké : si le branchement ci-dessus
+    # casse un jour, on obtient une AssertionError immédiate, pas 60 s d'attente.
+    mesrs.httpx = _ReseauInterdit()
     # ================================ 1. CAS RÉELS =================================
     # Annonce brésilienne : structure et texte copiés du détail réel /en/announcement/28.
     BRESIL = (
@@ -443,9 +478,15 @@ def checks_mockes():
         f"{categorie_bourse_pour_source('MESRS Mauritanie', 'Gouvernement du Brésil')}",
     )
     verifier(
-        "31. aucun appel réseau : le faux `_get` a servi toutes les pages",
-        len(PAGES) >= 1 and all(u.startswith("https://www.mesrs.gov.mr/") for u in PAGES),
-        str(sorted(PAGES)),
+        "31. aucun appel réseau : le faux `_get_mesrs` a servi réellement les pages",
+        # Preuve de BRANCHEMENT (et non de simple existence) : le nom que le
+        # scraper appelle est bien notre faux, et il a été appelé pour des URL
+        # connues de la fixture. C'est ce qui manquait le 27/10 : le mock
+        # existait mais ne recevait aucun appel (le vrai réseau partait).
+        mesrs._get_mesrs is _get_factice
+        and len(APPELS) > 5
+        and all(u.startswith("https://www.mesrs.gov.mr/") for u in APPELS),
+        f"{len(APPELS)} appel(s) : {sorted(set(APPELS))}",
     )
 
     # Garde-fou de volume : la limite de traitement reste traçable.
@@ -485,7 +526,11 @@ def dry_run():
     """
     from apps.api.app.modules.scraper.sources.bourses import _get as _get_reel
 
-    mesrs._get = _get_reel  # le harnais mocké a pu remplacer `_get` : on restaure
+    # Le mode mocké a remplacé le point d'entrée HTTP et interdit le réseau :
+    # on restaure l'état réel avant de sortir sur le site.
+    mesrs.httpx = _HTTPX_REEL
+    mesrs._get_mesrs = _GET_MESRS_REEL
+    mesrs._get = _get_reel  # compat. anciens appelants
     brut = _argument("--reference")
     reference = date.fromisoformat(brut) if brut else None
     print("=== MESRS Mauritanie · run réel (dry-run, zéro écriture) ===")

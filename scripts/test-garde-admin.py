@@ -31,6 +31,7 @@ Sortie : checks OK/KO — code retour 0 si tout est vert.
 import ast
 import hashlib
 import os
+import re
 import sys
 import types
 from pathlib import Path
@@ -320,10 +321,20 @@ check(
 workflow = (RACINE / ".github" / "workflows" / "scraper-cron.yml").read_text(
     encoding="utf-8"
 )
+
+# La preuve doit porter sur l'INVARIANT (le jeton vient du secret, jamais écrit
+# dans le fichier), pas sur une mise en forme littérale. Le 27/10/2026 ce check
+# exigeait exactement `x-admin-token: ${{ secrets.SCRAPER_TOKEN }}` : il est
+# devenu rouge quand le workflow a été durci (jeton passé par `env: JETON`,
+# contrôle de présence + discrimination 401/403 — un vrai progrès, pas une
+# régression). Un harnais qui fige la forme casse à chaque amélioration.
+_envoi = re.search(r"x-admin-token:\s*\$([A-Za-z_][A-Za-z0-9_]*)", workflow)
+_variable = _envoi.group(1) if _envoi else ""
 check(
-    "workflow envoie x-admin-token depuis secrets.SCRAPER_TOKEN",
-    "x-admin-token: ${{ secrets.SCRAPER_TOKEN }}" in workflow,
-    workflow.strip()[:200],
+    "workflow envoie x-admin-token avec un jeton venant de secrets.SCRAPER_TOKEN",
+    bool(_variable)
+    and f"{_variable}: ${{{{ secrets.SCRAPER_TOKEN }}}}" in workflow,
+    f"variable utilisée={_variable!r}",
 )
 check(
     "workflow ne contient aucun secret en clair",

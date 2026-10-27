@@ -880,10 +880,17 @@ def preuve_garantie(offres: list[dict]) -> None:
     print("  les moins couvertes par le catalogue :")
     for filiere, niveau, ville, n, elig in pires:
         print(f"     {filiere:22s} {niveau:9s} {ville:12s} → {elig} éligible(s), {n} ≥ 60")
+    # Défaut de harnais corrigé le 27/10/2026 : ce check exigeait
+    # `len(vide_catalogue) > 0`, c'est-à-dire qu'un TROU existe. Il devenait donc
+    # rouge dès que le catalogue s'améliorait (mesure du jour : 210/210
+    # combinaisons couvertes, 0 trou). Un harnais ne doit jamais présenter un
+    # défaut comme attendu : ce qu'on attend, c'est la GARANTIE PRODUIT
+    # (21/10) — tout profil éligible reçoit ≥ 5 offres à ≥ 60. Le diagnostic
+    # catalogue/barème reste affiché au-dessus, mais il informe, il ne juge pas.
     check(
-        len(vide_catalogue) > 0,
-        f"le trou d'ingestion est identifié ({len(vide_catalogue)} combinaisons) — "
-        "c'est le backlog de sources, pas un défaut du score",
+        len(servis) == len(combos) and len(combos) > 0,
+        f"garantie produit tenue : {len(servis)}/{len(combos)} combinaisons "
+        f"filière × niveau × ville ont ≥ 5 offres à ≥ 60",
     )
     if riches:
         taux_conservation = round(100 * len(conserves) / len(riches))
