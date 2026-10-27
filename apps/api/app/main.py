@@ -374,10 +374,33 @@ async def trigger_deadlines(request: Request):
     return run_deadline_job()
 
 
+def _colonne_absente(exc: Exception) -> bool:
+    """Vrai UNIQUEMENT si l'erreur PostgREST vient d'une colonne manquante.
+
+    Le repli D8 avait été écrit avec un `except Exception` : toute erreur
+    (réseau, filtre mal formé, permission) était donc traitée comme « colonne
+    absente » et la requête était rejouée **sans le filtre `statut_candidature`**.
+    Mesuré le 27/10/2026 : une erreur quelconque suffisait à réafficher les
+    offres marquées « pas intéressé ». Une panne doit se voir, pas se traduire
+    en résultat faux.
+    """
+    texte = f"{exc} {getattr(exc, 'message', '')}".lower()
+    return any(
+        marqueur in texte
+        for marqueur in (
+            "pgrst204",  # PostgREST : colonne introuvable dans le cache de schéma
+            "does not exist",
+            "schema cache",
+            "could not find the",
+        )
+    )
+
+
 @app.get("/api/v1/matches")
 async def list_matches(
     profil_id: str | None = None,
     limit: int = 50,
+    inclure_masquees: bool = False,
     session: str = Depends(session_profil),
 ):
     """Liste les matches DU PROFIL CONNECTÉ, enrichis (titre d'offre + identité).
@@ -386,6 +409,14 @@ async def list_matches(
     le prénom/nom/téléphone de l'étudiant) n'est plus exposée sans Bearer.
     Un `profil_id` qui n'est pas celui de la session → 403 (paire identique à
     `garde_profil`), sinon la liste est toujours restreinte à la session.
+
+    Filtrage offre : jointure `offre:offres!inner` + `offre.active = true` +
+    `offre.date_limite >= today`. Le `!inner` élague les lignes parentes
+    (matches dont l'offre est inactive ou expirée).
+
+    `inclure_masquees=false` (défaut) : exclut les matches dont
+    `statut_candidature = "pas_interesse"`.
+    `inclure_masquees=true` : tout renvoyer (retour arrière / onglet masquées).
     """
     possesseur = (
         supabase.table("profils").select("id").eq("telephone", session).execute()
@@ -397,26 +428,72 @@ async def list_matches(
         raise HTTPException(403, "Ces matches ne t'appartiennent pas")
     profil_id = mon_id
 
-    colonnes = (
-        "id, score, notifie, postule, date_match, "
-        "offre:offres(id, titre, entreprise, pays_etudes, ville, type_offre, description, "
+    today_iso = date.today().isoformat()
+
+    # Colonnes de base + offre (inner join avec filtres) + profil
+    colonnes_base = (
+        "id, score, notifie, postule, favori, statut_candidature, date_match, "
+        "offre:offres!inner(id, titre, entreprise, pays_etudes, ville, type_offre, description, "
         "date_limite, contact_email, contact_whatsapp, source_url, source_name, "
-        "filieres_cibles), "
+        "filieres_cibles, active), "
         "profil:profils(id, prenom, nom, telephone, filiere, niveau)"
     )
+
     query = (
-        supabase.table("matches").select(colonnes).eq("profil_id", profil_id)
+        supabase.table("matches")
+        .select(colonnes_base)
+        .eq("profil_id", profil_id)
+        .eq("offre.active", True)
+        .gte("offre.date_limite", today_iso)
     )
+
+    if not inclure_masquees:
+        # PIÈGE SQL (mesuré le 27/10/2026) : `neq` seul exclut aussi les NULL —
+        # or `statut_candidature` est NULL pour la quasi-totalité des matches.
+        # Avec `.neq("statut_candidature", "pas_interesse")` la liste du profil
+        # revenait donc VIDE (15 matches en base, 0 renvoyé). Il faut dire
+        # explicitement « NULL ou différent de pas_interesse ».
+        query = query.or_(
+            "statut_candidature.is.null,statut_candidature.neq.pas_interesse"
+        )
+
     try:
         res = query.order("date_match", desc=True).limit(limit).execute()
-    except Exception:
-        # Repli si la colonne 'postule' n'existe pas encore (migration en attente)
-        colonnes = colonnes.replace("notifie, postule,", "notifie,")
-        query = (
-            supabase.table("matches").select(colonnes).eq("profil_id", profil_id)
+        return res.data
+    except Exception as exc:
+        # Repli D8 — SEULEMENT sur une colonne absente (migration non appliquée).
+        # Toute autre erreur remonte : un `except Exception` trop large
+        # désactivait le filtre « pas intéressé » en silence.
+        if not _colonne_absente(exc):
+            raise
+        # On retire les colonnes problématiques et on retente sans le filtre statut
+        # (le filtre statut nécessite la colonne ; si elle manque, on la skippe)
+        colonnes_fallback = (
+            "id, score, notifie, date_match, "
+            "offre:offres!inner(id, titre, entreprise, pays_etudes, ville, "
+            "type_offre, description, "
+            "date_limite, contact_email, contact_whatsapp, source_url, source_name, "
+            "filieres_cibles, active), "
+            "profil:profils(id, prenom, nom, telephone, filiere, niveau)"
         )
-        res = query.order("date_match", desc=True).limit(limit).execute()
-    return res.data
+        query_fallback = (
+            supabase.table("matches")
+            .select(colonnes_fallback)
+            .eq("profil_id", profil_id)
+            .eq("offre.active", True)
+            .gte("offre.date_limite", today_iso)
+        )
+        if not inclure_masquees:
+            # Si la colonne n'existe pas, on ne peut pas filtrer -> on ne filtre pas
+            # (migration en attente : les "pas_interesse" n'existent pas encore)
+            pass
+        res = query_fallback.order("date_match", desc=True).limit(limit).execute()
+        # Compléter les champs manquants
+        for row in res.data:
+            row.setdefault("postule", False)
+            row.setdefault("favori", False)
+            row.setdefault("statut_candidature", None)
+        return res.data
 
 
 @app.post("/api/v1/matches/{match_id}/postule")
