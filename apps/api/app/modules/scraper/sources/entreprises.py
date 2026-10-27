@@ -5,7 +5,14 @@ Stratégie (v1) :
   2. Extraction des liens dont l'ancre ou l'URL évoque un stage/emploi/recrutement
   3. Classification basique : ville, filières, type d'offre (mots-clés)
   4. Rendu d'OffreStageCreate (validation Pydante avant insertion)
+
+Robustesse HTTP (2026-10-27) :
+  - timeout 30 s
+  - 2 tentatives avec pause 1 s
+  - repli verify=False UNIQUEMENT pour un hôte dont la chaîne de certificats est
+    cassée (log d'avertissement explicite ; jamais pour un endpoint authentifié).
 """
+import time
 from datetime import date, timedelta
 from typing import Iterable
 from urllib.parse import urljoin
@@ -93,6 +100,76 @@ def _detect_type(texte: str) -> TypeOffre:
     return TypeOffre.BOURSE  # défaut cible du produit
 
 
+# --- Robustesse HTTP ---
+_TIMEOUT_S = 30.0
+_MAX_TENTATIVES = 2
+_PAUSE_ENTRE_TENTATIVES_S = 1.0
+
+# Hôtes connus avec chaîne de certificats cassée (mesuré 2026-10-27) :
+# mauritel.mr → CERTIFICATE_VERIFY_FAILED (certifi incomplet)
+# Seul ce(s) hôte(s) bénéficie(nt) du repli verify=False avec log explicite.
+_HOTES_CHAINE_CASSEE: set[str] = {
+    "www.mauritel.mr",
+    "mauritel.mr",
+}
+
+
+def _extraire_hote(url: str) -> str:
+    """Extrait l'hôte (host) d'une URL pour décision verify."""
+    try:
+        from urllib.parse import urlparse
+        return urlparse(url).netloc.lower()
+    except Exception:
+        return ""
+
+
+def _fetch_robuste(url: str, entetes: dict, timeout: float) -> httpx.Response | None:
+    """GET robuste : 2 tentatives, pause, repli verify=False pour hôtes connus cassés.
+
+    Retourne la Response ou None si échec définitif.
+    """
+    hote = _extraire_hote(url)
+    hote_casse = hote in _HOTES_CHAINE_CASSEE
+
+    for tentative in range(1, _MAX_TENTATIVES + 1):
+        try:
+            verify = certifi.where() if not hote_casse else False
+            resp = httpx.get(
+                url,
+                headers=entetes,
+                timeout=timeout,
+                follow_redirects=True,
+                verify=verify,
+            )
+            resp.raise_for_status()
+            if hote_casse and tentative == 1:
+                print(
+                    f"⚠️ {hote}: chaîne de certificats cassée — repli verify=False "
+                    f"(tentative {tentative}/{_MAX_TENTATIVES})"
+                )
+            return resp
+        except httpx.RequestError as e:
+            # Erreur réseau/timeout → on réessaie si tentative restante
+            if tentative < _MAX_TENTATIVES:
+                time.sleep(_PAUSE_ENTRE_TENTATIVES_S)
+                continue
+            print(f"⚠️ {hote}: fetch impossible après {_MAX_TENTATIVES} tentative(s) → {e}")
+            return None
+        except httpx.HTTPStatusError as e:
+            # Erreur HTTP (4xx, 5xx) → pas de retry, on log et on abandonne
+            print(f"⚠️ {hote}: HTTP {e.response.status_code} → {e}")
+            return None
+        except Exception as e:  # noqa: BLE001
+            # Autre erreur (ex: SSL verify) → si hôte connu cassé et 1ère tentative,
+            # le verify=False a déjà été tenté ci-dessus. Sinon on abandonne.
+            if tentative < _MAX_TENTATIVES:
+                time.sleep(_PAUSE_ENTRE_TENTATIVES_S)
+                continue
+            print(f"⚠️ {hote}: fetch impossible → {type(e).__name__}: {e}")
+            return None
+    return None
+
+
 class EntrepriseScraper(BaseScraper):
     """Scrape une page donnée d'une entreprise/institution et en extrait les offres."""
 
@@ -102,7 +179,7 @@ class EntrepriseScraper(BaseScraper):
         urls: list[str],
         ville_defaut: Ville = Ville.NOUAKCHOTT,
         delai_max_jours: int = 90,
-        timeout: int = 15,
+        timeout: float = _TIMEOUT_S,
     ):
         self.source_name = nom
         self.urls = urls
@@ -126,17 +203,8 @@ class EntrepriseScraper(BaseScraper):
         }
 
         for url_page in self.urls:
-            try:
-                resp = httpx.get(
-                    url_page,
-                    headers=entetes,
-                    timeout=self.timeout,
-                    follow_redirects=True,
-                    verify=certifi.where(),  # validation SSL correcte (certifi)
-                )
-                resp.raise_for_status()
-            except Exception as e:  # noqa: BLE001
-                print(f"⚠️ {self.source_name}: fetch impossible {url_page} → {e}")
+            resp = _fetch_robuste(url_page, entetes, self.timeout)
+            if resp is None:
                 continue
 
             soup = BeautifulSoup(resp.text, "html.parser")

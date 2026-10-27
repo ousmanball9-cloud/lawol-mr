@@ -10,6 +10,7 @@ from apps.api.app.modules.scraper.engine import (
     categorie_bourse_pour_source,
     type_offre_pour_source,
 )
+from apps.api.app.modules.scraper.pays import pays_depuis_texte
 from apps.api.app.modules.shared.models import OffreStageCreate
 
 # Clé metadata qui conserve la trace des filières écartées (drift d'enum SQL).
@@ -104,6 +105,10 @@ class BaseScraper(ABC):
         posé au même endroit, par `scraper.engine.categorie_bourse_pour_source`.
         Le dict metadata est LU puis MODIFIÉ : les autres clés déjà portées par
         l'offre (`content_hash`, `bourse_generique`…) sont conservées.
+
+        `pays_etudes` : si vide, on tente de le déduire par mots-clés via
+        `scraper.pays.pays_depuis_texte(titre, description, source_url)`.
+        Jamais deviné : `None` si aucun indice explicite.
         """
         inserted = 0
         errors = 0
@@ -116,9 +121,18 @@ class BaseScraper(ABC):
                 metadata = data.get("metadata")
                 metadata = dict(metadata) if isinstance(metadata, dict) else {}
                 metadata[CLE_METADATA_CATEGORIE] = categorie_bourse_pour_source(
-                    self.source_name, o.entreprise
+                    self.source_name, o.entreprise, o.titre
                 )
                 data["metadata"] = metadata
+
+                # Pays d'études : seulement si non renseigné (jamais d'écrasement)
+                if data.get("pays_etudes") is None:
+                    pays_detecte = pays_depuis_texte(
+                        o.titre, o.description, data.get("source_url", "")
+                    )
+                    if pays_detecte is not None:
+                        data["pays_etudes"] = pays_detecte.value
+
                 _filtrer_filieres_connues_comme_refusees(data)
                 ignorees: list[str] = []
                 res = None

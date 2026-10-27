@@ -24,16 +24,23 @@ Règles (identiques à la famille `bourses.py`) :
     de l'enum), `pays financeur` déduit du titre puis du corps ;
   · dédoublonnage par `source_url` (la page liste affiche certaines annonces
     deux fois : section « For Students » + corps de page).
+
+Robustesse HTTP (2026-10-27) :
+  - timeout 30 s (au lieu de 10 s par défaut de `_get` bourses)
+  - 2 tentatives avec pause 1 s
+  - verify=certifi.where() (pas de chaîne cassée connue pour mesrs.gov.mr)
 """
 import re
+import time
 from datetime import date
 from typing import Iterable
 
+import certifi
+import httpx
 from apps.api.app.modules.scraper.sources.base import BaseScraper
 from apps.api.app.modules.scraper.sources.bourses import (
     _extraire_financement,
     _filieres,
-    _get,
     _nettoie,
     _parse_date,
     _resume,
@@ -50,6 +57,47 @@ from bs4 import BeautifulSoup
 SOURCE_NAME = "MESRS Mauritanie"
 BASE_URL = "https://www.mesrs.gov.mr"
 LISTE_URL = "https://www.mesrs.gov.mr/en/announcements?type=student"
+
+# --- Robustesse HTTP pour MESRS ---
+_MESRS_TIMEOUT_S = 30.0
+_MAX_TENTATIVES = 2
+_PAUSE_ENTRE_TENTATIVES_S = 1.0
+
+ENTETES_MESRS = {
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) LawolMrBot/0.1 (+https://lawol.mr)",
+    "Accept-Language": "fr,fr-FR;q=0.9,ar;q=0.6",
+}
+
+
+def _get_mesrs(url: str) -> httpx.Response | None:
+    """GET robuste pour MESRS : 2 tentatives, pause 1s, timeout 30s."""
+    for tentative in range(1, _MAX_TENTATIVES + 1):
+        try:
+            r = httpx.get(
+                url,
+                headers=ENTETES_MESRS,
+                timeout=_MESRS_TIMEOUT_S,
+                follow_redirects=True,
+                verify=certifi.where(),
+            )
+            r.raise_for_status()
+            return r
+        except httpx.RequestError as e:
+            if tentative < _MAX_TENTATIVES:
+                time.sleep(_PAUSE_ENTRE_TENTATIVES_S)
+                continue
+            print(f"⚠️ MESRS: fetch impossible {url} → {e}")
+            return None
+        except httpx.HTTPStatusError as e:
+            print(f"⚠️ MESRS: HTTP {e.response.status_code} {url} → {e}")
+            return None
+        except Exception as e:  # noqa: BLE001
+            if tentative < _MAX_TENTATIVES:
+                time.sleep(_PAUSE_ENTRE_TENTATIVES_S)
+                continue
+            print(f"⚠️ MESRS: fetch impossible {url} → {type(e).__name__}: {e}")
+            return None
+    return None
 
 # ---------- Pays financeur : libellé FR, article grammatical, enum PaysEtudes ----------
 # Ordre = priorité de lecture (formes les plus longues d'abord pour éviter
@@ -283,7 +331,7 @@ class MesrsMauritanieScraper(BaseScraper):
 
     def fetch(self) -> Iterable[OffreStageCreate]:
         self.rapport = {"vues": 0, "retenues": 0, "doublons": 0, "ignorees": []}
-        reponse = _get(self.LISTE_URL)
+        reponse = _get_mesrs(self.LISTE_URL)
         if reponse is None:
             print(f"{self.source_name}: liste inaccessible — rien à faire")
             return
@@ -315,7 +363,7 @@ class MesrsMauritanieScraper(BaseScraper):
         return None
 
     def _traiter(self, url: str, titre_liste: str) -> OffreStageCreate | None:
-        reponse = _get(url)
+        reponse = _get_mesrs(url)
         if reponse is None:
             return self._ignorer(url, titre_liste, "détail inaccessible")
         detail = _parser_detail(reponse.text)

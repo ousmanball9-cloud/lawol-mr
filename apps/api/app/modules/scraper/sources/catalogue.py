@@ -25,10 +25,10 @@ from apps.api.app.modules.shared.models import Ville
 
 # Sources génériques (sites d'entreprises)
 CATALOGUE: list[tuple[str, list[str], Ville]] = [
-    ("mauritel", ["https://www.mauritel.mr/", "https://mauritel.mr/"], Ville.NOUAKCHOTT),
-    ("snim", ["https://www.snim.mr/", "https://snim.mr/"], Ville.NOUADHIBOU),
-    ("bnm", ["https://www.bnm.mr/", "https://bnm.mr/"], Ville.NOUAKCHOTT),
-    ("totalenergies", ["https://totalenergies.mr/"], Ville.NOUAKCHOTT),
+    ("mauritel", ["https://www.mauritel.mr/"], Ville.NOUAKCHOTT),
+    ("snim", ["https://www.snim.mr/"], Ville.NOUADHIBOU),
+    ("bnm", ["https://www.bnm.mr/"], Ville.NOUAKCHOTT),
+    ("totalenergies", ["https://www.totalenergies.com/mauritania"], Ville.NOUAKCHOTT),
 ]
 
 # Sources spécifiques (portails d'emploi + bourses d'études)
