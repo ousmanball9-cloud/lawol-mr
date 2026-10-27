@@ -46,6 +46,16 @@ def main() -> int:
     for nom, statut in resultats:
         print(f"[{statut}] {nom}")
 
+    # Cycle de vie : une offre dont la date limite est passée ne doit plus être
+    # active en base, sinon tout consommateur qui filtre sur `active` seul
+    # l'affiche encore (mesure du 27/10 : 110 offres expirées restaient actives).
+    try:
+        from apps.api.app.modules.shared.cycle_vie import cloturer_offres_expirees
+
+        print(f"cloture: {cloturer_offres_expirees(appliquer=True)}")
+    except Exception as exc:  # noqa: BLE001 — la clôture ne doit jamais bloquer la collecte
+        print(f"cloture: ERREUR {type(exc).__name__}: {exc}")
+
     if not args.skip_matching:
         from apps.api.app.modules.matching.engine import run_matching_job
 
