@@ -219,6 +219,32 @@ class OffreStagePublic(BaseModel):
             }
         return data
 
+    @model_validator(mode="after")
+    def _apercu_de_secours(self):
+        """Garantit TOUJOURS un aperçu lisible sur une carte.
+
+        Mesuré le 27/10/2026 sur le catalogue live : 12 cartes affichées,
+        **11 aperçus rendus**. Trois offres n'avaient qu'une amorce vide ou
+        inutile (« Test », « Date de clôture : 31 October 2026. ») : la carte
+        paraissait cassée et l'étudiant n'avait rien à lire pour décider.
+
+        Le repli est calculé ici (et non dans une route) pour que TOUT
+        consommateur en hérite : titre + organisme + date limite, sans jamais
+        inventer de contenu.
+        """
+        actuel = (self.description_apercu or "").strip()
+        if len(actuel) >= 40:
+            return self
+        texte = (self.description or "").strip()
+        if len(texte) >= 40:
+            self.description_apercu = texte[:180].rstrip()
+        else:
+            self.description_apercu = (
+                f"{self.titre} — {self.entreprise}. "
+                f"Candidature avant le {self.date_limite:%d/%m/%Y}."
+            )
+        return self
+
     model_config = {"from_attributes": True}
 
 
@@ -322,6 +348,11 @@ class StatutCandidature(str, Enum):
     ENTRETIEN = "entretien"
     ACCEPTE = "accepte"
     REFUSE = "refuse"
+    # « Pas intéressé » (27/10/2026) : ce n'est PAS une étape du pipeline de
+    # candidature, c'est un rejet du match par l'étudiant. Valeur ajoutée ici
+    # (aucun CHECK côté SQL) pour que la liste du profil cesse d'afficher une
+    # offre écartée, tout en la gardant RÉVERSIBLE (statut remis à null).
+    PAS_INTERESSE = "pas_interesse"
 
 
 STATUTS_TERMINES = {StatutCandidature.ACCEPTE.value, StatutCandidature.REFUSE.value}
@@ -354,6 +385,14 @@ class PreferencesAvancees(BaseModel):
     seuil_pertinence: Optional[int] = Field(default=None, ge=0, le=100)
     pays_favoris: list[PaysEtudes] = Field(default_factory=list)  # pays d'études préférés
     financement_min: Optional[TypeFinancement] = None  # niveau minimal de financement
+    # Lues par le moteur (`matching/engine.py`, filtres `villes_exclues` /
+    # `types_masques`) mais ABSENTES de ce modèle jusqu'au 27/10/2026 : le front
+    # les envoyait, Pydantic les ignorait silencieusement → l'étudiant cochait,
+    # rien n'était enregistré, et le matching ne filtrait jamais.
+    # types_masques utilise TypeOffreDb (valeurs SQL legacy incluses) pour accepter
+    # les types existants en base (stage_pfe, stage_ete, emploi_junior, alternance, bourse).
+    villes_exclues: list[Ville] = Field(default_factory=list)
+    types_masques: list[TypeOffreDb] = Field(default_factory=list)
 
 
 class PreferencesAvanceesUpdate(BaseModel):
@@ -362,6 +401,10 @@ class PreferencesAvanceesUpdate(BaseModel):
     seuil_pertinence: Optional[int] = Field(default=None, ge=0, le=100)
     pays_favoris: Optional[list[PaysEtudes]] = None
     financement_min: Optional[TypeFinancement] = None
+    villes_exclues: Optional[list[Ville]] = None
+    # TypeOffreDb : accepte valeurs legacy (stage_pfe, stage_ete,
+    # emploi_junior, alternance, bourse)
+    types_masques: Optional[list[TypeOffreDb]] = None
 
 
 class StatsResponse(BaseModel):
