@@ -606,6 +606,70 @@ async def changer_statut_candidature(match_id: UUID, body: StatutUpdate):
 
 
 # ---------- Stats ----------
+@app.get("/api/v1/admin/offres")
+async def lister_offres_admin(
+    request: Request,
+    limit: int = 100,
+    offset: int = 0,
+    inclure_inactives: bool = True,
+    q: str | None = None,
+):
+    """Liste COMPLÈTE des offres pour l'admin — actives ET clôturées.
+
+    Pourquoi cet endpoint existe (mesuré le 27/10/2026) : la page admin lisait
+    la liste **publique** `/api/v1/offres`, qui impose `active = true` +
+    `date_limite >= today` et plafonne par défaut à 50. Conséquences réelles :
+
+      · **200 offres visibles sur 298** (le reste hors fenêtre, introuvable) ;
+      · **110 offres clôturées invisibles**, donc impossibles à réactiver ;
+      · une colonne « Active » qui affichait toujours « Oui » par construction.
+
+    Ici on ne filtre pas la publication (l'admin doit voir l'état réel) et on
+    renvoie `total` pour permettre une pagination honnête côté navigateur.
+    """
+    _admin_autorise(request)
+
+    query = supabase.table("offres").select("*", count="exact")
+    if not inclure_inactives:
+        query = query.eq("active", True)
+    if q:
+        motif = _motif_recherche(q)
+        if motif:
+            query = query.or_(
+                ",".join(f"{c}.ilike.*{motif}*" for c in ("titre", "entreprise"))
+            )
+
+    res = (
+        query.order("date_scrape", desc=True)
+        .range(offset, offset + max(1, min(limit, 500)) - 1)
+        .execute()
+    )
+
+    # Champs strictement nécessaires à la page ; aucune validation Pydantic qui
+    # ferait échouer TOUTE la liste sur une ligne legacy incomplète.
+    lignes = [
+        {
+            "id": o.get("id"),
+            "titre": o.get("titre"),
+            "entreprise": o.get("entreprise"),
+            "type_offre": o.get("type_offre"),
+            "date_limite": o.get("date_limite"),
+            "date_scrape": o.get("date_scrape"),
+            "active": bool(o.get("active")),
+            "source_name": o.get("source_name"),
+            "ville": o.get("ville"),
+            "pays_etudes": o.get("pays_etudes"),
+        }
+        for o in (res.data or [])
+    ]
+    return {
+        "total": res.count if res.count is not None else len(lignes),
+        "offset": offset,
+        "limit": limit,
+        "offres": lignes,
+    }
+
+
 @app.get("/api/v1/admin/stats", response_model=StatsResponse)
 async def get_stats():
     offres = (

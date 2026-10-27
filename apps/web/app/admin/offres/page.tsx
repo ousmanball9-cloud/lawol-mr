@@ -13,8 +13,15 @@ type Offre = {
   date_limite: string;
 };
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://lawol-mr-production.up.railway.app";
+type ReponseAdmin = {
+  total: number;
+  offset: number;
+  limit: number;
+  offres: Offre[];
+};
+
+const TAILLE_LOT = 100;
+const PLAFOND = 5000;
 
 // Badges « type » façon template Flowbite (pastilles de couleur).
 const TYPE_BADGE: Record<string, string> = {
@@ -29,41 +36,61 @@ function typeLabel(type: string) {
 
 export default function AdminOffresPage() {
   const [offres, setOffres] = useState<Offre[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [erreur, setErreur] = useState(false);
   const [formOuvert, setFormOuvert] = useState(false);
 
-  // Rechargement de la liste (montée initiale + après création d'une offre).
-  // Le proxy Next appelle l'API avec le plafond par défaut (50 offres, triées par
-  // date_scrape) : une offre fraîchement créée peut donc rester hors fenêtre.
-  // On interroge d'abord l'API avec une fenêtre large, et on retombe sur le
-  // proxy existant si l'origine du navigateur n'est pas autorisée (CORS).
+  // Chargement de la liste ADMIN complète (paginée).
+  //
+  // Avant le 27/10/2026, cette page lisait la liste PUBLIQUE
+  // (`/api/v1/offres?limit=200`), qui filtre `active = true` + échéance future :
+  // l'admin ne voyait que 200 offres sur 298, **aucune offre clôturée** (donc
+  // aucun moyen d'en réactiver une), et la colonne « Active » affichait toujours
+  // « Oui » par construction. On interroge maintenant `/api/admin/offres`, qui
+  // relaie `/api/v1/admin/offres` (gardé admin) et rend l'état réel.
   const chargerOffres = useCallback(async () => {
-    let data: unknown = null;
-    try {
-      const r = await fetch(`${API_URL}/api/v1/offres?limit=200`);
-      if (r.ok) {
-        const json = await r.json();
-        if (Array.isArray(json)) data = json;
-      }
-    } catch {
-      // CORS ou réseau → repli sur le proxy ci-dessous.
-    }
-    if (!Array.isArray(data)) {
+    setLoading(true);
+    setErreur(false);
+    const collecte: Offre[] = [];
+    let totalAnnonce = 0;
+    let echec = false;
+
+    for (let offset = 0; offset < PLAFOND; offset += TAILLE_LOT) {
       try {
-        const r = await fetch("/api/admin/offres");
-        const json = await r.json();
-        if (Array.isArray(json)) data = json;
+        const r = await fetch(`/api/admin/offres?limit=${TAILLE_LOT}&offset=${offset}`, {
+          cache: "no-store",
+        });
+        if (!r.ok) {
+          echec = true;
+          break;
+        }
+        const json: ReponseAdmin = await r.json();
+        if (!Array.isArray(json.offres)) {
+          echec = true;
+          break;
+        }
+        totalAnnonce = typeof json.total === "number" ? json.total : totalAnnonce;
+        collecte.push(...json.offres);
+        if (json.offres.length === 0) break;
+        if (totalAnnonce && collecte.length >= totalAnnonce) break;
       } catch {
-        // Hors-ligne : liste vide plutôt qu'une page en erreur.
+        echec = true;
+        break;
       }
     }
-    setOffres(Array.isArray(data) ? (data as Offre[]) : []);
+
+    setOffres(collecte);
+    setTotal(totalAnnonce || collecte.length);
+    setErreur(echec && collecte.length === 0);
     setLoading(false);
   }, []);
 
   useEffect(() => {
     chargerOffres();
   }, [chargerOffres]);
+
+  const cloturees = offres.filter((o) => !o.active).length;
 
   return (
     <div>
@@ -75,11 +102,13 @@ export default function AdminOffresPage() {
             {!loading && (
               <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded">
                 {offres.length}
+                {total > offres.length ? ` / ${total}` : ""}
               </span>
             )}
           </h1>
           <p className="mt-1 text-sm font-normal text-gray-500">
-            Toutes les offres publiées sur la plateforme
+            Toutes les offres de la plateforme, y compris les offres clôturées
+            {!loading && cloturees > 0 ? ` (${cloturees} clôturée${cloturees > 1 ? "s" : ""})` : ""}
           </p>
         </div>
         <div className="mt-3 sm:mt-0">
@@ -102,7 +131,16 @@ export default function AdminOffresPage() {
           </div>
         )}
 
-        {!loading && (
+        {!loading && erreur && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-800">
+              Impossible de charger les offres (session admin expirée ou API
+              injoignable). Reconnecte-toi puis recharge la page.
+            </p>
+          </div>
+        )}
+
+        {!loading && !erreur && (
           <div className="overflow-x-auto bg-white border border-gray-200 rounded-lg shadow-md">
             <table className="w-full text-sm text-left text-gray-500">
               <thead className="text-xs text-gray-700 uppercase bg-gray-100">
@@ -111,7 +149,7 @@ export default function AdminOffresPage() {
                   <th scope="col" className="px-4 py-3">Entreprise</th>
                   <th scope="col" className="px-4 py-3">Ville</th>
                   <th scope="col" className="px-4 py-3">Type</th>
-                  <th scope="col" className="px-4 py-3">Active</th>
+                  <th scope="col" className="px-4 py-3">Publiée</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -146,7 +184,7 @@ export default function AdminOffresPage() {
                             : "bg-red-100 text-red-800"
                         }`}
                       >
-                        {offre.active ? "Oui" : "Non"}
+                        {offre.active ? "Oui" : "Clôturée"}
                       </span>
                     </td>
                   </tr>
