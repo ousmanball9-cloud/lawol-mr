@@ -10,12 +10,35 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Déclencher scraper + matching
+      # Un secret absent produisait avant un simple « curl: (22) ... 401 » que
+      # rien ne distinguait d'un jeton invalide (mesure du 26/10/2026 : 5 runs
+      # en échec, cause = secret VIDE, pas jeton faux).
+      - name: Vérifier que le secret existe
+        env:
+          JETON: ${{ secrets.SCRAPER_TOKEN }}
         run: |
-          curl -X POST "https://lawol-mr-production.up.railway.app/api/v1/scraper/run" \
+          if [ -z "$JETON" ]; then
+            echo "::error::Secret SCRAPER_TOKEN ABSENT. Le créer dans Settings > Secrets and variables > Actions > onglet SECRETS (pas Variables), nom exact SCRAPER_TOKEN, valeur = ADMIN_PASSWORD_HASH."
+            exit 1
+          fi
+          echo "Secret présent (longueur ${#JETON})"
+
+      - name: Déclencher scraper + matching
+        env:
+          JETON: ${{ secrets.SCRAPER_TOKEN }}
+        run: |
+          code=$(curl -s -o /tmp/reponse.txt -w "%{http_code}" \
+            -X POST "https://lawol-mr-production.up.railway.app/api/v1/scraper/run" \
             -H "Content-Type: application/json" \
-            -H "x-admin-token: ${{ secrets.SCRAPER_TOKEN }}" \
+            -H "x-admin-token: $JETON" \
             -d '{"run_matching": true}' \
-            --max-time 600 \
-            --fail \
-            --silent --show-error
+            --max-time 600)
+          echo "HTTP $code"
+          head -c 400 /tmp/reponse.txt || true
+          echo
+          case "$code" in
+            200) echo "::notice::Collecte + matching déclenchés" ;;
+            401) echo "::error::401 = AUCUN jeton reçu (secret vide ou nom différent)"; exit 1 ;;
+            403) echo "::error::403 = jeton reçu mais FAUX (valeur différente de ADMIN_PASSWORD_HASH)"; exit 1 ;;
+            *)   echo "::error::Échec HTTP $code"; exit 1 ;;
+          esac
