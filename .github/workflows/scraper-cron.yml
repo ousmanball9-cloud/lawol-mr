@@ -32,23 +32,37 @@ jobs:
           fi
           echo "Secret présent (longueur ${#JETON})"
 
+      # 3 tentatives sur erreur TRANSITOIRE (5xx / reseau) : un redemarrage
+      # Railway renvoie 502 quelques dizaines de secondes (mesure du
+      # 27/10/2026 : run manuel tombe en 502 pendant le redeploiement) — une
+      # panne de 30 s ne doit pas faire perdre une collecte complete.
+      # 401/403 = probleme de secret : aucune tentative supplementaire.
       - name: Déclencher scraper + matching
         env:
           JETON: ${{ secrets.SCRAPER_TOKEN }}
         run: |
-          code=$(curl -s -o /tmp/reponse.json -w "%{http_code}" \
-            -X POST "https://lawol-mr-production.up.railway.app/api/v1/scraper/run" \
-            -H "Content-Type: application/json" \
-            -H "x-admin-token: $JETON" \
-            -d '{"run_matching": true}' \
-            --max-time 900)
-          echo "HTTP $code"
-          case "$code" in
-            200) echo "::notice::Collecte + matching déclenchés" ;;
-            401) echo "::error::401 = AUCUN jeton reçu (secret vide ou nom différent)"; exit 1 ;;
-            403) echo "::error::403 = jeton reçu mais FAUX (valeur différente de ADMIN_PASSWORD_HASH)"; exit 1 ;;
-            *)   echo "::error::Échec HTTP $code"; head -c 400 /tmp/reponse.json || true; exit 1 ;;
-          esac
+          tentative=1
+          while [ "$tentative" -le 3 ]; do
+            code=$(curl -s -o /tmp/reponse.json -w "%{http_code}" \
+              -X POST "https://lawol-mr-production.up.railway.app/api/v1/scraper/run" \
+              -H "Content-Type: application/json" \
+              -H "x-admin-token: $JETON" \
+              -d '{"run_matching": true}' \
+              --max-time 900) || true
+            echo "Tentative $tentative -> HTTP $code"
+            case "$code" in
+              200) echo "::notice::Collecte + matching déclenchés"; break ;;
+              401) echo "::error::401 = AUCUN jeton reçu (secret vide ou nom différent)"; exit 1 ;;
+              403) echo "::error::403 = jeton reçu mais FAUX (valeur différente de ADMIN_PASSWORD_HASH)"; exit 1 ;;
+              5*|000)
+                if [ "$tentative" -ge 3 ]; then
+                  echo "::error::Échec HTTP $code après 3 tentatives"; head -c 400 /tmp/reponse.json || true; exit 1
+                fi
+                echo "::warning::HTTP $code (transitoire) — nouvelle tentative dans 60 s"
+                tentative=$((tentative + 1)); sleep 60 ;;
+              *) echo "::error::Échec HTTP $code"; head -c 400 /tmp/reponse.json || true; exit 1 ;;
+            esac
+          done
 
       # Sans ce controle, une collecte qui ne ramene RIEN (toutes les sources
       # mortes, parseurs casses) rendait le workflow VERT : panne silencieuse
