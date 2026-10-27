@@ -289,7 +289,23 @@ async def detail_offre(offre_id: str):
 
 
 @app.post("/api/v1/offres", status_code=201)
-async def create_offre(offre: OffreStageCreate):
+async def create_offre(offre: OffreStageCreate, request: Request):
+    """Saisie manuelle d'une offre (page admin) — GARDÉE, et bourses seulement.
+
+    Pourquoi la garde (mesuré le 27/10/2026) : la route acceptait n'importe quel
+    `POST` **sans aucun identifiant** — un `POST` au corps invalide renvoyait 422
+    en production, ce qui prouve que le handler était atteint sans authentification.
+    N'importe qui pouvait donc publier une offre (spam, lien de phishing) dans le
+    catalogue lu par les étudiants, avec `active` au défaut de la base, c.-à-d.
+    immédiatement visible et matchée.
+
+    Et la promesse produit « 100 % bourses » s'applique aussi à l'écriture :
+    elle est déjà tenue par `TypeOffre` (enum d'ÉCRITURE réduit à `bourse`
+    depuis `d884e2f`), donc un POST `type_offre=emploi_junior` reçoit 422 par la
+    validation Pydantic, avant tout accès base. Ce qui manquait ici n'était donc
+    pas la règle produit, c'était **l'authentification**.
+    """
+    _admin_autorise(request)
     data = offre.model_dump(mode="json")
     res = supabase.table("offres").insert(data).execute()
     if not res.data:

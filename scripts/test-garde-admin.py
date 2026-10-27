@@ -194,6 +194,80 @@ for nom, url in ROUTES:
     check(f"POST {url} + cookie bidon → 403", r.status_code == 403, ko(r))
     check(f"…logique {nom} NON exécutée", APPELS[nom] == 0, str(APPELS))
 
+# ============ 4bis. Saisie manuelle d'offre : GARDÉE et bourses seules =======
+# Faille mesurée en PROD le 27/10/2026 : `POST /api/v1/offres` au corps invalide
+# renvoyait 422 (donc le handler était atteint) SANS aucun identifiant. N'importe
+# qui pouvait publier une offre (spam, phishing) dans le catalogue lu par les
+# étudiants — et une offre d'emploi y entrait `active` par défaut, ce qui
+# contredisait la promesse « 100 % bourses ».
+print("\n4bis. POST /api/v1/offres : 401 sans identité, 422 si non-bourse, 201 si bourse")
+
+
+class _FauxInsertOffres:
+    """Supabase minimal : enregistre l'insertion, ne touche à rien de réel."""
+
+    def __init__(self):
+        self.lignes = []
+        self.nom = None
+
+    def table(self, nom):
+        self.nom = nom
+        return self
+
+    def insert(self, donnees):
+        self.lignes.append((self.nom, donnees))
+        return self
+
+    def execute(self):
+        return types.SimpleNamespace(data=[{"id": "offre-de-test"}])
+
+
+CORPS_BOURSE = {
+    "source": "autre",
+    "source_name": "Saisie manuelle (admin)",
+    "source_url": "https://lawol-mr.vercel.app/admin/offres?saisie=harnais",
+    "titre": "Bourse de test harnais 2027",
+    "entreprise": "Exemple",
+    "date_limite": "2099-12-31",
+    "type_offre": "bourse",
+}
+
+faux_offres = _FauxInsertOffres()
+ancien_supabase = main_module.supabase
+main_module.supabase = faux_offres
+try:
+    r = poste("/api/v1/offres", json=CORPS_BOURSE)
+    check("POST /api/v1/offres sans identité → 401", r.status_code == 401, ko(r))
+    check("…aucune ligne écrite", not faux_offres.lignes, str(faux_offres.lignes))
+
+    r = poste("/api/v1/offres", json=CORPS_BOURSE, cookies={"lawol_admin": "authenticated"})
+    check("POST + ancien cookie public → 403", r.status_code == 403, ko(r))
+    check("…aucune ligne écrite", not faux_offres.lignes, str(faux_offres.lignes))
+
+    r = poste(
+        "/api/v1/offres",
+        json={**CORPS_BOURSE, "type_offre": "emploi_junior"},
+        headers={"x-admin-token": TOKEN_ADMIN},
+    )
+    check("POST + token valide + type emploi → 422", r.status_code == 422, ko(r))
+    check(
+        "…refus par l'enum d'écriture (seule valeur acceptée : bourse)",
+        "'bourse'" in str(corps(r)),
+        str(corps(r))[:150],
+    )
+    check("…aucune ligne écrite", not faux_offres.lignes, str(faux_offres.lignes))
+
+    r = poste("/api/v1/offres", json=CORPS_BOURSE, headers={"x-admin-token": TOKEN_ADMIN})
+    check("POST + token valide + bourse → 201", r.status_code == 201, ko(r))
+    check(
+        "…une ligne écrite, type bourse",
+        len(faux_offres.lignes) == 1 and faux_offres.lignes[0][1]["type_offre"] == "bourse",
+        str(faux_offres.lignes)[:200],
+    )
+finally:
+    main_module.supabase = ancien_supabase
+
+
 # ============ 5. Secret absent : aucun cookie accepté ========================
 print("\n5. ADMIN_PASSWORD_HASH absent → aucun cookie accepté (jamais de dérivé public)")
 settings.ADMIN_PASSWORD_HASH = ""

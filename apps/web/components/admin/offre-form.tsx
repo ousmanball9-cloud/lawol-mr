@@ -1,21 +1,17 @@
 "use client";
 
-// Formulaire « Nouvelle offre » (admin LAWOL) — POST /api/v1/offres.
+// Formulaire « Nouvelle offre » (admin LAWOL) — POST /api/admin/offres (proxy gardé).
 // Entrées gardées en texte brut (React échappe par défaut, aucun dangerouslySetInnerHTML).
 // source/source_name sont fixés côté client : saisie manuelle hors scrap.
 
 import { useState, type FormEvent } from "react";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://lawol-mr-production.up.railway.app";
-
-const TYPES = [
-  { v: "stage_pfe", l: "Stage PFE" },
-  { v: "stage_ete", l: "Stage d'été" },
-  { v: "emploi_junior", l: "Emploi junior" },
-  { v: "alternance", l: "Alternance" },
-  { v: "bourse", l: "Bourse" },
-];
+// Types proposés : BOURSE uniquement. Le catalogue est « 100 % bourses » (décision
+// produit) et l'API refuse désormais explicitement les autres types (422). Ce
+// formulaire existe pour « une bourse découverte hors ligne » ; proposer un
+// « Emploi junior » n'aurait plus aucun consommateur et recréerait en un clic
+// le défaut corrigé le 27/10 (33 offres non-bourses servies par l'API).
+const TYPES = [{ v: "bourse", l: "Bourse" }];
 
 const VILLES = [
   { v: "nouakchott", l: "Nouakchott" },
@@ -55,7 +51,8 @@ type FormState = {
 const FORM_VIDE: FormState = {
   titre: "",
   entreprise: "",
-  type_offre: "stage_pfe",
+  // Défaut = bourse : c'est le seul type que l'API accepte désormais (422 sinon).
+  type_offre: "bourse",
   ville: "nouakchott",
   date_limite: "",
   description: "",
@@ -159,7 +156,11 @@ export function OffreForm({ onCreated }: { onCreated: () => void }) {
 
     setEnvoi(true);
     try {
-      const res = await fetch(`${API_URL}/api/v1/offres`, {
+      // Proxy local `/api/admin/offres` : c'est lui qui relaie l'identité admin
+      // (cookie `lawol_admin` / `x-admin-token`). Appeler l'API Railway
+      // directement n'envoyait AUCUNE identité — la route backend acceptait
+      // alors n'importe quel POST anonyme (mesuré le 27/10).
+      const res = await fetch(`/api/admin/offres`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

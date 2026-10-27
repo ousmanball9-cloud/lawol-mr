@@ -42,3 +42,40 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "API inaccessible" }, { status: 502 });
   }
 }
+
+// Proxy POST /api/admin/offres → API `/api/v1/offres` (SAISIE MANUELLE, gardée).
+//
+// Pourquoi ce POST existe (mesuré le 27/10/2026) : le formulaire de saisie
+// appelait l'API Railway DIRECTEMENT depuis le navigateur
+// (`fetch(${API_URL}/api/v1/offres)`), donc **sans aucune identité admin** — et
+// la route backend, elle non plus, n'était pas gardée : un POST au corps
+// invalide renvoyait 422 en production, preuve que le handler était atteint
+// sans authentification. Résultat : n'importe qui pouvait publier une offre
+// (spam, phishing) dans le catalogue lu par les étudiants. Ce proxy relaie
+// l'identité admin (Cookie `lawol_admin`, `x-admin-token`, `Authorization`) ;
+// sans elle l'API répond 401 et rien n'est écrit.
+export async function POST(request: Request) {
+  try {
+    const corps = await request.text();
+    const cookie = request.headers.get("cookie");
+    const authorization = request.headers.get("authorization");
+    const xAdminToken = request.headers.get("x-admin-token");
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (cookie) headers["Cookie"] = cookie;
+    if (authorization) headers["Authorization"] = authorization;
+    if (xAdminToken) headers["X-Admin-Token"] = xAdminToken;
+
+    const res = await fetch(`${API_URL}/api/v1/offres`, {
+      method: "POST",
+      headers,
+      body: corps,
+    });
+    const data = await res.text();
+    return new NextResponse(data, {
+      status: res.status,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch {
+    return NextResponse.json({ error: "API inaccessible" }, { status: 502 });
+  }
+}

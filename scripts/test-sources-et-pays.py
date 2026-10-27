@@ -401,6 +401,68 @@ def test_backfill_modes():
     print(f"  OK dry-run muet, --apply a corrigé {len(applique.updates)} offre(s)")
 
 
+def test_non_bourse_jamais_active():
+    """La collecte ne peut PAS réactiver une non-bourse (garde au point d'écriture).
+
+    Mesure qui impose ce test (27/10/2026) : 33 offres non-bourses ont été
+    désactivées en base, et la collecte SUIVANTE en a réinséré 16 avec
+    `active` au défaut de la base — donc visibles par `/api/v1/offres` sans
+    paramètre. Désactiver des LIGNES ne protège rien tant que l'ÉCRITURE peut en
+    recréer : la règle doit vivre dans `BaseScraper.save`, que tous les scrapers
+    traversent.
+
+    On exécute donc `save` pour de vrai sur un faux Supabase et on lit ce qui
+    serait écrit : `active` doit valoir False pour un emploi, True pour une bourse.
+    """
+    print("[TEST] Une non-bourse n'entre jamais active (point d'écriture) ...")
+    from apps.api.app.modules.scraper.sources import base as module_base
+
+    def offre(titre):
+        return OffreStageCreate(
+            source=SourceType.UNIVERSITE,
+            source_name="saisie-harnais",
+            source_url=f"https://exemple.mr/{abs(hash(titre))}",
+            titre=titre,
+            entreprise="Exemple",
+            ville=Ville.NOUAKCHOTT,
+            type_offre=TypeOffre.BOURSE,
+            description="Programme",
+            date_limite=datetime.now(UTC).date() + timedelta(days=30),
+        )
+
+    class _ScraperEmploi(BaseScraper):
+        source_name = "beta_mr"
+
+        def fetch(self):
+            return []
+
+    class _ScraperBourse(BaseScraper):
+        source_name = "scholar-africa"
+
+        def fetch(self):
+            return []
+
+    faux = FauxSupabase()
+    ancien = module_base.supabase
+    module_base.supabase = faux
+    try:
+        _ScraperEmploi().save([offre("Techniciens en Électromécanique")])
+        ecrit = faux.upserts[-1][1]
+        assert ecrit["type_offre"] == "emploi_junior", f"type = {ecrit['type_offre']}"
+        assert ecrit["active"] is False, (
+            f"emploi écrit actif={ecrit.get('active')} — il serait servi par "
+            "l'API publique sans paramètre"
+        )
+
+        _ScraperBourse().save([offre("Bourse Chevening 2027")])
+        ecrit = faux.upserts[-1][1]
+        assert ecrit["type_offre"] == "bourse", f"type = {ecrit['type_offre']}"
+        assert ecrit["active"] is True, f"bourse écrite active={ecrit.get('active')}"
+    finally:
+        module_base.supabase = ancien
+    print("  OK emploi → active=false, bourse → active=true")
+
+
 def test_catalogue_urls():
     """Verifier que les URLs corrigees sont bien dans le catalogue."""
     print("[TEST] Test URLs catalogue...")
@@ -451,6 +513,7 @@ def run_all_tests():
     test_pays_frontiere_de_mot()
     test_titre_prioritaire()
     test_backfill_modes()
+    test_non_bourse_jamais_active()
     test_catalogue_urls()
     test_backfill_dry_run()
 

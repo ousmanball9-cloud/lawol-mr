@@ -11,7 +11,7 @@ from apps.api.app.modules.scraper.engine import (
     type_offre_pour_source,
 )
 from apps.api.app.modules.scraper.pays import pays_depuis_texte
-from apps.api.app.modules.shared.models import OffreStageCreate
+from apps.api.app.modules.shared.models import OffreStageCreate, TypeOffre
 
 # Clé metadata qui conserve la trace des filières écartées (drift d'enum SQL).
 CLE_METADATA_FILIERES_IGNOREES = "filieres_ignorees_base"
@@ -118,6 +118,16 @@ class BaseScraper(ABC):
                 data["type_offre"] = type_offre_pour_source(
                     self.source_name, o.titre, o.description
                 )
+                # CATALOGUE 100 % BOURSES (décision produit, rappelée le 27/10) :
+                # une offre non-bourse n'entre JAMAIS active. Mesure qui impose
+                # cette garde ici et pas seulement à l'écran : le 27/10, 33
+                # non-bourses ont été désactivées en base, et la collecte
+                # suivante en a réinséré 16 (nouveaux `source_url` → `active`
+                # reprend son défaut `true`). Désactiver des LIGNES ne protège
+                # rien tant que l'ÉCRITURE peut en recréer : la règle doit vivre
+                # au point d'écriture unique (aucun scraper ne contourne `save`).
+                # Réversible : repasser `active=true` sur une ligne suffit.
+                data["active"] = data["type_offre"] == TypeOffre.BOURSE.value
                 metadata = data.get("metadata")
                 metadata = dict(metadata) if isinstance(metadata, dict) else {}
                 metadata[CLE_METADATA_CATEGORIE] = categorie_bourse_pour_source(
