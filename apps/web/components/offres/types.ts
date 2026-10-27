@@ -102,6 +102,21 @@ export const PAYS_ETUDES: { valeur: string; label: string }[] = [
   { valeur: "algerie", label: "Algérie" },
   { valeur: "senegal", label: "Sénégal" },
   { valeur: "cote_ivoire", label: "Côte d'Ivoire" },
+  // Destinations hors Europe/Afrique de l'Ouest (mesure du 27/10/2026 : 38
+  // offres actives nommaient un de ces pays — invisibles au filtre « Pays »).
+  { valeur: "japon", label: "Japon" },
+  { valeur: "chine", label: "Chine" },
+  { valeur: "coree_sud", label: "Corée du Sud" },
+  { valeur: "inde", label: "Inde" },
+  { valeur: "afrique_du_sud", label: "Afrique du Sud" },
+  { valeur: "australie", label: "Australie" },
+  { valeur: "nouvelle_zelande", label: "Nouvelle-Zélande" },
+  { valeur: "russie", label: "Russie" },
+  { valeur: "qatar", label: "Qatar" },
+  { valeur: "arabie_saoudite", label: "Arabie saoudite" },
+  { valeur: "egypte", label: "Égypte" },
+  { valeur: "bresil", label: "Brésil" },
+  { valeur: "mexique", label: "Mexique" },
   { valeur: "autre", label: "Autre pays" },
 ];
 

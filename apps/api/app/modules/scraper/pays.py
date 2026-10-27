@@ -42,7 +42,7 @@ PAYS_MOTS_CLES: dict[PaysEtudes, tuple[str, ...]] = {
         "munich", "munchen", "münchen", "hamburg", "hambourg", "frankfurt",
         "cologne", "koln", "köln", "stuttgart", "dusseldorf", "düsseldorf",
         "dortmund", "essen", "leipzig", "dresden", "bremen", "hannover",
-        "nuremberg", "nuremberg", "daad", "tu berlin", "tu munich", "rwth aachen",
+        "nuremberg", "tu berlin", "tu munich", "rwth aachen",
         "université de heidelberg", "université de freibourg", "université de tübingen",
     ),
     PaysEtudes.ROYAUME_UNI: (
@@ -167,6 +167,71 @@ PAYS_MOTS_CLES: dict[PaysEtudes, tuple[str, ...]] = {
         "université felix houphouet", "université nangui abrogoua", "université alassane",
         "insa abidjan", "ensta abidjan",
     ),
+    # Destinations hors Europe/Afrique de l'Ouest. Ajoutées le 27/10/2026 après
+    # mesure : ce sont les pays que les AGRÉGATEURS publient le plus (MEXT Japon,
+    # bourses chinoises/CSC, KGSP Corée, ICCR Inde, Mastercard Foundation en
+    # Afrique du Sud, Melbourne/Sydney, KAUST, Qatar…). Sans elles, ces offres
+    # tombaient dans `autre` : visibles, mais infiltrables nulle part par pays.
+    PaysEtudes.JAPON: (
+        "japon", "japan", "japanese", "japonais", "japonaise", "tokyo", "kyoto",
+        "osaka", "nagoya", "sendai", "fukuoka", "hokkaido", "tsukuba", "mext",
+        "tobitate", "jsps", "université de tokyo",
+    ),
+    PaysEtudes.CHINE: (
+        "chine", "china", "chinese", "chinois", "chinoise", "pekin", "pékin",
+        "beijing", "shanghai", "guangzhou", "wuhan", "hangzhou", "nanjing",
+        "tsinghua", "peking university", "fudan", "zhejiang", "csc scholarship",
+        "confucius", "chinese government scholarship",
+    ),
+    PaysEtudes.COREE_SUD: (
+        "coree du sud", "corée du sud", "south korea", "korea", "coreen", "coréen",
+        "seoul", "séoul", "busan", "kaist", "kgsp", "yonsei", "snu",
+        "seoul national university", "daejin",
+    ),
+    PaysEtudes.INDE: (
+        "inde", "india", "indien", "indienne", "delhi", "mumbai", "bangalore",
+        "chennai", "kolkata", "hyderabad", "pune", "iccr", "iit", "iim",
+        "indian institute of technology",
+    ),
+    PaysEtudes.AFRIQUE_DU_SUD: (
+        "afrique du sud", "south africa", "south african", "sud-africain",
+        "pretoria", "johannesburg", "cape town", "le cap", "durban",
+        "stellenbosch", "witwatersrand", "wits", "university of cape town",
+        "rhodes university", "nelson mandela university",
+    ),
+    PaysEtudes.AUSTRALIE: (
+        "australie", "australia", "australian", "australien", "melbourne",
+        "sydney", "canberra", "brisbane", "adelaide", "perth", "monash",
+        "unsw", "university of queensland", "anu",
+    ),
+    PaysEtudes.NOUVELLE_ZELANDE: (
+        "nouvelle-zelande", "nouvelle zélande", "new zealand", "auckland",
+        "wellington", "christchurch", "otago", "victoria university of wellington",
+    ),
+    PaysEtudes.RUSSIE: (
+        "russie", "russia", "russian", "russe", "moscou", "moscow",
+        "saint-petersbourg", "saint petersburg", "bauman", "open doors",
+        "russian government scholarship",
+    ),
+    PaysEtudes.QATAR: (
+        "qatar", "doha", "hamad bin khalifa", "doha institute",
+    ),
+    PaysEtudes.ARABIE_SAOUDITE: (
+        "arabie saoudite", "saudi arabia", "saudi", "saoudien", "riyad", "riyadh",
+        "jeddah", "kaust", "king abdullah university",
+    ),
+    PaysEtudes.EGYPTE: (
+        "egypte", "egypt", "egyptien", "égyptien", "le caire", "cairo",
+        "al azhar", "australian university in egypt",
+    ),
+    PaysEtudes.BRESIL: (
+        "bresil", "brésil", "brazil", "brazilian", "bresilien", "brésilien",
+        "sao paulo", "são paulo", "rio de janeiro", "brasilia", "unicamp", "usp",
+    ),
+    PaysEtudes.MEXIQUE: (
+        "mexique", "mexico", "mexican", "mexicain", "unam", "monterrey",
+        "guadalajara", "puebla", "tec de monterrey",
+    ),
 }
 
 
@@ -192,6 +257,25 @@ def _normaliser_texte(texte: str) -> str:
     return t.strip()
 
 
+def _pays_correspondants(texte_normalise: str) -> list[PaysEtudes]:
+    """Tous les pays dont un mot-clé apparaît (frontière de mot stricte).
+
+    Frontière obligatoire : sans elle « machine learning » contenait « chine »
+    et « independent » contenait « inde » (faux positifs mesurés le 27/10/2026
+    sur la sonde de contrôle).
+    """
+    trouves: list[PaysEtudes] = []
+    for pays_enum, mots_cles in PAYS_MOTS_CLES.items():
+        for mot in mots_cles:
+            mot_norm = _normaliser_texte(mot)
+            if not mot_norm:
+                continue
+            if re.search(rf"(?<!\w){re.escape(mot_norm)}(?!\w)", texte_normalise):
+                trouves.append(pays_enum)
+                break  # Un mot-clé suffit pour ce pays
+    return trouves
+
+
 def pays_depuis_texte(
     titre: str,
     description: str,
@@ -213,24 +297,17 @@ def pays_depuis_texte(
     if not texte_complet.strip():
         return None
 
-    # Chercher chaque pays (ordre : plus de mots-clés = plus spécifique d'abord)
-    # On trie par nombre de mots-clés décroissant pour privilégier la spécificité
-    pays_tries = sorted(
-        PAYS_MOTS_CLES.items(),
-        key=lambda kv: -len(kv[1]),
-    )
+    # 1. LE TITRE FAIT FOI quand il ne nomme qu'UN pays. La description des
+    #    agrégateurs cite souvent d'autres pays (« compare with USA, UK… ») :
+    #    l'ancienne règle « plusieurs pays = ambigu = None » faisait perdre
+    #    25 offres dont le titre nommait pourtant le pays sans ambiguïté
+    #    (mesure du 27/10/2026). Un titre explicite n'est pas une ambiguïté.
+    pays_du_titre = _pays_correspondants(_normaliser_texte(titre))
+    if len(pays_du_titre) == 1:
+        return pays_du_titre[0]
 
-    correspondances: list[PaysEtudes] = []
-
-    for pays_enum, mots_cles in pays_tries:
-        for mot in mots_cles:
-            mot_norm = _normaliser_texte(mot)
-            if not mot_norm:
-                continue
-            # Frontière de mot pour éviter les faux positifs (ex: "usa" dans "mausade")
-            if re.search(rf"(?<!\w){re.escape(mot_norm)}(?!\w)", texte_complet):
-                correspondances.append(pays_enum)
-                break  # Un mot-clé suffit pour ce pays
+    # 2. Sinon, texte complet — et seulement s'il reste non ambigu.
+    correspondances = _pays_correspondants(texte_complet)
 
     # Si exactement une correspondance → retour
     if len(correspondances) == 1:

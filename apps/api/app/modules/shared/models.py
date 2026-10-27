@@ -108,6 +108,23 @@ class PaysEtudes(str, Enum):
     ALGERIE = "algerie"
     SENEGAL = "senegal"
     COTE_IVOIRE = "cote_ivoire"
+    # Destinations réellement présentes dans le catalogue (mesure du 27/10/2026 :
+    # 38 offres actives nommaient un de ces pays sans qu'il existe dans l'enum —
+    # elles tombaient donc dans `autre` et devenaient introuvables par le filtre
+    # « Pays d'études », qui ne liste que des valeurs de l'enum).
+    JAPON = "japon"
+    CHINE = "chine"
+    COREE_SUD = "coree_sud"
+    INDE = "inde"
+    AFRIQUE_DU_SUD = "afrique_du_sud"
+    AUSTRALIE = "australie"
+    NOUVELLE_ZELANDE = "nouvelle_zelande"
+    RUSSIE = "russie"
+    QATAR = "qatar"
+    ARABIE_SAOUDITE = "arabie_saoudite"
+    EGYPTE = "egypte"
+    BRESIL = "bresil"
+    MEXIQUE = "mexique"
     AUTRE = "autre"
 
 

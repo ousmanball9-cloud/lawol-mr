@@ -4,11 +4,20 @@
 Usage:
     python scripts/backfill-pays.py --dry-run    # par défaut : liste ce qui serait fait
     python scripts/backfill-pays.py --apply      # écrit en base
+    python scripts/backfill-pays.py --corriger --apply   # corrige les pays FAUX
 
 Règles :
 - Ne met à jour QUE les offres où pays_etudes IS NULL
 - Utilise pays_depuis_texte(titre, description, source_url)
 - Aucune suppression, aucun écrasement d'un pays déjà renseigné
+
+Mode `--corriger` (ajouté le 27/10/2026) : il n'existe QUE pour réparer un
+mensonge mesuré — des offres dont le TITRE nomme un pays et dont la valeur en
+base en nomme un autre (ex. « University of Cape Town » rangée « Sénégal »,
+« MEXT … in Japan » rangée « Pays-Bas »). Il n'écrase QUE dans ce cas précis :
+le titre doit nommer un pays (un seul, sans ambiguïté, cf. `pays_depuis_texte`)
+ET la valeur stockée doit différer. Un titre sans pays ne touche à rien, une
+valeur absente est traitée par le mode normal.
 """
 import argparse
 import sys
@@ -35,6 +44,11 @@ def main():
         action="store_true",
         help="Écrit les modifications en base",
     )
+    parser.add_argument(
+        "--corriger",
+        action="store_true",
+        help="Corrige les pays FAUX (le titre nomme un pays différent de la base)",
+    )
     args = parser.parse_args()
 
     if args.apply:
@@ -55,6 +69,7 @@ def main():
     total_maj = 0
     total_sans_indice = 0
     total_deja_renseigne = 0
+    total_corrige = 0
 
     while True:
         resp = supabase.table("offres").select(
@@ -73,6 +88,22 @@ def main():
 
             if pays_actuel:
                 total_deja_renseigne += 1
+                if not args.corriger:
+                    continue
+                # Mode correction : n'écrase que si le TITRE nomme un pays
+                # (explicite, non ambigu) DIFFÉRENT de la valeur stockée.
+                corrige = pays_depuis_texte(offre.get("titre") or "", "")
+                if corrige is None or corrige.value == pays_actuel:
+                    continue
+                total_corrige += 1
+                print(
+                    f"  ~ {offre['id'][:8]}... | {pays_actuel} -> {corrige.value}"
+                    f" | {(offre.get('titre') or '')[:60]}"
+                )
+                if not args.dry_run:
+                    supabase.table("offres").update(
+                        {"pays_etudes": corrige.value}
+                    ).eq("id", offre["id"]).execute()
                 continue
 
             titre = offre.get("titre") or ""
@@ -107,6 +138,8 @@ def main():
     print(f"Déjà renseignées    : {total_deja_renseigne}")
     print(f"Sans indice détecté : {total_sans_indice}")
     print(f"À mettre à jour     : {total_maj}")
+    if args.corriger:
+        print(f"Pays FAUX corrigés  : {total_corrige}")
     if args.dry_run:
         print("\n/!\\ Mode DRY-RUN : aucune écriture effectuée.")
         print("   Relancez avec --apply pour appliquer.")
