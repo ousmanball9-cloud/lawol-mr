@@ -1,18 +1,27 @@
-name: Scraper Quotidien Bourses
+name: Scraper Bourses (2x/jour)
 
+# DEUX passages par jour : 06:17 et 18:17 UTC (= heure de Mauritanie, UTC+0).
+# Pourquoi la minute 17 et pas 00 : GitHub retarde les crons planifies a
+# l'heure pile (mesure du 27/10/2026 : cron 06:00 -> depart reel 11:12, ~5 h).
+# Chaque passage = scraping de TOUTES les sources + matching + notifications.
+#
+# DECLENCHEUR UNIQUE en production : ce fichier. `scripts/collecte-auto.cmd`
+# et un eventuel `collecte.yml` restent locaux (`.github/` est dans
+# .gitignore, seul ce workflow est force dans git) — ne pas en ajouter un 2e,
+# deux crons concurrents ecriraient les memes offres en parallele.
+#
+# Necessite le secret GitHub SCRAPER_TOKEN (= ADMIN_PASSWORD_HASH).
+# L'echec du job envoie un e-mail GitHub (Settings > Notifications > Actions).
 on:
   schedule:
-    - cron: '0 6 * * *'  # 6h UTC = 6h Mauritanie (UTC+0)
-  workflow_dispatch:  # bouton "Run workflow" dans l'onglet Actions
+    - cron: '17 6,18 * * *'
+  workflow_dispatch: # bouton "Run workflow" dans l'onglet Actions
 
 jobs:
   run-scraper:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
-      # Un secret absent produisait avant un simple « curl: (22) ... 401 » que
-      # rien ne distinguait d'un jeton invalide (mesure du 26/10/2026 : 5 runs
-      # en échec, cause = secret VIDE, pas jeton faux).
       - name: Vérifier que le secret existe
         env:
           JETON: ${{ secrets.SCRAPER_TOKEN }}
@@ -27,18 +36,85 @@ jobs:
         env:
           JETON: ${{ secrets.SCRAPER_TOKEN }}
         run: |
-          code=$(curl -s -o /tmp/reponse.txt -w "%{http_code}" \
+          code=$(curl -s -o /tmp/reponse.json -w "%{http_code}" \
             -X POST "https://lawol-mr-production.up.railway.app/api/v1/scraper/run" \
             -H "Content-Type: application/json" \
             -H "x-admin-token: $JETON" \
             -d '{"run_matching": true}' \
-            --max-time 600)
+            --max-time 900)
           echo "HTTP $code"
-          head -c 400 /tmp/reponse.txt || true
-          echo
           case "$code" in
             200) echo "::notice::Collecte + matching déclenchés" ;;
             401) echo "::error::401 = AUCUN jeton reçu (secret vide ou nom différent)"; exit 1 ;;
             403) echo "::error::403 = jeton reçu mais FAUX (valeur différente de ADMIN_PASSWORD_HASH)"; exit 1 ;;
-            *)   echo "::error::Échec HTTP $code"; exit 1 ;;
+            *)   echo "::error::Échec HTTP $code"; head -c 400 /tmp/reponse.json || true; exit 1 ;;
           esac
+
+      # Sans ce controle, une collecte qui ne ramene RIEN (toutes les sources
+      # mortes, parseurs casses) rendait le workflow VERT : panne silencieuse
+      # mesuree du 20/10 au 26/10/2026 (7 jours sans collecte, zero alerte).
+      - name: Contrôle santé de la collecte
+        run: |
+          python3 - <<'PY'
+          import json, sys
+
+          try:
+              data = json.load(open("/tmp/reponse.json", encoding="utf-8-sig"))
+          except Exception as exc:
+              print(f"::error::Reponse illisible ({exc})")
+              sys.exit(1)
+
+          details = data.get("details") or []
+          total = data.get("sources_traitees") or 0
+          inserees = data.get("offres_inserrees") or 0
+          mortes = [d for d in details if d.get("statut") != "success"]
+
+          lignes = [f"sources traitees : {total}",
+                    f"offres inserees   : {inserees}",
+                    f"sources en erreur : {len(mortes)}"]
+          for d in details:
+              lignes.append("  {source:<24} {statut:<8} collectees={collectees} "
+                            "inserrees={inserrees} erreurs={erreurs}".format(
+                                source=d.get("source", "?"),
+                                statut=d.get("statut", "?"),
+                                collectees=d.get("collectees"),
+                                inserrees=d.get("inserrees"),
+                                erreurs=d.get("erreurs")))
+          matching = data.get("matching")
+          if matching:
+              lignes.append(f"matching          : {matching}")
+          resume = "\n".join(lignes)
+          print(resume)
+
+          with open("/tmp/synthese.txt", "w", encoding="utf-8") as fh:
+              fh.write(resume)
+
+          if total == 0:
+              print("::error::Aucune source traitee — le scraper n'a rien execute")
+              sys.exit(1)
+          ratio = len(mortes) / total
+          if ratio >= 0.6:
+              print(f"::error::{len(mortes)}/{total} sources en erreur "
+                    f"({ratio:.0%}) — collecte non fiable")
+              sys.exit(1)
+          if mortes:
+              print(f"::warning::{len(mortes)}/{total} sources en erreur "
+                    "(partiel tolere, verifier les logs)")
+          PY
+
+      - name: Publier la synthèse
+        if: always()
+        run: |
+          if [ -f /tmp/synthese.txt ]; then
+            {
+              echo "### Collecte des offres"
+              echo '```'
+              cat /tmp/synthese.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Rappel en cas d'échec
+        if: failure()
+        run: |
+          echo "::error::Collecte EN ECHEC — les nouvelles bourses ne seront pas publiees. Verifier : 1) le secret SCRAPER_TOKEN (onglet SECRETS), 2) l'API Railway (log du deploiement), 3) les logs de ce run."
