@@ -17,11 +17,14 @@ import {
   User,
   Settings,
   LogOut,
+  X,
+  EyeOff,
+  RotateCcw,
 } from "lucide-react";
 import { OffreDetailModal, STATUTS, type OffreDetail } from "@/components/offre-detail-modal";
 import { CarteProfil } from "@/components/espace/carte-profil";
 import { FormPrefs } from "@/components/espace/form-prefs";
-import { labelPays } from "@/components/offres/types";
+import { labelPays, labelTypeOffre } from "@/components/offres/types";
 
 type Profil = {
   telephone: string;
@@ -109,6 +112,10 @@ export default function ProfilPage() {
   const onglet: Onglet = ONGLETS.some((o) => o.id === ongletParam)
     ? (ongletParam as Onglet)
     : "accueil";
+  const inclureMasqueesParam = searchParams.get("inclure_masquees");
+  const [inclureMasquees, setInclureMasquees] = useState(
+    inclureMasqueesParam === "true"
+  );
   const [profil, setProfil] = useState<Profil | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,6 +136,12 @@ export default function ProfilPage() {
   // Alerte éphémère 3 s (503 favoris/statut : dégradation propre, jamais de crash)
   const [alerte, setAlerte] = useState("");
   const minuterieAlerte = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Toast "Pas intéressé" avec Annuler (optimiste)
+  const [toastPasInteresse, setToastPasInteresse] = useState<{
+    matchId: string;
+    avant: Match;
+  } | null>(null);
+  const minuterieToast = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const afficherAlerte = useCallback((texte: string) => {
     setAlerte(texte);
@@ -150,14 +163,19 @@ export default function ProfilPage() {
 
       // Charger les offres matchées
       let liste: Match[] = [];
-      const resOffres = await fetch(`/api/v1/matches?profil_id=${p.id}`);
+      const paramsMatches = new URLSearchParams({ profil_id: p.id });
+      if (inclureMasquees) paramsMatches.set("inclure_masquees", "true");
+      const resOffres = await fetch(`/api/v1/matches?${paramsMatches.toString()}`);
       if (resOffres.ok) {
         const data = await resOffres.json();
         liste = data
           .filter((m: { offre?: Offre }) => m.offre)
-          .map((m: { id: string; postule?: boolean; offre: Offre }) => ({
+          .map((m: { id: string; postule?: boolean; favori?: boolean; statut_candidature?: string | null; date_match?: string; offre: Offre }) => ({
             id: m.id,
             postule: !!m.postule,
+            favori: !!m.favori,
+            statut_candidature: m.statut_candidature ?? null,
+            date_match: m.date_match,
             offre: m.offre,
           }));
         setMatches(liste);
@@ -208,7 +226,7 @@ export default function ProfilPage() {
     } finally {
       setLoading(false);
     }
-  }, [telephone]);
+  }, [telephone, inclureMasquees]);
 
   useEffect(() => {
     charger();
@@ -320,6 +338,75 @@ export default function ProfilPage() {
       );
       afficherAlerte("Statut en cours d'activation — réessaie plus tard.");
     }
+  }
+
+  // P5 : « Pas intéressé » — état optimiste + toast avec Annuler (3 s)
+  async function handlePasInteresse(match: Match) {
+    const avant = { ...match };
+    // Retrait optimiste immédiat
+    setMatches((prev) => prev.filter((m) => m.id !== match.id));
+    setToastPasInteresse({ matchId: match.id, avant });
+    if (minuterieToast.current) clearTimeout(minuterieToast.current);
+    minuterieToast.current = setTimeout(() => {
+      setToastPasInteresse(null);
+    }, 3000);
+
+    try {
+      const res = await fetch(`/api/v1/matches/${match.id}/statut`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statut: "pas_interesse" }),
+      });
+      if (!res.ok) throw new Error();
+      if (minuterieToast.current) clearTimeout(minuterieToast.current);
+      setToastPasInteresse(null);
+    } catch {
+      // Rollback : remettre le match
+      setMatches((prev) => [avant, ...prev.filter((m) => m.id !== match.id)]);
+      if (minuterieToast.current) clearTimeout(minuterieToast.current);
+      setToastPasInteresse(null);
+      afficherAlerte("Impossible de masquer — réessaie.");
+    }
+  }
+
+  // Annule le « Pas intéressé » (depuis le toast)
+  function handleAnnulerPasInteresse() {
+    if (!toastPasInteresse) return;
+    const { avant } = toastPasInteresse;
+    setMatches((prev) => [avant, ...prev.filter((m) => m.id !== avant.id)]);
+    if (minuterieToast.current) clearTimeout(minuterieToast.current);
+    setToastPasInteresse(null);
+  }
+
+  // Rétablir une offre masquée (depuis l'onglet masquées)
+  async function handleRetablir(match: Match) {
+    const avant = match.statut_candidature;
+    setMatches((prev) =>
+      prev.map((m) => (m.id === match.id ? { ...m, statut_candidature: null } : m))
+    );
+    try {
+      const res = await fetch(`/api/v1/matches/${match.id}/statut`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statut: null }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setMatches((prev) =>
+        prev.map((m) => (m.id === match.id ? { ...m, statut_candidature: avant } : m))
+      );
+      afficherAlerte("Impossible de rétablir — réessaie.");
+    }
+  }
+
+  // Bascule inclure_masquees + recharge
+  function basculerMasquees() {
+    const nouvelle = !inclureMasquees;
+    setInclureMasquees(nouvelle);
+    const params = new URLSearchParams(searchParams);
+    if (nouvelle) params.set("inclure_masquees", "true");
+    else params.delete("inclure_masquees");
+    router.replace(`/profil/${telephone}?${params.toString()}`);
   }
 
   async function handleActualiser() {
@@ -512,6 +599,26 @@ export default function ProfilPage() {
                 </div>
               )}
 
+              {/* Toast « Pas intéressé » avec Annuler (3 s) */}
+              {toastPasInteresse && (
+                <div
+                  data-probe="toast-pas-interesse"
+                  className="mb-4 rounded-lg border border-surlignage/30 bg-surlignage/10 px-4 py-3 text-sm font-medium text-foreground flex items-center justify-between gap-3 animate-slide-in"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span>Offre masquée</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleAnnulerPasInteresse}
+                    className="text-surlignage hover:bg-surlignage/10"
+                  >
+                    <RotateCcw className="h-4 w-4 mr-1" /> Annuler
+                  </Button>
+                </div>
+              )}
+
               {/* P5 : résumé hebdo + score de profil + marché des postes.
                   En cas d'erreur API : section masquée silencieusement, la page reste utilisable. */}
               {dashboard && (
@@ -559,24 +666,38 @@ export default function ProfilPage() {
               )}
 
               {/* Onglets discrets : Offres / Historique */}
-              <div className="mb-4 flex gap-1 border-b border-border">
-                {(["offres", "historique"] as const).map((cle) => (
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-border">
+                <div className="flex gap-1">
+                  {(["offres", "historique"] as const).map((cle) => (
+                    <button
+                      key={cle}
+                      type="button"
+                      data-probe="onglet"
+                      data-cle={cle}
+                      onClick={() => setOngletOffres(cle)}
+                      aria-current={ongletOffres === cle ? "page" : undefined}
+                      className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors duration-150 ${
+                        ongletOffres === cle
+                          ? "border-signature text-signature"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {cle === "offres" ? "Offres" : "Historique"}
+                    </button>
+                  ))}
+                </div>
+                {/* Lien « Offres masquées (N) » — visible seulement si offres masquées existent */}
+                {ongletOffres === "offres" && !inclureMasquees && matches.some((m) => m.statut_candidature === "pas_interesse") && (
                   <button
-                    key={cle}
                     type="button"
-                    data-probe="onglet"
-                    data-cle={cle}
-                    onClick={() => setOngletOffres(cle)}
-                    aria-current={ongletOffres === cle ? "page" : undefined}
-                    className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors duration-150 ${
-                      ongletOffres === cle
-                        ? "border-signature text-signature"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    }`}
+                    onClick={basculerMasquees}
+                    className="text-sm font-medium text-surlignage hover:text-surlignage-deep transition-colors duration-150 flex items-center gap-1"
+                    data-probe="lien-masquees"
                   >
-                    {cle === "offres" ? "Offres" : "Historique"}
+                    <EyeOff className="h-4 w-4" />
+                    Offres masquées ({matches.filter((m) => m.statut_candidature === "pas_interesse").length})
                   </button>
-                ))}
+                )}
               </div>
 
               {/* Offres matchées */}
@@ -675,7 +796,7 @@ export default function ProfilPage() {
                               {match.offre.titre}
                             </h3>
                             <span className="badge-offre inline-flex shrink-0 items-center rounded-full border border-border bg-muted px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                              Bourse d&apos;études
+                              {labelTypeOffre(match.offre.type_offre)}
                             </span>
                           </div>
                           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
@@ -738,6 +859,16 @@ export default function ProfilPage() {
                             >
                               <Share2 className="mr-2 h-4 w-4" />
                               Partager
+                            </Button>
+                            {/* Pas intéressé — discret, retire optimiste + toast Annuler */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handlePasInteresse(match)}
+                              aria-label={`Masquer ${match.offre.titre} (pas intéressé)`}
+                              className="rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors duration-150"
+                            >
+                              <EyeOff className="h-4 w-4" />
                             </Button>
                             {/* Suivi de candidature : info passive sur la carte (Hick) —
                                 le sélecteur vit dans la modale, une seule décision à la fois */}

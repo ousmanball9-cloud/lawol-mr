@@ -160,6 +160,27 @@ export function labelCategorieBourse(valeur: string | null | undefined): string 
   return LABELS_CATEGORIES.get(valeur) ?? null;
 }
 
+/**
+ * Libellés du type d'offre (nature), valeurs SQL historiques incluses.
+ *
+ * Pourquoi cette table existe (27/10/2026) : la carte du profil affichait
+ * « Bourse d'études » **en dur** pour tout match, y compris un stage PFE ou un
+ * emploi junior. L'étudiant lisait donc un badge faux sur sa propre page.
+ */
+const LABELS_TYPES_OFFRE = new Map<string, string>([
+  ["bourse", "Bourse d'études"],
+  ["stage_pfe", "Stage PFE"],
+  ["stage_ete", "Stage d'été"],
+  ["emploi_junior", "Emploi junior"],
+  ["alternance", "Alternance"],
+]);
+
+/** Libellé lisible du type d'offre ; repli : snake_case → texte (jamais faux). */
+export function labelTypeOffre(valeur: string | null | undefined): string {
+  if (!valeur) return "Offre";
+  return LABELS_TYPES_OFFRE.get(valeur) ?? valeur.replace(/_/g, " ");
+}
+
 /** Vrai si la valeur est une catégorie filtrable (tout le reste → « toutes »). */
 export function estCategorieBourse(valeur: string | null | undefined): valeur is CategorieBourse {
   return Boolean(valeur && LABELS_CATEGORIES.has(valeur));
