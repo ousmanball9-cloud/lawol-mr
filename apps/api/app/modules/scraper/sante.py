@@ -26,7 +26,11 @@ Contrat (prouvé par `scripts/test-sante-collecte.py`, zéro réseau) :
     5. « en retard » prime sur « dégradé » (une panne de cron est plus grave
        qu'une source morte) ;
     6. la prochaine échéance est calculée en UTC sur le cron réel
-       (`17 6,18 * * *`), jamais devinée côté navigateur.
+       (`17 6,18 * * *`), jamais devinée côté navigateur ;
+    7. `offres_traitees` = upserts acceptés (mises à jour comprises) — ce n'est
+       PAS le nombre de nouvelles offres, et on ne l'appelle pas ainsi ;
+    8. une source ne compte qu'UNE fois par passage (dédoublonnage) : deux
+       exécutions qui se chevauchent ne gonflent pas les compteurs.
 """
 
 from __future__ import annotations
@@ -121,7 +125,7 @@ def resume_sante(
             "seuil_heures": SEUIL_HEURES,
             "sources": 0,
             "sources_en_erreur": 0,
-            "offres_ajoutees": 0,
+            "offres_traitees": 0,
             "offres_actives": offres_actives,
             "prochaine_collecte": prochaine.isoformat(),
         }
@@ -139,7 +143,7 @@ def resume_sante(
             "seuil_heures": SEUIL_HEURES,
             "sources": len(lignes),
             "sources_en_erreur": 0,
-            "offres_ajoutees": 0,
+            "offres_traitees": 0,
             "offres_actives": offres_actives,
             "prochaine_collecte": prochaine.isoformat(),
         }
@@ -147,11 +151,27 @@ def resume_sante(
     derniere = max(horodatages)
     age_heures = (moment - derniere).total_seconds() / 3600.0
     fenetre = timedelta(minutes=FENETRE_RUN_MINUTES)
-    passage = [ligne for ligne, quand in zip(lignes, horodatages) if derniere - quand <= fenetre]
 
+    # DÉDOUBLONNAGE PAR SOURCE (mesure du 27/10) : deux exécutions peuvent
+    # tomber dans la même fenêtre — le run manuel tombé en 502 a continué
+    # côté serveur et ses 5 dernières sources ont logué 6 min avant le run
+    # complet. Sans dédoublonnage, on annonçait 21 sources et 293 upserts au
+    # lieu de 16 et 258. Une source ne peut pas tourner deux fois dans un
+    # passage : on garde son log le PLUS RÉCENT.
+    dernier_par_source: dict[str, tuple[datetime, dict]] = {}
+    for ligne, quand in zip(lignes, horodatages):
+        if derniere - quand > fenetre:
+            continue
+        nom = ligne.get("source_name") or "?"
+        if nom not in dernier_par_source or dernier_par_source[nom][0] < quand:
+            dernier_par_source[nom] = (quand, ligne)
+
+    passage = [ligne for _, ligne in dernier_par_source.values()]
     sources = len(passage)
     erreurs = sum(1 for ligne in passage if ligne.get("status") != "success")
-    ajoutees = sum(int(ligne.get("offres_nouvelles") or 0) for ligne in passage)
+    # `offres_nouvelles` compte les UPSERTS acceptés (mises à jour comprises) :
+    # ce n'est PAS le nombre de nouvelles offres, ne pas l'appeler ainsi.
+    traitees = sum(int(ligne.get("offres_nouvelles") or 0) for ligne in passage)
 
     if age_heures > SEUIL_HEURES:
         statut = "retard"
@@ -168,7 +188,7 @@ def resume_sante(
         "seuil_heures": SEUIL_HEURES,
         "sources": sources,
         "sources_en_erreur": erreurs,
-        "offres_ajoutees": ajoutees,
+        "offres_traitees": traitees,
         "offres_actives": offres_actives,
         "prochaine_collecte": prochaine.isoformat(),
     }

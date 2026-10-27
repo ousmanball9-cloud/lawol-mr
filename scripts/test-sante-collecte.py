@@ -15,7 +15,8 @@ diagnostic exposé à l'admin (`GET /api/v1/admin/sante-collecte`) :
     8. les lignes d'un AUTRE passage     -> hors fenêtre, non comptées ;
     9. `prochaine_collecte` suit le cron réel 06:17 / 18:17 UTC ;
    10. lecture service_role : `order(created_at, desc)` + `limit` + filtre
-       `active=true` / `date_limite >= aujourd'hui` (la RLS cache tout à l'anon).
+       `active=true` / `date_limite >= aujourd'hui` (la RLS cache tout à l'anon) ;
+   11. deux passages qui se chevauchent -> dédoublonnage par source (16 et non 21).
 
 Usage : python -X utf8 scripts/test-sante-collecte.py
 """
@@ -59,12 +60,12 @@ check(resume["offres_actives"] == 274, "offres_actives transmises")
 check("jamais tourné" in resume["message"], "message explicite (pas un silence)")
 
 print("2. Collecte fraîche (il y a 1 h, 3 sources, 0 erreur) : « ok »")
-lignes = [log(1.0, nouvelles=5), log(1.1, nouvelles=7), log(1.2, nouvelles=0)]
+lignes = [log(1.0, nouvelles=5, source="a"), log(1.1, nouvelles=7, source="b"), log(1.2, nouvelles=0, source="c")]
 resume = sante.resume_sante(lignes, offres_actives=274, moment=MAINTENANT)
 check(resume["statut"] == "ok", "statut = ok")
 check(resume["sources"] == 3, f"sources = 3 (reçu {resume['sources']})")
 check(resume["sources_en_erreur"] == 0, "sources_en_erreur = 0")
-check(resume["offres_ajoutees"] == 12, f"offres_ajoutees cumulées = 12 (reçu {resume['offres_ajoutees']})")
+check(resume["offres_traitees"] == 12, f"offres_traitees cumulées = 12 (reçu {resume['offres_traitees']})")
 check(resume["age_heures"] == 1.0, f"age_heures = 1.0 (reçu {resume['age_heures']})")
 
 print("3. Dernière exécution il y a 40 h : « retard »")
@@ -74,23 +75,28 @@ check("retard" in resume["message"].lower(), "message de retard")
 
 print("4. 3 sources en erreur sur 4 (75 %) : « degrade »")
 lignes = [
-    log(1.0, "success"),
-    log(1.05, "error"),
-    log(1.1, "error"),
-    log(1.15, "error"),
+    log(1.0, "success", source="a"),
+    log(1.05, "error", source="b"),
+    log(1.1, "error", source="c"),
+    log(1.15, "error", source="d"),
 ]
 resume = sante.resume_sante(lignes, moment=MAINTENANT)
 check(resume["statut"] == "degrade", "statut = degrade")
 check(resume["sources_en_erreur"] == 3, "3 erreurs comptées")
 
 print("5. 1 source en erreur sur 4 (25 %) : « ok » (partiel toléré)")
-lignes = [log(1.0, "success"), log(1.05, "success"), log(1.1, "success"), log(1.15, "error")]
+lignes = [
+    log(1.0, "success", source="a"),
+    log(1.05, "success", source="b"),
+    log(1.1, "success", source="c"),
+    log(1.15, "error", source="d"),
+]
 resume = sante.resume_sante(lignes, moment=MAINTENANT)
 check(resume["statut"] == "ok", "statut = ok")
 check(resume["sources_en_erreur"] == 1, "1 erreur signalée sans bloquer")
 
 print("6. Retard ET dégradé : « retard » prime")
-lignes = [log(30.0, "error"), log(30.1, "error"), log(30.2, "error")]
+lignes = [log(30.0, "error", source="a"), log(30.1, "error", source="b"), log(30.2, "error", source="c")]
 resume = sante.resume_sante(lignes, moment=MAINTENANT)
 check(resume["statut"] == "retard", "statut = retard (pas degrade)")
 
@@ -100,7 +106,12 @@ check(resume["statut"] == "jamais", "statut = jamais")
 check(resume["derniere_collecte"] is None, "aucune date inventée")
 
 print("8. Lignes d'un AUTRE passage (hors fenêtre 45 min) : non comptées")
-lignes = [log(1.0, "success"), log(1.1, "success"), log(20.0, "error"), log(20.1, "error")]
+lignes = [
+    log(1.0, "success", source="a"),
+    log(1.1, "success", source="b"),
+    log(20.0, "error", source="c"),
+    log(20.1, "error", source="d"),
+]
 resume = sante.resume_sante(lignes, moment=MAINTENANT)
 check(resume["sources"] == 2, f"seules les 2 lignes du dernier passage comptent (reçu {resume['sources']})")
 check(resume["sources_en_erreur"] == 0, "les erreurs de l'ancien passage ne polluent pas")
@@ -117,6 +128,22 @@ for moment, attendu in cas:
     check(obtenu == attendu, f"{moment:%H:%M} -> {obtenu:%d/%m %H:%M} (attendu {attendu:%d/%m %H:%M})")
 check(sante.MINUTE_CRON_UTC == 17, "minute 17 = celle du workflow GitHub (pas l'heure pile)")
 check(sante.HEURES_CRON_UTC == (6, 18), "2 passages : 6 h et 18 h UTC")
+
+print("9b. Deux passages qui se chevauchent : dédoublonnage par source")
+# Mesure réelle du 27/10 : le run manuel tombé en 502 a CONTINUÉ côté serveur,
+# si bien que ses 5 dernières sources ont logué 6 min avant le run complet ->
+# 21 lignes lues, mais 16 sources réelles et 258 upserts (pas 293).
+lignes = [log(1.0, nouvelles=58, source=f"src{i:02d}") for i in range(11)]
+chevauche = (("beta_mr", 26), ("mauritel", 6), ("snim", 0), ("bnm", 0), ("totalenergies", 3))
+lignes += [log(1.2, nouvelles=n, source=s) for s, n in chevauche]
+lignes += [log(6.0, nouvelles=n, source=s) for s, n in chevauche]
+resume = sante.resume_sante(lignes, moment=MAINTENANT)
+check(resume["sources"] == 16, f"16 sources distinctes (reçu {resume['sources']})")
+check(
+    resume["offres_traitees"] == 58 * 11 + 26 + 6 + 0 + 0 + 3,
+    f"upserts comptés une fois (reçu {resume['offres_traitees']}, attendu 673)",
+)
+check(resume["sources_en_erreur"] == 0, "aucune fausse erreur héritée du passage précédent")
 
 
 print("10. Lecture service_role : ordre, limite et filtres attendus")
@@ -174,7 +201,7 @@ class _Reponse:
         self.count = count
 
 
-faux = FauxSupabase([log(1.0, nouvelles=3), log(1.1, nouvelles=2)], actives=274)
+faux = FauxSupabase([log(1.0, nouvelles=3, source="a"), log(1.1, nouvelles=2, source="b")], actives=274)
 sante.supabase = faux
 resultat = sante.sante_collecte()
 

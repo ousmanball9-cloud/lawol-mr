@@ -32,7 +32,7 @@ type SanteCollecte = {
   seuil_heures: number;
   sources: number;
   sources_en_erreur: number;
-  offres_ajoutees: number;
+  offres_traitees: number;
   offres_actives: number;
   prochaine_collecte: string;
 };
@@ -180,7 +180,7 @@ export default function AdminDashboardPage() {
                     {" · "}
                     {sante.sources} source{sante.sources > 1 ? "s" : ""}, {sante.sources_en_erreur} en erreur
                     {" · "}
-                    +{sante.offres_ajoutees} offre{sante.offres_ajoutees > 1 ? "s" : ""}
+                    +{sante.offres_traitees} offre{sante.offres_traitees > 1 ? "s" : ""} traitée{sante.offres_traitees > 1 ? "s" : ""}
                     {" · "}
                     prochaine à {heure(sante.prochaine_collecte)} UTC
                   </p>
