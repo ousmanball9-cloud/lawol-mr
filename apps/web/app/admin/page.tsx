@@ -1,7 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, Briefcase, FileText, Star, UserCheck, Users } from "lucide-react";
+import {
+  AlertTriangle,
+  Bell,
+  Briefcase,
+  CheckCircle2,
+  FileText,
+  RefreshCw,
+  Star,
+  UserCheck,
+  Users,
+  XCircle,
+} from "lucide-react";
 
 type Stats = {
   offres_actives: number;
@@ -10,6 +21,20 @@ type Stats = {
   profils_total: number;
   matches_total: number;
   matches_notifies: number;
+};
+
+// Réponse de `GET /api/v1/admin/sante-collecte` (modules/scraper/sante.py).
+type SanteCollecte = {
+  statut: "ok" | "degrade" | "retard" | "jamais";
+  message: string;
+  derniere_collecte: string | null;
+  age_heures: number | null;
+  seuil_heures: number;
+  sources: number;
+  sources_en_erreur: number;
+  offres_ajoutees: number;
+  offres_actives: number;
+  prochaine_collecte: string;
 };
 
 // Cartes de statistiques — widgets du template Flowbite Admin
@@ -23,18 +48,91 @@ const CARDS = [
   { label: "Matches notifiés", key: "matches_notifies", icon: Bell, iconBg: "bg-amber-100", iconColor: "text-amber-600" },
 ] as const;
 
+// Apparence par statut : vert = collecte fraîche, ambre = partielle,
+// rouge = en retard ou jamais exécutée. Une panne doit SAUTER aux yeux.
+const SANTE_STYLE = {
+  ok: {
+    icone: CheckCircle2,
+    cadre: "bg-green-50 border-green-200 text-green-800",
+    pastille: "bg-green-100 text-green-600",
+    titre: "Collecte automatique à jour",
+  },
+  degrade: {
+    icone: AlertTriangle,
+    cadre: "bg-amber-50 border-amber-200 text-amber-800",
+    pastille: "bg-amber-100 text-amber-600",
+    titre: "Collecte partielle",
+  },
+  retard: {
+    icone: XCircle,
+    cadre: "bg-red-50 border-red-200 text-red-800",
+    pastille: "bg-red-100 text-red-600",
+    titre: "Collecte en retard",
+  },
+  jamais: {
+    icone: XCircle,
+    cadre: "bg-red-50 border-red-200 text-red-800",
+    pastille: "bg-red-100 text-red-600",
+    titre: "Aucune collecte enregistrée",
+  },
+} as const;
+
+/** « il y a 1 h 20 » — lisible, jamais un horodatage brut (UTC compris). */
+function depuis(ageHeures: number | null): string {
+  if (ageHeures === null) return "jamais";
+  if (ageHeures < 1) {
+    const minutes = Math.max(1, Math.round(ageHeures * 60));
+    return `il y a ${minutes} min`;
+  }
+  if (ageHeures < 48) {
+    const heures = Math.floor(ageHeures);
+    const minutes = Math.round((ageHeures - heures) * 60);
+    return minutes ? `il y a ${heures} h ${minutes}` : `il y a ${heures} h`;
+  }
+  return `il y a ${Math.floor(ageHeures / 24)} jours`;
+}
+
+/** Heure UTC -> « 18:17 » (la Mauritanie est à UTC+0, aucun décalage). */
+function heure(iso: string | null): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toISOString().slice(11, 16);
+}
+
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [sante, setSante] = useState<SanteCollecte | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/admin/stats")
-      .then((r) => r.json())
-      .then(setStats)
-      .catch(() => setError("Erreur de chargement"))
-      .finally(() => setLoading(false));
+    const charger = () => {
+      setLoading(true);
+      setError("");
+      Promise.all([
+        fetch("/api/admin/stats", { cache: "no-store" }).then(async (r) => {
+          if (!r.ok) throw new Error(String(r.status));
+          return r.json();
+        }),
+        fetch("/api/v1/admin/sante-collecte", { cache: "no-store" }).then(async (r) => {
+          // Le diagnostic est INDÉPENDANT des compteurs : s'il tombe, on
+          // l'affiche comme inconnu au lieu de casser tout le dashboard.
+          if (!r.ok) return null;
+          return r.json();
+        }),
+      ])
+        .then(([donneesStats, donneesSante]) => {
+          setStats(donneesStats);
+          setSante(donneesSante);
+        })
+        .catch((e) => setError(e?.message === "401" ? "Session admin expirée" : "Erreur de chargement"))
+        .finally(() => setLoading(false));
+    };
+    charger();
   }, []);
+
+  const style = sante ? SANTE_STYLE[sante.statut] ?? SANTE_STYLE.retard : null;
 
   return (
     <div>
@@ -61,6 +159,42 @@ export default function AdminDashboardPage() {
             role="alert"
           >
             {error}
+          </div>
+        )}
+
+        {/* Santé de la collecte — la fraîcheur du catalogue doit être visible
+            DANS le produit, pas seulement dans l'onglet Actions de GitHub
+            (7 jours de collecte muette passés inaperçus les 20-26/10/2026). */}
+        {sante && style && (
+          <div className={`p-4 mb-4 border rounded-lg ${style.cadre}`} role="status">
+            <div className="sm:flex sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className={`inline-flex items-center justify-center flex-shrink-0 w-10 h-10 rounded-lg ${style.pastille}`}>
+                  <style.icone className="w-5 h-5" aria-hidden="true" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold">{style.titre}</p>
+                  <p className="mt-0.5 text-sm">{sante.message}</p>
+                  <p className="mt-1 text-xs opacity-80">
+                    Dernière collecte : {depuis(sante.age_heures)} ({heure(sante.derniere_collecte)} UTC)
+                    {" · "}
+                    {sante.sources} source{sante.sources > 1 ? "s" : ""}, {sante.sources_en_erreur} en erreur
+                    {" · "}
+                    +{sante.offres_ajoutees} offre{sante.offres_ajoutees > 1 ? "s" : ""}
+                    {" · "}
+                    prochaine à {heure(sante.prochaine_collecte)} UTC
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="inline-flex items-center gap-2 mt-3 text-xs font-medium underline sm:mt-0"
+              >
+                <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+                Actualiser
+              </button>
+            </div>
           </div>
         )}
 

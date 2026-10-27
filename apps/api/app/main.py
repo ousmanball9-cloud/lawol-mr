@@ -24,6 +24,7 @@ from apps.api.app.modules.scraper.engine import (
     CATEGORIES_BOURSE,
     CategorieBourse,
 )
+from apps.api.app.modules.scraper.sante import sante_collecte
 from apps.api.app.modules.scraper.sources.catalogue import get_scrapers
 from apps.api.app.modules.shared.models import (
     DashboardProfil,
@@ -712,7 +713,14 @@ async def lister_offres_admin(
 
 
 @app.get("/api/v1/admin/stats", response_model=StatsResponse)
-async def get_stats():
+async def get_stats(request: Request):
+    # GARDÉ (mesure du 27/10/2026) : cette route répondait **200 sans aucune
+    # identité** en production, alors que sa voisine `/api/v1/admin/offres`
+    # répondait 401 — les compteurs de la plateforme (étudiants, matches,
+    # visites, offres en attente) étaient publics. Une lecture admin reste une
+    # lecture admin : même garde que les écritures, et le proxy Next
+    # (`app/api/admin/stats/route.ts`) relaie désormais l'identité.
+    _admin_autorise(request)
     offres = (
         supabase.table("offres")
         .select("id", count="exact")
@@ -760,3 +768,24 @@ async def get_stats():
         taux_notification=round((notifie_res.count or 0) / total * 100, 1) if total else 0.0,
         offres_en_attente=attente_count,
     )
+
+
+@app.get("/api/v1/admin/sante-collecte")
+async def get_sante_collecte(request: Request):
+    """Fraîcheur de la collecte automatique (lecture ADMIN).
+
+    Réponse : `{statut, message, derniere_collecte, age_heures, seuil_heures,
+    sources, sources_en_erreur, offres_ajoutees, offres_actives,
+    prochaine_collecte}` — `statut ∈ {ok, degrade, retard, jamais}`.
+
+    Pourquoi (mesure du 27/10/2026) : 7 jours de collecte muette (20 -> 26/10)
+    n'ont été vus par personne — la fraîcheur n'existait que dans l'onglet
+    Actions de GitHub. Une panne de collecte doit se voir DANS le produit.
+    Logique pure et testée : `modules/scraper/sante.py` +
+    `scripts/test-sante-collecte.py` (zéro réseau).
+    """
+    _admin_autorise(request)
+    try:
+        return sante_collecte()
+    except Exception as exc:  # noqa: BLE001 — un diagnostic KO ne doit pas 500
+        raise HTTPException(503, f"Diagnostic de collecte indisponible : {exc}")
