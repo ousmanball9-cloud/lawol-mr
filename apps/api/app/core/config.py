@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     EMAIL_FROM: str = ""
     EMAIL_FROM_NAME: str = "LAWOL.mr"
 
+    # Collecte automatique (rattrapage interne, modules/scraper/rattrapage.py)
+    RATTRAPAGE_ACTIF: bool = True
+    SEUIL_RATTRAPAGE_HEURES: float = 15.0
+    INTERVALLE_RATTRAPAGE_MINUTES: int = 30
+
     model_config = {"env_file": str(ENV_PATH), "extra": "ignore"}
 
 

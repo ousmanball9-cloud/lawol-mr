@@ -5,10 +5,17 @@ name: Scraper Bourses (2x/jour)
 # l'heure pile (mesure du 27/10/2026 : cron 06:00 -> depart reel 11:12, ~5 h).
 # Chaque passage = scraping de TOUTES les sources + matching + notifications.
 #
-# DECLENCHEUR UNIQUE en production : ce fichier. `scripts/collecte-auto.cmd`
+# DECLENCHEUR PRINCIPAL en production : ce fichier. `scripts/collecte-auto.cmd`
 # et un eventuel `collecte.yml` restent locaux (`.github/` est dans
 # .gitignore, seul ce workflow est force dans git) — ne pas en ajouter un 2e,
 # deux crons concurrents ecriraient les memes offres en parallele.
+#
+# FILET DE SECURITE cote serveur (`apps/api/app/modules/scraper/rattrapage.py`) :
+# GitHub est fiable sur l'execution mais pas sur l'heure (mesures : 06:00 UTC
+# parti a 11:12 ; passage de 06:17 toujours pas lance a 08:33 le 28/10). Si la
+# derniere collecte depasse 15 h, l'API relance elle-meme collecte + matching.
+# Ce cron reste utile : il est le chemin NOMINAL, le rattrapage ne doit servir
+# qu'en secours (il ne tourne qu'apres un vrai trou).
 #
 # Necessite le secret GitHub SCRAPER_TOKEN (= ADMIN_PASSWORD_HASH).
 # L'echec du job envoie un e-mail GitHub (Settings > Notifications > Actions).

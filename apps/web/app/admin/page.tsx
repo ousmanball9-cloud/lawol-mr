@@ -40,6 +40,15 @@ type SanteCollecte = {
   offres_traitees: number;
   offres_actives: number;
   prochaine_collecte: string;
+  rattrapage: {
+    actif: boolean;
+    en_cours: boolean;
+    seuil_heures: number;
+    intervalle_minutes: number;
+    executions: number;
+    derniere_execution: string | null;
+    derniere_raison: string | null;
+  };
 };
 
 // Cartes de statistiques — widgets du template Flowbite Admin
@@ -170,6 +179,16 @@ export default function AdminDashboardPage() {
                     {sante.offres_traitees} offre{sante.offres_traitees > 1 ? "s" : ""} traitée
                     {sante.offres_traitees > 1 ? "s" : ""} (upserts, mises à jour comprises) ·
                     prochaine à {heure(sante.prochaine_collecte)} UTC
+                  </p>
+                  <p className="mt-1 text-xs opacity-70">
+                    Filet interne :{" "}
+                    {sante.rattrapage?.actif
+                      ? `armé (seuil ${sante.rattrapage.seuil_heures} h, vérifié toutes les ${sante.rattrapage.intervalle_minutes} min)`
+                      : "désactivé"}{" "}
+                    ·{" "}
+                    {sante.rattrapage?.executions
+                      ? `${sante.rattrapage.executions} rattrapage(s), dernier à ${heure(sante.rattrapage.derniere_execution)} UTC`
+                      : "aucun rattrapage déclenché"}
                   </p>
                 </div>
               </div>

@@ -24,6 +24,7 @@ from apps.api.app.modules.scraper.engine import (
     CATEGORIES_BOURSE,
     CategorieBourse,
 )
+from apps.api.app.modules.scraper.rattrapage import demarrer_boucle, resume_etat
 from apps.api.app.modules.scraper.sante import sante_collecte
 from apps.api.app.modules.scraper.sources.catalogue import get_scrapers
 from apps.api.app.modules.shared.models import (
@@ -54,7 +55,12 @@ async def lifespan(app: FastAPI):
         except Exception:
             pass
     print(f"🚀 {settings.APP_NAME} démarré ({settings.APP_ENV})")
+    # Filet de sécurité : si le cron externe (GitHub) est en retard ou mort, la
+    # collecte repart d'ici (seuil large, une seule exécution à la fois).
+    tache_rattrapage = demarrer_boucle()
     yield
+    if tache_rattrapage is not None:
+        tache_rattrapage.cancel()
     print("🛑 API arrêtée")
 
 
@@ -786,6 +792,11 @@ async def get_sante_collecte(request: Request):
     """
     _admin_autorise(request)
     try:
-        return sante_collecte()
+        resume = sante_collecte()
     except Exception as exc:  # noqa: BLE001 — un diagnostic KO ne doit pas 500
         raise HTTPException(503, f"Diagnostic de collecte indisponible : {exc}")
+    # Le filet interne est exposé avec la fraîcheur : l'admin voit à la fois le
+    # retard ET le fait qu'un rattrapage est armé (sinon « en retard » laisse
+    # croire qu'il faut intervenir à la main).
+    resume["rattrapage"] = resume_etat()
+    return resume
