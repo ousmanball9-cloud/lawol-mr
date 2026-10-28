@@ -198,6 +198,13 @@ try {
   // API). On exige donc 6 VALEURS NUMÉRIQUES, pas 6 balises.
   cas("6 cartes de statistiques avec une VALEUR chiffrée", rendu?.cartes === 6, rendu?.cartes);
   cas("taux de notification affiché", rendu?.taux === true, "");
+  // Le filet interne (modules/scraper/rattrapage.py) : sans cette ligne,
+  // « collecte en retard » laisse croire qu'il faut intervenir à la main.
+  cas(
+    "filet interne annoncé (armé ou désactivé, jamais muet)",
+    /Filet interne\s*:\s*(armé|désactivé)/i.test(texte),
+    (texte.match(/Filet interne[^\n]*/) || [])[0] ?? ""
+  );
 
   const erreurs = messages.filter((m) => !/favicon|facebook|DevTools|401/i.test(m));
   cas("aucune erreur console", erreurs.length === 0, erreurs[0] ?? "");

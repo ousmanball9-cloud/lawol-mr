@@ -34,8 +34,19 @@ from datetime import datetime, timezone
 
 from apps.api.app.core.config import settings
 
-logging.getLogger("uvicorn.error").setLevel(logging.INFO)
+# Journalisation : les loggers applicatifs ne sont PAS configurés en production
+# (mesure du 28/10 : `LOG.info("rattrapage: arme …")` n'apparaissait NULLE PART
+# dans les logs Railway — le logger racine n'a pas de handler sous uvicorn, et
+# `logging.lastResort` ne sort que les WARNING+). Un dispositif de secours dont
+# on ne voit pas le démarrage n'est pas vérifiable : on pose donc un handler
+# explicite sur ce seul logger, sans toucher à la configuration globale.
 LOG = logging.getLogger("lawol.rattrapage")
+LOG.setLevel(logging.INFO)
+if not LOG.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(levelname)s:     %(message)s"))
+    LOG.addHandler(_handler)
+    LOG.propagate = False
 
 # Cadence attendue = 2 passages/jour (12 h). Seuil 15 h = 12 h + 3 h de marge :
 # un passage en retard de 5 h (mesuré) ne déclenche donc RIEN, un passage
