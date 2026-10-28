@@ -98,12 +98,18 @@ def _message(statut: str, age_heures: float, sources: int, erreurs: int) -> str:
         )
     if statut == "degrade":
         return (
-            f"Collecte dégradée : {erreurs} source(s) en erreur sur {sources} au "
-            "dernier passage — le catalogue ne se renouvelle que partiellement."
+            f"Collecte dégradée : {erreurs} source{'s' if erreurs > 1 else ''} en "
+            f"erreur sur {sources} au dernier passage — le catalogue ne se renouvelle "
+            "que partiellement."
         )
+    # « il y a 0 h » n'informe personne : sous l'heure, on parle en minutes.
+    if age_heures < 1:
+        temps = f"{max(1, round(age_heures * 60))} min"
+    else:
+        temps = f"{age_heures:.0f} h"
     return (
-        f"Dernière collecte il y a {age_heures:.0f} h : {sources} source(s), "
-        f"{erreurs} en erreur."
+        f"Dernière collecte il y a {temps} : {sources} source"
+        f"{'s' if sources > 1 else ''}, {erreurs} en erreur."
     )
 
 

@@ -14,13 +14,18 @@ import {
   XCircle,
 } from "lucide-react";
 
+// Contrat RÉEL de `GET /api/v1/admin/stats` (`StatsResponse`). Les clés
+// `offres_total` / `profils_actifs` / `profils_total` utilisées avant le
+// 27/10/2026 n'ont JAMAIS existé côté API : trois cartes sur six affichaient
+// donc un vide silencieux (constaté sur capture, pas en lisant le code).
 type Stats = {
   offres_actives: number;
-  offres_total: number;
-  profils_actifs: number;
-  profils_total: number;
+  offres_en_attente: number;
+  etudiants_actifs: number;
   matches_total: number;
   matches_notifies: number;
+  matches_postules: number;
+  taux_notification: number;
 };
 
 // Réponse de `GET /api/v1/admin/sante-collecte` (modules/scraper/sante.py).
@@ -41,11 +46,11 @@ type SanteCollecte = {
 // (carte blanche bordée + icône en pastille de couleur + grand chiffre).
 const CARDS = [
   { label: "Offres actives", key: "offres_actives", icon: Briefcase, iconBg: "bg-blue-100", iconColor: "text-blue-600" },
-  { label: "Offres totales", key: "offres_total", icon: FileText, iconBg: "bg-indigo-100", iconColor: "text-indigo-600" },
-  { label: "Profils actifs", key: "profils_actifs", icon: Users, iconBg: "bg-green-100", iconColor: "text-green-600" },
-  { label: "Profils totaux", key: "profils_total", icon: UserCheck, iconBg: "bg-teal-100", iconColor: "text-teal-600" },
+  { label: "Offres en attente", key: "offres_en_attente", icon: FileText, iconBg: "bg-indigo-100", iconColor: "text-indigo-600" },
+  { label: "Étudiants actifs", key: "etudiants_actifs", icon: Users, iconBg: "bg-green-100", iconColor: "text-green-600" },
   { label: "Matches totaux", key: "matches_total", icon: Star, iconBg: "bg-purple-100", iconColor: "text-purple-600" },
   { label: "Matches notifiés", key: "matches_notifies", icon: Bell, iconBg: "bg-amber-100", iconColor: "text-amber-600" },
+  { label: "Matches postulés", key: "matches_postules", icon: UserCheck, iconBg: "bg-teal-100", iconColor: "text-teal-600" },
 ] as const;
 
 // Apparence par statut : vert = collecte fraîche, ambre = partielle,
@@ -76,21 +81,6 @@ const SANTE_STYLE = {
     titre: "Aucune collecte enregistrée",
   },
 } as const;
-
-/** « il y a 1 h 20 » — lisible, jamais un horodatage brut (UTC compris). */
-function depuis(ageHeures: number | null): string {
-  if (ageHeures === null) return "jamais";
-  if (ageHeures < 1) {
-    const minutes = Math.max(1, Math.round(ageHeures * 60));
-    return `il y a ${minutes} min`;
-  }
-  if (ageHeures < 48) {
-    const heures = Math.floor(ageHeures);
-    const minutes = Math.round((ageHeures - heures) * 60);
-    return minutes ? `il y a ${heures} h ${minutes}` : `il y a ${heures} h`;
-  }
-  return `il y a ${Math.floor(ageHeures / 24)} jours`;
-}
 
 /** Heure UTC -> « 18:17 » (la Mauritanie est à UTC+0, aucun décalage). */
 function heure(iso: string | null): string {
@@ -176,12 +166,9 @@ export default function AdminDashboardPage() {
                   <p className="text-sm font-semibold">{style.titre}</p>
                   <p className="mt-0.5 text-sm">{sante.message}</p>
                   <p className="mt-1 text-xs opacity-80">
-                    Dernière collecte : {depuis(sante.age_heures)} ({heure(sante.derniere_collecte)} UTC)
-                    {" · "}
-                    {sante.sources} source{sante.sources > 1 ? "s" : ""}, {sante.sources_en_erreur} en erreur
-                    {" · "}
-                    +{sante.offres_traitees} offre{sante.offres_traitees > 1 ? "s" : ""} traitée{sante.offres_traitees > 1 ? "s" : ""}
-                    {" · "}
+                    Exécution : {heure(sante.derniere_collecte)} UTC ·{" "}
+                    {sante.offres_traitees} offre{sante.offres_traitees > 1 ? "s" : ""} traitée
+                    {sante.offres_traitees > 1 ? "s" : ""} (upserts, mises à jour comprises) ·
                     prochaine à {heure(sante.prochaine_collecte)} UTC
                   </p>
                 </div>
@@ -219,6 +206,12 @@ export default function AdminDashboardPage() {
               </div>
             ))}
           </div>
+        )}
+
+        {stats && !loading && (
+          <p className="mt-3 text-xs text-gray-500">
+            Taux de notification des matches : {stats.taux_notification} %
+          </p>
         )}
       </div>
     </div>
