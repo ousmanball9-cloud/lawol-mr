@@ -17,7 +17,7 @@ export function BlocDescription({ description }: { description: string }) {
             >
               {bloc.items.map((item) => (
                 <div key={item.cle} className="flex flex-col">
-                  <dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                  <dt className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                     {item.cle}
                   </dt>
                   <dd className="text-sm text-foreground">{item.valeur}</dd>

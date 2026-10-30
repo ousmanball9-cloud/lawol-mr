@@ -4,7 +4,7 @@ import { labelFinancement } from "./types";
 /** Types de financement réellement renseignés côté données (enum TypeFinancement).
  *  Tout le reste — `inconnu` compris — est présenté « non précisé » : on
  *  n'attribue jamais un niveau de financement que la source n'énonce pas. */
-const FINANCEMENTS_CONNUS = new Set(["fully_funded", "partiel", "auto_finance"]);
+export const FINANCEMENTS_CONNUS = new Set(["fully_funded", "partiel", "auto_finance"]);
 
 /**
  * Libellé HONNÊTE du financement : reprend le libellé de l'enum pour les valeurs

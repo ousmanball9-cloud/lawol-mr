@@ -42,7 +42,7 @@ export function CarteProfil({
   const initiales = `${profil.prenom?.charAt(0) ?? ""}${profil.nom?.charAt(0) ?? ""}`.toUpperCase();
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+    <div className="overflow-hidden rounded-lg border border-border bg-card shadow-card">
       <div aria-hidden="true" className="h-1 w-full bg-signature" />
       <div className="px-6 pb-6 pt-6">
         <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">

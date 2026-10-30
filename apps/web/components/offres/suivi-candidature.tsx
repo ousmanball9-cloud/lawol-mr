@@ -161,7 +161,7 @@ export function SuiviCandidature({ offreId }: { offreId: string }) {
   return (
     <section
       data-probe="detail-suivi"
-      className="mt-4 rounded-lg border border-border bg-card px-4 py-4 shadow-[0_1px_3px_rgba(10,10,10,0.04)]"
+      className="mt-4 rounded-lg border border-border bg-card px-4 py-4 shadow-card"
     >
       <h2 className="eyebrow mb-3 text-muted-foreground">Ma candidature</h2>
 

@@ -175,7 +175,7 @@ export default function ParametresPage() {
   if (erreur || !profil) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-card">
           <p className="mb-4 font-medium text-destructive">{erreur || "Profil non trouvé"}</p>
           <Link href="/">
             <Button className="h-11 rounded-lg bg-signature px-6 text-white hover:bg-signature-deep">
@@ -212,7 +212,7 @@ export default function ParametresPage() {
         <div data-probe="params-sections" className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-4">
         <div className="min-w-0">
         {/* 1. Profil */}
-        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-card">
           <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
             Profil
           </h2>
@@ -227,7 +227,7 @@ export default function ParametresPage() {
         </section>
 
         {/* 2. Mes données (export RGPD) */}
-        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-card">
           <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
             Mes données
           </h2>
@@ -261,7 +261,7 @@ export default function ParametresPage() {
         </section>
 
         {/* 3. Préférences avancées */}
-        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-card">
           <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
             Préférences avancées
           </h2>
@@ -370,7 +370,7 @@ export default function ParametresPage() {
 
         <div className="min-w-0">
         {/* 4. Parrainage */}
-        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-card">
           <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
             Parrainage
           </h2>
@@ -409,7 +409,7 @@ export default function ParametresPage() {
         </section>
 
         {/* 5. Liens utiles */}
-        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-card">
           <h2 className="mb-3 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
             À propos
           </h2>
@@ -438,7 +438,7 @@ export default function ParametresPage() {
         </section>
 
         {/* 6. Désinscription (discrète, bouton rouge) */}
-        <section className="rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <section className="rounded-lg border border-border bg-card p-6 shadow-card">
           <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
             Désinscription
           </h2>

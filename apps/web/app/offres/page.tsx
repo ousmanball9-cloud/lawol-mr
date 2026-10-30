@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Briefcase, RefreshCw } from "lucide-react";
 import { BarreFiltres } from "@/components/offres/barre-filtres";
 import { Chrome } from "@/components/chrome/chrome";
@@ -72,10 +73,7 @@ async function chargerBassin(tri: TriOffres, q: string, categorie: string): Prom
 function IndicateurChargement() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4">
-      <div
-        aria-hidden="true"
-        className="h-10 w-10 animate-spin rounded-full border-2 border-signature border-t-transparent"
-      />
+      <Spinner className="h-10 w-10" />
       <p className="text-sm text-muted-foreground">Chargement des offres...</p>
     </div>
   );
@@ -277,7 +275,7 @@ function OffresContenu() {
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-card">
           <p className="mb-4 font-medium text-destructive">{error}</p>
           <Button
             onClick={() => charger(tri, rechercheApi, categorieFiltre)}

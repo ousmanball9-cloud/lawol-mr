@@ -107,7 +107,7 @@ export function FormPrefs({ telephone }: { telephone: string }) {
   return (
     <div className="space-y-4">
       {/* Préférences avancées */}
-      <section className="rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+      <section className="rounded-lg border border-border bg-card p-6 shadow-card">
         <h1 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
           Préférences avancées
         </h1>
@@ -229,7 +229,7 @@ export function FormPrefs({ telephone }: { telephone: string }) {
       </section>
 
       {/* Parrainage */}
-      <section className="rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+      <section className="rounded-lg border border-border bg-card p-6 shadow-card">
         <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
           Parrainage
         </h2>
@@ -268,7 +268,7 @@ export function FormPrefs({ telephone }: { telephone: string }) {
       </section>
 
       {/* Liens utiles */}
-      <section className="rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+      <section className="rounded-lg border border-border bg-card p-6 shadow-card">
         <h2 className="mb-3 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
           À propos
         </h2>
@@ -297,7 +297,7 @@ export function FormPrefs({ telephone }: { telephone: string }) {
       </section>
 
       {/* Désinscription */}
-      <section className="rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+      <section className="rounded-lg border border-border bg-card p-6 shadow-card">
         <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
           Désinscription
         </h2>

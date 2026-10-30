@@ -84,7 +84,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       {/* Fond du drawer mobile */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-10 bg-gray-900/50 lg:hidden"
+          className="fixed inset-0 z-10 bg-nuit-deep/60 lg:hidden"
           onClick={() => setMobileOpen(false)}
           aria-hidden="true"
         />

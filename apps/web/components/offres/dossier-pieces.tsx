@@ -218,7 +218,7 @@ export function DossierPieces({ offreId }: { offreId: string }) {
           </p>
 
           <fieldset className="mt-4">
-            <legend className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            <legend className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
               Pièces de mon coffre-fort
             </legend>
             {chargementPieces ? (
@@ -259,7 +259,7 @@ export function DossierPieces({ offreId }: { offreId: string }) {
           <div className="mt-4">
             <label
               htmlFor={`lettre-${offreId}`}
-              className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground"
+              className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground"
             >
               Lettre de motivation (facultative)
             </label>

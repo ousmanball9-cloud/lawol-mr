@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Calendar, Clock, MapPin } from "lucide-react";
+import { Award, Calendar, Clock, MapPin } from "lucide-react";
 import { BADGES_TYPE, TYPES_OFFRES } from "@/components/offre-detail-modal";
+import { FINANCEMENTS_CONNUS, labelFinancementHonteux } from "./financement";
 import { labelCategorieBourse, labelPays } from "./types";
 import { joursRestants, parserDateLimite } from "./date-limite";
 import type { Offre } from "./types";
@@ -30,12 +31,15 @@ export function CarteOffre({ offre }: { offre: Offre }) {
   // similaires) porte `description`. Les deux cas affichent la même 2-lignes.
   const apercu = offre.description_apercu || offre.description;
   const categorie = labelCategorieBourse(offre.categorie_bourse);
+  // Financement : affiché SEULEMENT s'il est réellement renseigné. Sur la carte on
+  // n'annonce pas une absence (12 × « non précisé » = bruit) — la fiche, elle, la dit.
+  const financementConnu = FINANCEMENTS_CONNUS.has((offre.type_financement ?? "").trim());
 
   return (
     <Link
       href={`/offres/${offre.id}`}
       data-probe="offre-carte"
-      className={`group flex flex-col rounded-lg border border-border bg-card p-4 shadow-[0_1px_3px_rgba(10,10,10,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-signature hover:shadow-[0_1px_3px_rgba(10,10,10,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature/60${
+      className={`group flex flex-col rounded-lg border border-border bg-card p-4 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-signature hover:shadow-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature/60${
         expiree ? " opacity-70" : ""
       }`}
     >
@@ -53,6 +57,15 @@ export function CarteOffre({ offre }: { offre: Offre }) {
           <Calendar className="h-4 w-4" />
           {offre.date_limite}
         </span>
+        {financementConnu && (
+          <>
+            <span aria-hidden="true">·</span>
+            <span data-probe="offre-financement" className="flex items-center gap-1.5">
+              <Award className="h-4 w-4 text-signature" aria-hidden="true" />
+              {labelFinancementHonteux(offre.type_financement)}
+            </span>
+          </>
+        )}
       </p>
       {apercu && (
         <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{apercu}</p>
@@ -82,7 +95,7 @@ export function CarteOffre({ offre }: { offre: Offre }) {
           </span>
         )}
         <span
-          className={`badge-offre inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${
+          className={`badge-offre inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] ${
             BADGES_TYPE[offre.type_offre] ?? "border border-border bg-muted text-muted-foreground"
           }`}
         >
@@ -91,7 +104,7 @@ export function CarteOffre({ offre }: { offre: Offre }) {
         {categorie && (
           <span
             data-probe="offre-categorie"
-            className="inline-flex items-center rounded-full border border-signature/25 bg-signature/5 px-2.5 py-1 text-[11px] font-semibold text-signature-deep"
+            className="inline-flex items-center rounded-full border border-signature/25 bg-signature/5 px-2.5 py-1 text-xs font-semibold text-signature-deep"
           >
             {categorie}
           </span>

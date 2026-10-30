@@ -29,13 +29,32 @@ function initiales(prenom: string, nom: string) {
 export default function AdminProfilsPage() {
   const [profils, setProfils] = useState<Profil[]>([]);
   const [loading, setLoading] = useState(true);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [relance, setRelance] = useState(0);
 
   useEffect(() => {
+    let annule = false;
+    setLoading(true);
+    setErreur(null);
     fetch("/api/admin/profils")
-      .then((r) => r.json())
-      .then(setProfils)
-      .finally(() => setLoading(false));
-  }, []);
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((liste) => {
+        if (!annule) setProfils(Array.isArray(liste) ? liste : []);
+      })
+      .catch(() => {
+        // Sans ce catch, un échec réseau laissait le spinner permanent (constat chasse 0 · B3).
+        if (!annule) setErreur("Impossible de charger les profils. Vérifie la connexion puis réessaie.");
+      })
+      .finally(() => {
+        if (!annule) setLoading(false);
+      });
+    return () => {
+      annule = true;
+    };
+  }, [relance]);
 
   return (
     <div>
@@ -63,7 +82,20 @@ export default function AdminProfilsPage() {
           </div>
         )}
 
-        {!loading && (
+        {!loading && erreur && (
+          <div role="alert" className="p-4 bg-white border border-destructive/40 rounded-lg shadow-sm sm:p-6">
+            <p className="text-sm font-medium text-destructive">{erreur}</p>
+            <button
+              type="button"
+              onClick={() => setRelance((n) => n + 1)}
+              className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Réessayer
+            </button>
+          </div>
+        )}
+
+        {!loading && !erreur && (
           <div className="overflow-x-auto bg-white border border-gray-200 rounded-lg shadow-md">
             <table className="w-full text-sm text-left text-gray-500">
               <thead className="text-xs text-gray-700 uppercase bg-gray-100">

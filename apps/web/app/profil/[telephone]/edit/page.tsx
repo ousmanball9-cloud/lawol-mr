@@ -31,13 +31,12 @@ const VILLES = [
   { value: "autre", label: "Autre" },
 ];
 
-const TYPES_OFFRES = [
-  { value: "stage_pfe", label: "Stage PFE" },
-  { value: "stage_ete", label: "Stage été" },
-  { value: "emploi_junior", label: "Emploi junior" },
-  { value: "alternance", label: "Alternance" },
-  { value: "bourse", label: "Bourse d'études" },
-];
+import { TYPES_OFFRES as TYPES_OFFRES_CHARTE } from "@/components/offre-detail-modal";
+
+/** Un seul référentiel de types d'offres (constat chasse 0 · A4) : la carte, la fiche,
+ *  la modale et ce formulaire lisent le même `Record`. L'ordre d'affichage est celui
+ *  du Record de la charte — plus de seconde liste à maintenir. */
+const TYPES_OFFRES = Object.entries(TYPES_OFFRES_CHARTE).map(([value, label]) => ({ value, label }));
 
 const inputClass =
   "w-full rounded-lg border border-input bg-white px-4 py-2.5 text-sm text-foreground transition-colors duration-150 placeholder:text-muted-foreground focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30";
@@ -176,7 +175,7 @@ export default function EditProfilPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
       <div className="w-full max-w-lg">
-        <div className="rounded-lg border border-border bg-card p-8 shadow-[0_1px_3px_rgba(10,10,10,0.04)] sm:p-10">
+        <div className="rounded-lg border border-border bg-card p-8 shadow-card sm:p-10">
           <div className="mb-8 text-center">
             <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-lg bg-nuit text-white">
               <GraduationCap className="h-7 w-7" />

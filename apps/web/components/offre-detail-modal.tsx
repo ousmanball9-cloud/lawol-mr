@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { labelAvantLe, joursRestants, parserDateLimite } from "@/components/offres/date-limite";
 import {
   Building2,
   Calendar,
@@ -55,31 +56,6 @@ export const BADGES_TYPE: Record<string, string> = {
   stage_ete: BADGE_OFFRE_NEUTRE,
   alternance: BADGE_OFFRE_NEUTRE,
 };
-
-const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
-
-/** Parse une date_limite backend : ISO « 2026-11-30 » ou française « 30/11/2026 ». */
-function parserDateLimite(valeur: string): Date | null {
-  const brut = valeur?.trim() ?? "";
-  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(brut);
-  if (iso) return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
-  const fr = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/.exec(brut);
-  if (fr) return new Date(Number(fr[3]), Number(fr[2]) - 1, Number(fr[1]));
-  return null;
-}
-
-/** Jours restants en jours calendaires (0 = jour même de date_limite, négatif = dépassé). */
-function joursRestants(date: Date | null): number | null {
-  if (!date) return null;
-  const maintenant = new Date();
-  const debutAujourdhui = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate());
-  const jourLimite = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  return Math.round((jourLimite.getTime() - debutAujourdhui.getTime()) / 86_400_000);
-}
 
 /** Nettoie un numéro mauritanien pour wa.me : chiffres seulement, préfixe 222 si besoin. */
 function lienWhatsApp(brut: string): string {
@@ -360,7 +336,7 @@ export function OffreDetailModal({ offre, postule, statut, enCours, onPostuler, 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-nuit-deep/60 p-4 sm:items-center"
       onClick={onFermer}
       aria-hidden="true"
     >
@@ -369,7 +345,7 @@ export function OffreDetailModal({ offre, postule, statut, enCours, onPostuler, 
         aria-modal="true"
         aria-label={`Détail de l'offre ${offre.titre}`}
         onClick={(e) => e.stopPropagation()}
-        className="relative max-h-[85vh] w-full max-w-lg sm:max-w-xl overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-[0_24px_48px_-12px_rgba(10,10,10,0.28)]"
+        className="relative max-h-[85vh] w-full max-w-lg sm:max-w-xl overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-panel"
       >
         <button
           type="button"
@@ -383,7 +359,7 @@ export function OffreDetailModal({ offre, postule, statut, enCours, onPostuler, 
         {/* 1. Badge type + catégorie + titre */}
         <div className="flex flex-wrap items-center gap-2">
           <span
-            className={`badge-offre inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${
+            className={`badge-offre inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] ${
               BADGES_TYPE[offre.type_offre] ?? BADGE_OFFRE_NEUTRE
             }`}
           >
@@ -392,7 +368,7 @@ export function OffreDetailModal({ offre, postule, statut, enCours, onPostuler, 
           {categorie && (
             <span
               data-probe="fiche-categorie"
-              className="inline-flex items-center rounded-full border border-signature/25 bg-signature/5 px-2.5 py-1 text-[11px] font-semibold text-signature-deep"
+              className="inline-flex items-center rounded-full border border-signature/25 bg-signature/5 px-2.5 py-1 text-xs font-semibold text-signature-deep"
             >
               {categorie}
             </span>
@@ -417,7 +393,7 @@ export function OffreDetailModal({ offre, postule, statut, enCours, onPostuler, 
         <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <Calendar className="h-4 w-4" />
-            {date ? `Avant le ${DATE_FORMAT.format(date)}` : `Date limite : ${offre.date_limite}`}
+            {labelAvantLe(date, offre.date_limite)}
           </span>
           {jours !== null &&
             (jours < 0 ? (
@@ -451,7 +427,7 @@ export function OffreDetailModal({ offre, postule, statut, enCours, onPostuler, 
                     >
                       {bloc.items.map((item) => (
                         <div key={item.cle} className="flex flex-col">
-                          <dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                          <dt className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                             {item.cle}
                           </dt>
                           <dd className="text-sm text-foreground">{item.valeur}</dd>

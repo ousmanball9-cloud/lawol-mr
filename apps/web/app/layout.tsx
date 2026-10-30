@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   openGraph: { type: "website", locale: "fr_MR", url: "https://lawol-mr.vercel.app", siteName: "LAWOL.mr", title: "LAWOL.mr — Ta bourse, sans le stress", description: "Reçois uniquement les bourses qui matchent ton profil, directement sur WhatsApp." },
   twitter: { card: "summary_large_image", title: "LAWOL.mr — Ta bourse, sans le stress", description: "Reçois uniquement les bourses qui matchent ton profil, directement sur WhatsApp." },
 }
-export const viewport: Viewport = { themeColor: [{ media: "(prefers-color-scheme: light)", color: "#FAFAFA" }, { media: "(prefers-color-scheme: dark)", color: "#0A0A0A" }], width: "device-width", initialScale: 1, maximumScale: 5 }
+export const viewport: Viewport = { themeColor: [{ media: "(prefers-color-scheme: light)", color: "#FAFAFA" }, { media: "(prefers-color-scheme: dark)", color: "#1E1B4B" }], width: "device-width", initialScale: 1, maximumScale: 5 }
 
 // Facebook SDK — App ID à remplacer par celui de ton app Meta.
 // Chargé APRÈS hydratation (components/facebook-sdk.tsx) : une balise dans le

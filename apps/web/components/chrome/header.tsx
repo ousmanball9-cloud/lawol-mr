@@ -18,7 +18,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
       <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-4">
-        <Link href="/" className="shrink-0 text-lg font-bold tracking-[-0.02em] text-foreground">
+        <Link href="/" className="inline-flex min-h-11 shrink-0 items-center text-lg font-bold tracking-[-0.02em] text-foreground">
           LAWOL<span className="text-signature">.mr</span>
         </Link>
         <nav className="hidden items-center gap-1 md:flex" aria-label="Navigation principale">
@@ -43,12 +43,12 @@ export function Header() {
         <div className="flex items-center gap-2">
           <Link
             href="/connexion"
-            className="hidden rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground sm:block"
+            className="hidden min-h-11 items-center rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground sm:inline-flex"
           >
             Se connecter
           </Link>
           <Link href="/inscription">
-            <Button className="h-10 rounded-lg bg-signature px-4 text-white hover:bg-signature-deep">
+            <Button className="h-11 rounded-lg bg-signature px-4 text-white hover:bg-signature-deep">
               S&apos;inscrire
             </Button>
           </Link>

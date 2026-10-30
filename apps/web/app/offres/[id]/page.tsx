@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
   ArrowLeft,
   Building2,
@@ -77,10 +78,7 @@ export default function OffreDetailPage() {
   if (etat === "chargement") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4">
-        <div
-          aria-hidden="true"
-          className="h-10 w-10 animate-spin rounded-full border-2 border-signature border-t-transparent"
-        />
+        <Spinner className="h-10 w-10" />
         <p className="text-sm text-muted-foreground">Chargement de l&apos;offre...</p>
       </div>
     );
@@ -89,7 +87,7 @@ export default function OffreDetailPage() {
   if (etat === "introuvable") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-card">
           <SearchX className="mx-auto mb-4 h-8 w-8 text-muted-foreground" />
           <h1 className="font-display text-xl font-bold text-foreground">Offre introuvable</h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -109,7 +107,7 @@ export default function OffreDetailPage() {
   if (etat === "erreur" || !offre) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-card">
           <p className="mb-4 font-medium text-destructive">
             Impossible de charger cette offre. Réessaie dans un instant.
           </p>
@@ -133,25 +131,28 @@ export default function OffreDetailPage() {
     BADGES_TYPE[offre.type_offre] ?? "border border-border bg-muted text-muted-foreground";
   const categorie = labelCategorieBourse(offre.categorie_bourse);
   const resumeJours = texteJoursRestants(jours);
+  // Barre d'action collante (mobile) : les deux références du marché n'en ont pas,
+  // et sur une fiche de 3 000 px « Postuler » restait inatteignable sans remonter.
+  const lienSource = offre.source_url?.trim() ? offre.source_url.trim() : null;
 
   return (
     <Chrome>
-    <main className="bg-background px-4 py-10">
+    <main className="bg-background px-4 py-10 pb-28 sm:pb-10">
       <div className="mx-auto max-w-3xl">
         <Link
           href="/offres"
-          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:text-signature"
+          className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:text-signature"
         >
           <ArrowLeft className="h-4 w-4" />
           Toutes les offres
         </Link>
 
-        <article className="rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <article className="rounded-lg border border-border bg-card p-6 shadow-card">
           {/* 1 · EN-TÊTE — titre, entreprise, ville, badges type + échéance */}
           <header data-probe="detail-en-tete">
             <div className="flex flex-wrap items-center gap-2">
               <span
-                className={`badge-offre inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${typeBadge}`}
+                className={`badge-offre inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] ${typeBadge}`}
               >
                 {typeLabel}
               </span>
@@ -159,7 +160,7 @@ export default function OffreDetailPage() {
               {categorie && (
                 <span
                   data-probe="detail-categorie"
-                  className="inline-flex items-center rounded-full border border-signature/25 bg-signature/5 px-2.5 py-1 text-[11px] font-semibold text-signature-deep"
+                  className="inline-flex items-center rounded-full border border-signature/25 bg-signature/5 px-2.5 py-1 text-xs font-semibold text-signature-deep"
                 >
                   {categorie}
                 </span>
@@ -196,7 +197,7 @@ export default function OffreDetailPage() {
             <h2 className="eyebrow mb-3 text-muted-foreground">Éligibilité</h2>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-8">
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                <p className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                   Filières cibles
                 </p>
                 <div className="mt-1.5 flex flex-wrap gap-2">
@@ -221,12 +222,12 @@ export default function OffreDetailPage() {
                 </div>
               </div>
               <div className="shrink-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                <p className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                   Type d&apos;offre
                 </p>
                 <div className="mt-1.5">
                   <span
-                    className={`badge-offre inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${typeBadge}`}
+                    className={`badge-offre inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] ${typeBadge}`}
                   >
                     {typeLabel}
                   </span>
@@ -301,6 +302,41 @@ export default function OffreDetailPage() {
         )}
       </div>
     </main>
+
+    {/* Barre d'action collante — mobile uniquement (< 640 px), au-dessus de la zone
+        de geste iOS (env(safe-area-inset-bottom)). N'affecte ni la hauteur de page
+        ni les probes : c'est un `fixed` hors du flux. */}
+    <div
+      data-probe="detail-cta-collant"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 px-4 pt-3 backdrop-blur sm:hidden"
+      style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}
+    >
+      <div className="mx-auto flex max-w-3xl items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-foreground">{offre.titre}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {resumeJours ?? `Date limite : ${offre.date_limite}`}
+          </p>
+        </div>
+        {lienSource ? (
+          <a
+            href={lienSource}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-12 shrink-0 items-center rounded-lg bg-signature px-5 text-sm font-semibold text-white hover:bg-signature-deep"
+          >
+            Voir l&apos;offre
+          </a>
+        ) : (
+          <a
+            href="#detail-cta"
+            className="inline-flex h-12 shrink-0 items-center rounded-lg bg-signature px-5 text-sm font-semibold text-white hover:bg-signature-deep"
+          >
+            Postuler
+          </a>
+        )}
+      </div>
+    </div>
     </Chrome>
   );
 }

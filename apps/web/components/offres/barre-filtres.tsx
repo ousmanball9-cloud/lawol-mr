@@ -35,12 +35,13 @@ type Props = {
   nbTotal: number;
 };
 
+/* Cibles tactiles ≥ 44 px (constat chasse 5 : 33 éléments sous 44 px sur /offres). */
 const SELECT =
-  "rounded-lg border border-input bg-white px-3 py-2 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30";
+  "min-h-11 rounded-lg border border-input bg-white px-3 py-2 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30";
 
 /** Basculante (filtre/état) : repos bordure fine, active en signature. */
 const bascule = (actif: boolean) =>
-  `rounded-lg border px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature/60 ${
+  `inline-flex min-h-11 items-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature/60 ${
     actif
       ? "border-signature bg-signature text-white"
       : "border-input bg-white text-foreground hover:border-signature hover:text-signature"
@@ -69,7 +70,7 @@ export function BarreFiltres({
   nbTotal,
 }: Props) {
   return (
-    <div className="mb-6 rounded-lg border border-border bg-card p-4 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+    <div className="mb-6 rounded-lg border border-border bg-card p-4 shadow-card">
       <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap">
         <div className="relative min-w-[200px] flex-1" data-probe="offres-recherche">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -79,7 +80,7 @@ export function BarreFiltres({
             onChange={(e) => setMotsCles(e.target.value)}
             placeholder="Rechercher une bourse, un titre, un pays, un mot-clé…"
             aria-label="Rechercher dans les offres"
-            className="w-full rounded-lg border border-input bg-white py-2 pl-9 pr-3 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30"
+            className="min-h-11 w-full rounded-lg border border-input bg-white py-2 pl-9 pr-3 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30"
           />
         </div>
         <div data-probe="offres-filtres" className="flex flex-wrap gap-3">

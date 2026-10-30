@@ -19,6 +19,9 @@
     --background: 0 0% 98%; --foreground: 217.2 32.6% 17.5%;
     --card: 0 0% 100%; --card-foreground: 217.2 32.6% 17.5%;
     --popover: 0 0% 100%; --popover-foreground: 217.2 32.6% 17.5%;
+    /* --primary est un ALIAS de --signature (même #2563EB), conservé uniquement pour les
+       primitives shadcn/Flowbite. Ce n'est PAS une seconde couleur : les écrans LAWOL
+       utilisent `signature`. Constat chasse 0 · C7. */
     --primary: 221.2 83.2% 53.3%; --primary-foreground: 0 0% 100%;
     --secondary: 240 4.8% 95.9%; --secondary-foreground: 217.2 32.6% 17.5%;
     --muted: 240 4.8% 95.9%; --muted-foreground: 240 5.2% 33.9%;
@@ -116,7 +119,7 @@
   }
 }
 
-/* Respect prefers-reduced-motion pour toutes les animations discrètes */
+/* Respect prefers-reduced-motion : TOUTES les animations de la charte, pas seulement deux. */
 @media (prefers-reduced-motion: reduce) {
   .animate-kpi-enter,
   [style*="animation-name: kpi-enter"] {
@@ -126,6 +129,16 @@
   }
   [style*="animation-name: circular-progress"] {
     animation: none !important;
+  }
+  /* Charte Nuit d'Indigo : dégradé, lueur et entrée — figés, rendu statique conservé. */
+  .fond-nuit-anime,
+  .lueur-nuit,
+  .entree-douce {
+    animation: none !important;
+  }
+  .entree-douce {
+    opacity: 1;
+    transform: none;
   }
 }
 

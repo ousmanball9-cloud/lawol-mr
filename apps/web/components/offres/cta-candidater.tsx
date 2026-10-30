@@ -19,7 +19,7 @@ export function CtaCandidater({ offre }: { offre: Offre }) {
   const aUnCanal = Boolean(email || whatsapp || source);
 
   return (
-    <div data-probe="detail-cta" className="rounded-lg border border-border bg-muted/50 p-4">
+    <div data-probe="detail-cta" id="detail-cta" className="rounded-lg border border-border bg-muted/50 p-4">
       <h3 className="mb-3 text-sm font-semibold text-foreground">Comment postuler</h3>
       {aUnCanal ? (
         <div className="flex flex-col gap-2">

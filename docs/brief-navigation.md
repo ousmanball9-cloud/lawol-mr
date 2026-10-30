@@ -29,6 +29,10 @@ rounded-lg`, typo actuelle :
 
 ## 2. Landing : bouton « Se connecter »
 
+> ⚠️ PÉRIMÉ (29/10/2026) : ce brief décrit la direction pré-D26. La charte en
+> vigueur est « Nuit d'Indigo » (skill `design-system`) : `ink` = TEXTE slate,
+> jamais une surface, zéro noir. Lire ce document comme historique.
+
 Dans `app/page.tsx` : slim header en haut du hero (hero est `bg-ink` near-black)
 - logo texte « LAWOL.mr » (gauche) + bouton « Se connecter » (droite,
   `variant="outline"` style blanc translucide cohérent avec le hero) → `/connexion`.

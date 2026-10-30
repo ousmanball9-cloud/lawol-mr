@@ -35,7 +35,7 @@ export function PaginationOffres({ page, totalPages, onPage }: Props) {
         onClick={() => onPage(page - 1)}
         disabled={page <= 1}
         aria-label="Page précédente"
-        className="rounded-lg border-border px-3 transition-colors duration-150 hover:border-signature hover:text-signature"
+        className="min-h-11 rounded-lg border-border px-3 transition-colors duration-150 hover:border-signature hover:text-signature"
       >
         <ChevronLeft className="h-4 w-4" />
         Précédent
@@ -51,7 +51,7 @@ export function PaginationOffres({ page, totalPages, onPage }: Props) {
             type="button"
             onClick={() => onPage(n)}
             aria-current={n === page ? "page" : undefined}
-            className={`h-9 min-w-9 rounded-lg border px-3 text-sm font-medium transition-colors duration-150 ${
+            className={`min-h-11 min-w-11 rounded-lg border px-3 text-sm font-medium transition-colors duration-150 ${
               n === page
                 ? "border-signature bg-signature text-white"
                 : "border-border bg-background text-foreground hover:border-signature hover:text-signature"
@@ -67,7 +67,7 @@ export function PaginationOffres({ page, totalPages, onPage }: Props) {
         onClick={() => onPage(page + 1)}
         disabled={page >= totalPages}
         aria-label="Page suivante"
-        className="rounded-lg border-border px-3 transition-colors duration-150 hover:border-signature hover:text-signature"
+        className="min-h-11 rounded-lg border-border px-3 transition-colors duration-150 hover:border-signature hover:text-signature"
       >
         Suivant
         <ChevronRight className="h-4 w-4" />
