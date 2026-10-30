@@ -85,3 +85,30 @@ facette ne compte pas comme faite.
 - **Reste ouvert** : aucune mesure INP/TBT, aucune donnée CrUX, tunnel de candidature
   bout-en-bout non observé. Ce n'est pas un manque de la campagne : c'est hors de portée
   sans compte sur les sites concurrents.
+
+## 6. État d'exécution — vague 1 (30/10/2026)
+
+> Commit `87a4f88` (branche `design/vague1-systeme`). Gates rejouées : `npx tsc --noEmit` = 0,
+> `npx eslint app components` = 0, assertion zéro-noir = **0 occurrence**. Aucune de ces preuves
+> n'est une preuve **live** : la prod ne contient pas encore ces changements.
+
+| ID | État | Preuve dans le code | Reste à prouver |
+|---|---|---|---|
+| V1-01 | fait | `bg-black/50` → `bg-nuit-deep/60` (`offre-detail-modal.tsx`), `bg-gray-900/50` → `bg-nuit-deep/60` (`admin/layout.tsx`), `themeColor` dark `#1E1B4B` (`app/layout.tsx`) | mesure live après déploiement |
+| V1-02 | fait | `data-probe="detail-cta-collant"` + `sm:hidden` + `env(safe-area-inset-bottom)`, page en `pb-28` (`app/offres/[id]/page.tsx`) | capture mobile après déploiement |
+| V1-03 | fait | `.catch` + état `erreur` + bouton « Réessayer » (`app/admin/profils/page.tsx`) | scénario réseau coupé |
+| V1-04 | fait | `data-probe="offre-financement"` (type connu seulement) ; nature du financeur déjà rendue par `data-probe="offre-categorie"` | — |
+| V1-05 | fait | `.fond-nuit-anime` / `.lueur-nuit` / `.entree-douce` + `motion-reduce` sur le spinner (noms réels ≠ noms du backlog, corrigé) | — |
+| V1-06 | **partiel assumé** | la fiche écrit « Financement non précisé » sitôt que la valeur est absente ; la **carte** n'annonce pas une absence (12 × « non précisé » = du bruit) — décision du 29/10 | arbitrage utilisateur si besoin |
+| V1-07 | fait | parseurs dupliqués supprimés de `offre-detail-modal.tsx`, import `components/offres/date-limite.ts` | — |
+| V1-08 | fait | `components/ui/spinner.tsx` + 4 usages (`offres`, `fiche`, `profil`, `coffre`) | — |
+| V1-09 | fait **sauf `fontSize`** | `boxShadow.card/lift/panel` + `spacing.section/gutter` ; **38** ombres `rgba(10,10,10,…)` → 0 (17 fichiers) | `fontSize` volontairement absent : l'échelle Tailwind suffit, le défaut mesuré était le `text-[11px]` ad hoc |
+| V1-10 | fait | `OffreCard`/`OffreAccordion`/`OffreTabs` + dossier `offre/` en corbeille ; `animate-slide-in` et `text-surlignage-deep` supprimées | — |
+| V1-11 | fait | commentaire d'alias `--primary` ≡ `--signature` (`globals.css`) | — |
+| V1-12 | fait | `TYPES_OFFRES` unique via `TYPES_OFFRES_CHARTE` ; libellé de financement unique (`labelFinancement` → `labelFinancementHonteux`) | — |
+| V1-13 | fait **côté code** | `min-h-11` : 11 liens footer, 7 n° + 2 flèches pagination, 5 selects, 2 bascules, champ recherche, logo, « S'inscrire », burger, « Se connecter », lien retour fiche | **33 → ? mesuré à l'écran**, exige le déploiement |
+| V1-14 | fait | `text-[11px]` : **18 → 0** (9 fichiers, remplacés par `text-xs` 12 px) | — |
+
+**Ce qui manque pour clore la vague 1** : (1) déployer puis rejouer `mesure-cibles.mjs` et
+`mesure-perf.mjs` sur `/offres` ; (2) lancer `npm run verify:design` et archiver sa sortie ;
+(3) KPI `-Diff -Label vague1-design`.
