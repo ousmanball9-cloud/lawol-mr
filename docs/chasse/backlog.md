@@ -109,6 +109,31 @@ facette ne compte pas comme faite.
 | V1-13 | fait **côté code** | `min-h-11` : 11 liens footer, 7 n° + 2 flèches pagination, 5 selects, 2 bascules, champ recherche, logo, « S'inscrire », burger, « Se connecter », lien retour fiche | **33 → ? mesuré à l'écran**, exige le déploiement |
 | V1-14 | fait | `text-[11px]` : **18 → 0** (9 fichiers, remplacés par `text-xs` 12 px) | — |
 
-**Ce qui manque pour clore la vague 1** : (1) déployer puis rejouer `mesure-cibles.mjs` et
-`mesure-perf.mjs` sur `/offres` ; (2) lancer `npm run verify:design` et archiver sa sortie ;
-(3) KPI `-Diff -Label vague1-design`.
+**Vague 1 CLOSE le 01/11/2026** (commit `9910b95`, déploiement Vercel `dpl_4PWGm5S8ZzFW9EuVEeBx1pisJA8B` READY).
+
+Preuves live (prod, 390 px) :
+
+| Mesure | Avant (29/10) | Après (01/11) |
+|---|---|---|
+| cibles sous 44 px sur `/offres` | **33 / 45** | **0 / 45** |
+| textes sous 12 px sur `/offres` | **16** | **0** |
+| cibles sous 44 px sur l'accueil | 2 / 23 | **0 / 23** |
+| ombres `rgba(10,10,10,…)` | 38 | **0** |
+| `text-[11px]` | 18 | **0** |
+| LCP `/offres` (3 passages, à chaud) | 3,84 s | 2,9 – 3,6 s |
+| TTFB `/offres` | 0,48 – 1,19 s | 0,52 – 0,65 s |
+| poids transféré `/offres` | 298 Ko (151 Ko JS) | 297 Ko (151 Ko JS) |
+| CLS | 0 | 0 |
+
+Harnais : `node scripts/verify-cibles.mjs https://lawol-mr.vercel.app` (VERT, exit 0).
+`verify:design` : lint 0, build 0, contraste 22/22, matrice **42/45**.
+
+**Ce qui n'est PAS un gain** : la performance. LCP et TTFB sont dans la même
+fourchette qu'avant — l'attente de `/offres` vient des données (fetch client),
+pas du JS. Toute annonce de « site plus rapide » serait fausse.
+
+**Ce qui reste ouvert** : les 3 KO `profil-onglet` de `verify:design` (le harnais
+voit `/connexion`) — famille hors périmètre de la vague, code du profil non
+touché par la refonte, middleware réel prouvé sain en prod (`/profil/{tel}`
+anonyme → 307). À traiter comme un défaut de session factice du harnais.
+
