@@ -368,7 +368,7 @@ function OffresContenu() {
         <div className="mt-10 text-center">
           <Link
             href="/"
-            className="text-sm font-medium text-muted-foreground transition-colors duration-150 hover:text-signature"
+            className="-mx-2 inline-flex min-h-11 items-center px-2 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:text-signature"
           >
             Retour à l&apos;accueil
           </Link>

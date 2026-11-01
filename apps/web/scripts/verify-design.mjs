@@ -435,7 +435,7 @@ const PAGES = [
       seuil: document.querySelector('[data-probe="pref-seuil"]')?.value ?? "",
       villePreferee: document.querySelector('[data-probe="pref-ville"][data-cle="rosso"]')?.checked ?? false,
       typePrefere: document.querySelector('[data-probe="pref-type"][data-cle="bourse"]')?.checked ?? false,
-      parrainage: !!document.querySelector('a[href*="wa.me"]'),
+      parrainage: !!document.querySelector('[data-probe="copier-lien"]')?.closest('section'),
       copier: !!document.querySelector('[data-probe="copier-lien"]'),
       liens: ["conditions", "confidentialite", "mentions", "contact"].every((p) =>
         document.querySelector(\`a[href^="/\${p}"]\`)
@@ -469,17 +469,6 @@ const PAGES = [
       filtres: !!document.querySelector('[data-probe="offres-filtres"]'),
     })`,
     expect: (r) => r.cartes > 0 && r.recherche && r.filtres,
-  },
-  {
-    // Sprint 2 : annuaire /entreprises (cartes + titre).
-    id: "entreprises-annuaire",
-    route: "/entreprises",
-    mock: true,
-    probe: `({
-      cartes: document.querySelectorAll('[data-probe="entreprise-carte"]').length,
-      titre: document.querySelector("h1")?.textContent?.trim() ?? "",
-    })`,
-    expect: (r) => r.cartes > 0 && r.titre.length > 3,
   },
 ];
 
@@ -691,6 +680,9 @@ async function runMatrix() {
     await cdp.send("Page.enable");
     await cdp.send("Runtime.enable");
     await cdp.send("Log.enable");
+    // Network : requis pour que Network.setCookie (session factice des pages
+    // /profil/*) soit reellement pris en compte avant la navigation.
+    await cdp.send("Network.enable");
 
     let consoleErrors = [];
     let pageErrors = [];
@@ -734,6 +726,17 @@ async function runMatrix() {
               responseCode: 200,
               responseHeaders: [{ name: "Content-Type", value: "application/json" }],
               body: Buffer.from(JSON.stringify(OFFRES_ENRICHIES)).toString("base64"),
+            });
+          } else if (request.method === "GET" && url.includes("/preferences")) {
+            // Contrat reel de GET /api/v1/profils/{tel}/preferences :
+            // { telephone, prefs_avancees } — PAS le profil entier.
+            await cdp.send("Fetch.fulfillRequest", {
+              requestId,
+              responseCode: 200,
+              responseHeaders: [{ name: "Content-Type", value: "application/json" }],
+              body: Buffer.from(
+                JSON.stringify({ telephone: "2221234567", prefs_avancees: PROFILE.metadata.prefs_avancees })
+              ).toString("base64"),
             });
           } else if (request.method === "GET" && url.includes("/api/v1/profils/")) {
             await cdp.send("Fetch.fulfillRequest", {

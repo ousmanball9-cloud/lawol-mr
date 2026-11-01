@@ -50,8 +50,11 @@ export default function ParametresPage() {
         const p = await profilRes.json();
         const prefsData: PrefsAvanceesResponse = await prefsRes.json();
         if (!actif) return;
+        // Une reponse partielle ne doit jamais casser l'ecran (ni ecraser les
+        // prefs reelles a la sauvegarde) : on echoue proprement.
+        if (!prefsData || !prefsData.prefs_avancees) throw new Error();
         setProfil(p);
-        setPrefs(prefsData.prefs_avancees);
+        setPrefs({ ...PREFS_DEFAUT, ...prefsData.prefs_avancees });
       } catch {
         if (actif) setErreur("Erreur de chargement du profil");
       } finally {
