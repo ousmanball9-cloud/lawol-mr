@@ -188,7 +188,12 @@ try {
       selects,
       bascules,
       boutonVoir: boutonVoir ? boutonVoir.textContent.trim() : null,
-      pleinEcran: Math.round(r.width) >= 370 && Math.round(r.height) >= 780,
+      largeur: Math.round(r.width),
+      hauteur: Math.round(r.height),
+      fenetre: { l: window.innerWidth, h: window.innerHeight },
+      pleinEcran:
+        Math.round(r.width) >= window.innerWidth - 1 &&
+        Math.round(r.height) >= window.innerHeight - 1,
       ariaExpanded: document
         .querySelector('[data-probe="offres-filtres-mobile"]')
         ?.getAttribute("aria-expanded"),
@@ -202,7 +207,11 @@ try {
   });
   noter("panneau — les 5 selects sont dedans", panneau.selects === 5, panneau.selects);
   noter("panneau — les 2 bascules sont dedans", panneau.bascules === 2, panneau.bascules);
-  noter("panneau — plein écran sur 375×812", panneau.pleinEcran === true, panneau.pleinEcran);
+  noter("panneau — plein écran sur 375×812", panneau.pleinEcran === true, {
+    largeur: panneau.largeur,
+    hauteur: panneau.hauteur,
+    fenetre: panneau.fenetre,
+  });
   noter("panneau — aria-expanded passe à true sur le déclencheur", panneau.ariaExpanded === "true", panneau.ariaExpanded);
   noter(
     "panneau — le bouton de sortie annonce le nombre d'offres",
