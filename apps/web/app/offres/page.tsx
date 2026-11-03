@@ -21,6 +21,12 @@ import {
   urlOffres,
 } from "@/lib/offres-url";
 import type { FacettesOffres } from "@/lib/offres-url";
+import {
+  jalonFetchDebut,
+  jalonFetchFin,
+  jalonPremierRenduCartes,
+  observerLcp,
+} from "@/lib/perf-offres";
 
 const PAR_PAGE = 12;
 /** Supabase plafonne une requête à 1 000 lignes : on charge le bassin par lots de 500. */
@@ -65,17 +71,25 @@ async function chargerBassin(tri: TriOffres, q: string, categorie: string): Prom
   const parametres = new URLSearchParams({ tri, type_offre: "bourse" });
   if (q) parametres.set("q", q);
   if (categorie && categorie !== "toutes") parametres.set("categorie", categorie);
-  for (let offset = 0; offset < MAX_OFFSET; offset += BATCH) {
-    parametres.set("limit", String(BATCH));
-    parametres.set("offset", String(offset));
-    const res = await fetch(`/api/v1/offres?${parametres.toString()}`);
-    if (!res.ok) throw new Error();
-    const data: unknown = await res.json();
-    if (!Array.isArray(data)) throw new Error();
-    toutes.push(...(data as Offre[]));
-    if (data.length < BATCH) break;
+  // V2-06 : jalon AVANT le premier lot, fin en `finally` (même si l'API échoue,
+  // sinon un échec laisserait une durée de fetch fantôme). Instrumentation
+  // seule : aucun effet sur le chargement.
+  jalonFetchDebut();
+  try {
+    for (let offset = 0; offset < MAX_OFFSET; offset += BATCH) {
+      parametres.set("limit", String(BATCH));
+      parametres.set("offset", String(offset));
+      const res = await fetch(`/api/v1/offres?${parametres.toString()}`);
+      if (!res.ok) throw new Error();
+      const data: unknown = await res.json();
+      if (!Array.isArray(data)) throw new Error();
+      toutes.push(...(data as Offre[]));
+      if (data.length < BATCH) break;
+    }
+    return toutes;
+  } finally {
+    jalonFetchFin();
   }
-  return toutes;
 }
 
 function IndicateurChargement() {
@@ -188,6 +202,14 @@ function OffresContenu() {
   // Valeur de recherche que NOUS venons d'écrire : l'écho de notre propre
   // écriture ne doit pas écraser une frappe plus récente (course URL → input).
   const rechercheEcrite = useRef<string | null>(null);
+  // V2-06 : une seule marque « premier rendu de cartes » par chargement de page
+  // (un changement de filtre re-rend la grille, ce n'est pas le premier LCP).
+  const cartesMarquees = useRef(false);
+
+  // V2-06 : LCP réel de la page. `buffered: true` rattrape les candidats peints
+  // avant ce montage (hydratation tardive) ; le nettoyage coupe l'observateur.
+  // Aucun effet visible : seulement des `performance.mark`/`measure`.
+  useEffect(() => observerLcp(), []);
 
   useEffect(() => {
     // Resynchronise sur un vrai changement d'URL (retour arrière, lien partagé,
@@ -328,6 +350,14 @@ function OffresContenu() {
   const pageCourante = filtrees
     .slice((pageNum - 1) * PAR_PAGE, pageNum * PAR_PAGE)
     .map((e) => e.offre);
+
+  // V2-06 : jalon « première carte à l'écran ». L'effet tourne après le commit
+  // (donc après la peinture des cartes) ; le `ref` garantit une marque unique.
+  useEffect(() => {
+    if (cartesMarquees.current || pageCourante.length === 0) return;
+    cartesMarquees.current = true;
+    jalonPremierRenduCartes();
+  }, [pageCourante.length]);
 
   // Un filtre calculé par le SERVEUR (catégorie, recherche) qui ne renvoie rien :
   // le message « aucune offre publiée » serait faux — on propose d'élargir.
