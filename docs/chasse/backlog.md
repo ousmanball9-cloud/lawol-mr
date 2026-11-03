@@ -59,6 +59,10 @@ facette ne compte pas comme faite.
 
 ## 3. Vague 3 — « comprendre & oser postuler »
 
+**État au 03/11/2026** : V3-01, V3-02 et V3-08 livrés et prouvés en ligne
+(`verify-chrome-etats` 24/24 : essentiel à y≈420 px, description à y≈1400 px,
+pièces à préparer entre les deux).
+
 | ID | Action | Source | I | C | E | RICE |
 |---|---|---|---|---|---|---|
 | V3-01 | **Bloc « L'essentiel »** en tête de fiche : 5-6 faits (financement, lieu/langue, dates exactes, niveau requis, éligibilité Mauritanie) avant toute prose | 2·C-HS-01 | 5 | 1.0 | 3 | **1.67** |
