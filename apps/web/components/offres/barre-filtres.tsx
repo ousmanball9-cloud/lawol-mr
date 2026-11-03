@@ -1,4 +1,9 @@
-import { Search } from "lucide-react";
+"use client";
+
+import { useCallback, useRef, useState } from "react";
+import { Search, SlidersHorizontal } from "lucide-react";
+import { PanneauFiltres, compterFiltresActifs } from "./panneau-filtres";
+import type { PropsFiltres } from "./panneau-filtres";
 import {
   CATEGORIES_BOURSE,
   FILIERES,
@@ -7,32 +12,9 @@ import {
   type TriOffres,
 } from "./types";
 
-type Props = {
-  motsCles: string;
-  setMotsCles: (valeur: string) => void;
-  filiereFiltre: string;
-  setFiliereFiltre: (valeur: string) => void;
-  paysFiltre: string;
-  setPaysFiltre: (valeur: string) => void;
-  financementFiltre: string;
-  setFinancementFiltre: (valeur: string) => void;
-  /** Catégorie de bourse : « toutes » ou une valeur de `CATEGORIES_BOURSE`.
-   *  Filtré CÔTÉ SERVEUR (`?categorie=`), comme `q` et `tri`. */
-  categorieFiltre: string;
-  setCategorieFiltre: (valeur: string) => void;
-  /** Tri catalogue : « urgent » (défaut) ou « recentes ». */
-  tri: TriOffres;
-  setTri: (valeur: TriOffres) => void;
-  /** Filtre « Clôture dans moins de 30 jours ». */
-  cloture30: boolean;
-  setCloture30: (valeur: boolean) => void;
-  /** État explicite des offres expirées (masquées par défaut, jamais perdues). */
-  expireesVisibles: boolean;
-  setExpireesVisibles: (valeur: boolean) => void;
-  /** Nombre d'offres expirées correspondant aux autres critères. */
-  nbExpirees: number;
-  nbResultats: number;
-  nbTotal: number;
+type Props = PropsFiltres & {
+  /** Remet l'URL à nu (facettes par défaut) — aussi utilisé dans le panneau. */
+  onReinitialiser: () => void;
 };
 
 /* Cibles tactiles ≥ 44 px (constat chasse 5 : 33 éléments sous 44 px sur /offres). */
@@ -47,7 +29,17 @@ const bascule = (actif: boolean) =>
       : "border-input bg-white text-foreground hover:border-signature hover:text-signature"
   }`;
 
-/** Barre de recherche (mots-clés) + 4 selects (filière, pays, financement, catégorie) + tri & échéance. */
+/**
+ * Barre de recherche (mots-clés) + filtres du catalogue.
+ *
+ * Deux dispositions, une seule source d'état :
+ *  · ≥ 768 px — la barre historique, inchangée : 4 `select` + tri + 2 bascules
+ *    visibles d'un coup.
+ *  · < 768 px — la recherche reste visible, et un bouton « Filtres · n » (n =
+ *    filtres actifs) ouvre `PanneauFiltres` en plein écran. Sans cela, les
+ *    `select` empilés repoussaient la première offre sous la ligne de
+ *    flottaison (docs/chasse/03-recherche-ia.md, SP-04).
+ */
 export function BarreFiltres({
   motsCles,
   setMotsCles,
@@ -67,13 +59,54 @@ export function BarreFiltres({
   setExpireesVisibles,
   nbExpirees,
   nbResultats,
-  nbTotal,
+  onReinitialiser,
 }: Props) {
+  const [panneauOuvert, setPanneauOuvert] = useState(false);
+  const declencheurRef = useRef<HTMLButtonElement>(null);
+  // Identités stables : l'effet du panneau (Échap, focus, scroll) ne doit pas
+  // se rejouer à chaque rendu de la page.
+  const ouvrirPanneau = useCallback(() => setPanneauOuvert(true), []);
+  const fermerPanneau = useCallback(() => setPanneauOuvert(false), []);
+
+  const nbActifs = compterFiltresActifs({
+    motsCles,
+    categorieFiltre,
+    filiereFiltre,
+    paysFiltre,
+    financementFiltre,
+    cloture30,
+    expireesVisibles,
+  });
+
+  const filtres = {
+    motsCles,
+    setMotsCles,
+    filiereFiltre,
+    setFiliereFiltre,
+    paysFiltre,
+    setPaysFiltre,
+    financementFiltre,
+    setFinancementFiltre,
+    categorieFiltre,
+    setCategorieFiltre,
+    tri,
+    setTri,
+    cloture30,
+    setCloture30,
+    expireesVisibles,
+    setExpireesVisibles,
+    nbExpirees,
+    nbResultats,
+  };
+
   return (
     <div className="mb-6 rounded-lg border border-border bg-card p-4 shadow-card">
-      <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap">
+      <div className="flex flex-col gap-3 md:flex-row md:flex-wrap">
         <div className="relative min-w-[200px] flex-1" data-probe="offres-recherche">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
           <input
             type="search"
             value={motsCles}
@@ -83,7 +116,9 @@ export function BarreFiltres({
             className="min-h-11 w-full rounded-lg border border-input bg-white py-2 pl-9 pr-3 text-sm text-foreground transition-colors duration-150 focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30"
           />
         </div>
-        <div data-probe="offres-filtres" className="flex flex-wrap gap-3">
+        {/* ≥ 768 px : les 4 selects de la barre historique (probe historique
+            conservée, unique : elle existe aussi — masquée — sous 768 px). */}
+        <div data-probe="offres-filtres" className="hidden flex-wrap gap-3 md:flex">
           <select
             value={filiereFiltre}
             onChange={(e) => setFiliereFiltre(e.target.value)}
@@ -138,12 +173,39 @@ export function BarreFiltres({
             ))}
           </select>
         </div>
+
+        {/* < 768 px : un seul bouton, avec le nombre de filtres actifs. */}
+        <button
+          ref={declencheurRef}
+          type="button"
+          onClick={ouvrirPanneau}
+          aria-expanded={panneauOuvert}
+          aria-controls="offres-panneau-filtres"
+          aria-label={
+            nbActifs > 0
+              ? `Filtres, ${nbActifs} actif${nbActifs > 1 ? "s" : ""}`
+              : "Filtres"
+          }
+          data-probe="offres-filtres-mobile"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-input bg-white px-4 py-2 text-sm font-medium text-foreground transition-colors duration-150 hover:border-signature hover:text-signature focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature/60 md:hidden"
+        >
+          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+          Filtres
+          <span
+            data-probe="offres-filtres-actifs"
+            aria-hidden="true"
+            className="inline-flex min-h-6 min-w-6 items-center justify-center rounded-full bg-signature px-1.5 text-xs font-semibold text-white"
+          >
+            {nbActifs}
+          </span>
+        </button>
       </div>
 
-      {/* Deadline au centre : tri par urgence + fenêtre 30 j + état des expirées */}
+      {/* Deadline au centre : tri par urgence + fenêtre 30 j + état des expirées
+          (≥ 768 px ; sous 768 px ces contrôles vivent dans le panneau). */}
       <div
         data-probe="offres-echeance"
-        className="mt-3 flex flex-wrap items-center gap-3 border-t border-border pt-3"
+        className="mt-3 hidden flex-wrap items-center gap-3 border-t border-border pt-3 md:flex"
       >
         <select
           value={tri}
@@ -175,17 +237,17 @@ export function BarreFiltres({
         </button>
       </div>
 
-      <p role="status" className="mt-3 text-sm text-muted-foreground">
-        <span data-probe="offres-compteur">{nbResultats}</span> offre{nbResultats > 1 ? "s" : ""}{" "}
-        affichée{nbResultats > 1 ? "s" : ""}
-        {nbResultats !== nbTotal ? ` sur ${nbTotal}` : ""}
-        {!expireesVisibles && nbExpirees > 0 && !cloture30
-          ? ` · ${nbExpirees} expirée${nbExpirees > 1 ? "s" : ""} masquée${nbExpirees > 1 ? "s" : ""} (affichables ci-dessus)`
-          : ""}
-        {cloture30 && nbExpirees > 0
-          ? " · fenêtre 30 j : offres closes exclues (désactive le filtre pour les afficher)"
-          : ""}
-      </p>
+      {/* Le compteur de résultats n'est plus ici : il vit dans le bandeau
+          collant de `page.tsx` (V2-01), visible pendant le scroll. */}
+
+      {panneauOuvert && (
+        <PanneauFiltres
+          {...filtres}
+          onFermer={fermerPanneau}
+          onReinitialiser={onReinitialiser}
+          declencheurRef={declencheurRef}
+        />
+      )}
     </div>
   );
 }

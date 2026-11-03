@@ -11,6 +11,7 @@
     "test": "vitest run --no-file-parallelism",
     "verify:design": "node scripts/verify-design.mjs",
     "verify:facettes": "node scripts/verify-facettes-url.mjs",
+    "verify:mobile": "node scripts/verify-mobile-filtres.mjs",
     "verify:chrome": "node scripts/verify-chrome-etats.mjs",
     "verify:modal": "node scripts/verify-offre-modal.mjs",
     "verify:desc": "node scripts/verify-desc-reelles.mjs",

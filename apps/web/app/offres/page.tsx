@@ -87,6 +87,64 @@ function IndicateurChargement() {
   );
 }
 
+/** Libellés du tri affichés dans le bandeau collant (le contrôle, lui, reste
+ *  dans la barre de filtres : un seul `data-probe="offres-tri"`). */
+const LIBELLES_TRI: Record<TriOffres, string> = {
+  urgent: "Plus urgentes",
+  recentes: "Plus récentes",
+};
+
+/**
+ * Bandeau de résultats collant (V2-01) — le compteur était dans la carte de
+ * filtres : dès qu'on faisait défiler la grille, il disparaissait.
+ *
+ * `top` = hauteur du header sticky (h-16 = 4rem) + sa bordure de 1 px, pour se
+ * poser EXACTEMENT sous lui (cf. `components/chrome/header.tsx`). z-30 < z-40 :
+ * le header reste au-dessus, et le panneau mobile (z-50) couvre les deux.
+ */
+function BandeauResultats({
+  nbResultats,
+  nbTotal,
+  nbExpirees,
+  expireesVisibles,
+  cloture30,
+  tri,
+}: {
+  nbResultats: number;
+  nbTotal: number;
+  nbExpirees: number;
+  expireesVisibles: boolean;
+  cloture30: boolean;
+  tri: TriOffres;
+}) {
+  return (
+    <div
+      data-probe="offres-bandeau"
+      className="sticky top-[calc(4rem_+_1px)] z-30 -mx-4 mb-4 border-y border-border bg-background/95 px-4 py-2 backdrop-blur md:mx-0 md:rounded-lg md:border"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <p role="status" className="text-sm text-muted-foreground">
+          <span data-probe="offres-compteur">{nbResultats}</span> offre
+          {nbResultats > 1 ? "s" : ""} affichée{nbResultats > 1 ? "s" : ""}
+          {nbResultats !== nbTotal ? ` sur ${nbTotal}` : ""}
+          {!expireesVisibles && nbExpirees > 0 && !cloture30
+            ? ` · ${nbExpirees} expirée${nbExpirees > 1 ? "s" : ""} masquée${
+                nbExpirees > 1 ? "s" : ""
+              } (affichables ci-dessus)`
+            : ""}
+          {cloture30 && nbExpirees > 0
+            ? " · fenêtre 30 j : offres closes exclues (désactive le filtre pour les afficher)"
+            : ""}
+        </p>
+        <p className="shrink-0 text-sm text-muted-foreground">
+          Tri :{" "}
+          <span className="font-medium text-foreground">{LIBELLES_TRI[tri]}</span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Page publique /offres — recherche + filtres + grille paginée (12/page).
  *
@@ -339,7 +397,16 @@ function OffresContenu() {
           setExpireesVisibles={(valeur) => ecrire({ expirees: valeur })}
           nbExpirees={nbExpirees}
           nbResultats={filtrees.length}
+          onReinitialiser={reinitialiserFiltres}
+        />
+
+        <BandeauResultats
+          nbResultats={filtrees.length}
           nbTotal={bassin.length}
+          nbExpirees={nbExpirees}
+          expireesVisibles={facettes.expirees}
+          cloture30={facettes.cloture30}
+          tri={facettes.tri}
         />
 
         {pageCourante.length === 0 ? (
