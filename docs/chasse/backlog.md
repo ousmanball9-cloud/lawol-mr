@@ -59,9 +59,10 @@ facette ne compte pas comme faite.
 
 ## 3. Vague 3 — « comprendre & oser postuler »
 
-**État au 03/11/2026** : V3-01, V3-02 et V3-08 livrés et prouvés en ligne
+**État au 03/11/2026** : V3-01, V3-02, V3-06 et V3-08 livrés et prouvés en ligne
 (`verify-chrome-etats` 24/24 : essentiel à y≈420 px, description à y≈1400 px,
-pièces à préparer entre les deux).
+pièces à préparer entre les deux ; `verify-landing-repli` 5/5 : API bloquée →
+« non communiqué », jamais un 0 trompeur, page à 8 058 px).
 
 | ID | Action | Source | I | C | E | RICE |
 |---|---|---|---|---|---|---|
