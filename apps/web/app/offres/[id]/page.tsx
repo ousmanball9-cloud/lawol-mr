@@ -263,7 +263,12 @@ export default function OffreDetailPage() {
             )}
           </section>
 
-          {/* 6 · DESCRIPTION — texte brut découpé en blocs lisibles */}
+          {/* 6 · DOSSIER — pièces à préparer AVANT la prose : l'élève doit savoir
+              ce qu'il aura à fournir avant de lire toute la description (~500 px
+              de prose). Le générateur et le coffre-fort sont dans ce même bloc. */}
+          <DossierPieces offreId={offre.id} />
+
+          {/* 7 · DESCRIPTION — texte brut découpé en blocs lisibles */}
           <section className="mt-6">
             <h2 className="eyebrow mb-3 text-muted-foreground">Description</h2>
             <div data-probe="detail-description">
@@ -277,12 +282,11 @@ export default function OffreDetailPage() {
             </div>
           </section>
 
-          {/* 7 · DOSSIER — pièces usuelles génériques + coffre-fort, puis suivi
-              de candidature (statut / « J'ai postulé ») si un match existe */}
-          <DossierPieces offreId={offre.id} />
+          {/* 8 · SUIVI — statut / « J'ai postulé », seulement si un match existe
+              pour cette offre (reste après la description : il dépend de la session) */}
           <SuiviCandidature offreId={offre.id} />
 
-          {/* 8 · SOURCE & POSTULER — source_name + CTA « Voir l'offre originale » */}
+          {/* 9 · SOURCE & POSTULER — source_name + CTA « Voir l'offre originale » */}
           <section data-probe="detail-source" className="mt-6">
             <h2 className="eyebrow mb-3 text-muted-foreground">Source &amp; postuler</h2>
             {offre.source_name && (
