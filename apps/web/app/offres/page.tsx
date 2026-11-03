@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Briefcase, RefreshCw } from "lucide-react";
@@ -11,8 +11,16 @@ import { Chrome } from "@/components/chrome/chrome";
 import { CarteOffre } from "@/components/offres/carte-offre";
 import { PaginationOffres } from "@/components/offres/pagination-offres";
 import { joursRestants, parserDateLimite } from "@/components/offres/date-limite";
-import { estCategorieBourse } from "@/components/offres/types";
 import type { Offre, TriOffres } from "@/components/offres/types";
+import {
+  FACETTES_PAR_DEFAUT,
+  TOUTES_CATEGORIES,
+  ecrireFacettes,
+  lireFacettes,
+  memeParametres,
+  urlOffres,
+} from "@/lib/offres-url";
+import type { FacettesOffres } from "@/lib/offres-url";
 
 const PAR_PAGE = 12;
 /** Supabase plafonne une requête à 1 000 lignes : on charge le bassin par lots de 500. */
@@ -81,10 +89,17 @@ function IndicateurChargement() {
 
 /**
  * Page publique /offres — recherche + filtres + grille paginée (12/page).
- * useSearchParams lit `?recherche=` poussé par le hero : la barre de filtres
- * est pré-remplie et la recherche part vers l'API (paramètre `q`) dès le
- * chargement (Suspense obligatoire autour d'un Client Component qui lit les
- * searchParams).
+ *
+ * L'URL est la SEULE source de vérité des facettes (V2-04) : `lireFacettes` la
+ * lit, `ecrire` (unique écrivain) la réécrit. Un lien collé dans WhatsApp
+ * (`/offres?pays=france&tri=recentes`) rend donc exactement le même catalogue,
+ * et le retour arrière restaure les filtres.
+ *
+ * Seule la frappe reste locale (`motsCles`) : l'input doit être instantané,
+ * l'URL n'est écrite qu'après 300 ms — et par `replace`, pour ne pas empiler
+ * une entrée d'historique par lettre.
+ *
+ * Suspense obligatoire autour d'un Client Component qui lit les searchParams.
  */
 export default function OffresPage() {
   return (
@@ -94,48 +109,64 @@ export default function OffresPage() {
   );
 }
 
+/** « filtre » = entrée d'historique (`push` : le retour arrière restaure les
+ *  filtres) ; « frappe » = réécriture silencieuse (`replace` : frappe et
+ *  pagination, jamais une entrée d'historique par lettre ni par page). */
+type ModeEcriture = "filtre" | "frappe";
+
 function OffresContenu() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const rechercheUrl = searchParams.get("recherche") ?? "";
-  // Carte de l'accueil « Bourse gouvernementale » → /offres?categorie=gouvernementale
-  const categorieUrl = searchParams.get("categorie") ?? "";
+  // Source de vérité unique : aucune facette n'est recopiée dans un useState.
+  const facettes = useMemo(() => lireFacettes(searchParams), [searchParams]);
+
   const [bassin, setBassin] = useState<Offre[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [motsCles, setMotsCles] = useState(rechercheUrl);
-  // Miroir débouncé des mots-clés : c'est LUI qui part vers l'API (`q`), pendant
-  // que l'input reste instantané — la recherche est faite par le serveur.
-  const [rechercheApi, setRechercheApi] = useState(rechercheUrl);
-  const [filiereFiltre, setFiliereFiltre] = useState("tous");
-  const [paysFiltre, setPaysFiltre] = useState("tous");
-  const [financementFiltre, setFinancementFiltre] = useState("tous");
-  // Catégorie de bourse : filtrée par le SERVEUR (`?categorie=`), comme q/tri.
-  const [categorieFiltre, setCategorieFiltre] = useState(
-    estCategorieBourse(categorieUrl) ? categorieUrl : "toutes"
+  // Seule exception locale : la frappe. L'input reste instantané, l'URL suit
+  // après le délai — puis se resynchronise ici (retour arrière, lien partagé,
+  // « Réinitialiser »).
+  const [motsCles, setMotsCles] = useState(facettes.recherche);
+  // Valeur de recherche que NOUS venons d'écrire : l'écho de notre propre
+  // écriture ne doit pas écraser une frappe plus récente (course URL → input).
+  const rechercheEcrite = useRef<string | null>(null);
+
+  useEffect(() => {
+    // Resynchronise sur un vrai changement d'URL (retour arrière, lien partagé,
+    // « Réinitialiser ») ; ignore l'écho de notre écriture.
+    if (facettes.recherche === rechercheEcrite.current) return;
+    rechercheEcrite.current = null;
+    setMotsCles(facettes.recherche);
+  }, [facettes.recherche]);
+
+  /**
+   * UN SEUL écrivain de l'URL. Calcule la cible et ne navigue que si elle
+   * diffère vraiment (comparaison indépendante de l'ordre des paramètres) :
+   * c'est ce qui interdit la boucle URL → rendu → URL.
+   * Tout patch autre que `page` ramène à la première page.
+   */
+  const ecrire = useCallback(
+    (patch: Partial<FacettesOffres>, mode: ModeEcriture = "filtre") => {
+      const actuelles = new URLSearchParams(searchParams.toString());
+      const suivantes: FacettesOffres = { ...facettes, ...patch, page: patch.page ?? 1 };
+      const cible = ecrireFacettes(suivantes, actuelles);
+      if (memeParametres(cible, actuelles)) return;
+      // Marque notre écriture : la frappe locale ne sera pas écrasée par l'écho.
+      if (patch.recherche !== undefined) rechercheEcrite.current = cible.get("recherche") ?? "";
+      const url = urlOffres(suivantes, actuelles);
+      if (mode === "frappe") router.replace(url, { scroll: false });
+      else router.push(url, { scroll: false });
+    },
+    [facettes, router, searchParams]
   );
-  const [tri, setTri] = useState<TriOffres>("urgent");
-  const [cloture30, setCloture30] = useState(false);
-  // Les offres expirées sont masquées par défaut — mais jamais invisibles :
-  // l'état « Afficher les expirées » de la barre de filtres les révèle.
-  const [expireesVisibles, setExpireesVisibles] = useState(false);
-  const [page, setPage] = useState(1);
 
-  // ?recherche= changé pendant la session (retour arrière, nouveau lien hero) → resynchronise
+  // Frappe : on laisse le mot se poser avant d'écrire dans l'URL (donc avant
+  // d'interroger l'API). Un texte vide n'est jamais écrit : l'URL reste propre.
   useEffect(() => {
-    setMotsCles(rechercheUrl);
-  }, [rechercheUrl]);
-
-  // ?categorie= changé pendant la session (carte de l'accueil, retour arrière) → resynchronise
-  useEffect(() => {
-    setCategorieFiltre(estCategorieBourse(categorieUrl) ? categorieUrl : "toutes");
-  }, [categorieUrl]);
-
-  // Frappe en cours : on laisse le mot se poser avant d'interroger l'API.
-  useEffect(() => {
-    if (motsCles === rechercheApi) return;
-    const id = setTimeout(() => setRechercheApi(motsCles), DELAI_RECHERCHE_MS);
+    if (motsCles.trim() === facettes.recherche) return;
+    const id = setTimeout(() => ecrire({ recherche: motsCles }, "frappe"), DELAI_RECHERCHE_MS);
     return () => clearTimeout(id);
-  }, [motsCles, rechercheApi]);
+  }, [motsCles, facettes.recherche, ecrire]);
 
   const charger = useCallback(async (triCourant: TriOffres, recherche: string, categorie: string) => {
     setLoading(true);
@@ -151,22 +182,8 @@ function OffresContenu() {
 
   // Tri, recherche ET catégorie vivent dans l'API : tout changement rechargé depuis le serveur.
   useEffect(() => {
-    charger(tri, rechercheApi, categorieFiltre);
-  }, [charger, tri, rechercheApi, categorieFiltre]);
-
-  // Tout changement de critère (dont tri et échéance) ramène à la première page
-  useEffect(() => {
-    setPage(1);
-  }, [
-    motsCles,
-    filiereFiltre,
-    paysFiltre,
-    financementFiltre,
-    categorieFiltre,
-    tri,
-    cloture30,
-    expireesVisibles,
-  ]);
+    charger(facettes.tri, facettes.recherche, facettes.categorie);
+  }, [charger, facettes.tri, facettes.recherche, facettes.categorie]);
 
   /** Échéance recalculée une seule fois par offre (parse + jours restants). */
   const echeances = useMemo<Echeance[]>(
@@ -181,10 +198,11 @@ function OffresContenu() {
   const { liste: filtrees, nbExpirees } = useMemo(() => {
     const q = normaliserRecherche(motsCles).toLowerCase();
     const correspond = (offre: Offre) => {
-      if (filiereFiltre !== "tous" && !(offre.filieres_cibles ?? []).includes(filiereFiltre))
+      if (facettes.filiere !== "tous" && !(offre.filieres_cibles ?? []).includes(facettes.filiere))
         return false;
-      if (paysFiltre !== "tous" && offre.pays_etudes !== paysFiltre) return false;
-      if (financementFiltre !== "tous" && offre.type_financement !== financementFiltre) return false;
+      if (facettes.pays !== "tous" && offre.pays_etudes !== facettes.pays) return false;
+      if (facettes.financement !== "tous" && offre.type_financement !== facettes.financement)
+        return false;
       // q : le SERVEUR est l'autorité (il cherche dans titre, entreprise ET
       // description intégrale). Le raffinement local ne regarde donc PAS la
       // description : la liste ne porte qu'un aperçu (`description_apercu`),
@@ -206,19 +224,19 @@ function OffresContenu() {
       const expiree = e.jours !== null && e.jours < 0;
       // Comptées même masquées : l'état « Afficher les expirées » les révèle.
       if (expiree) expirees += 1;
-      if (cloture30) {
+      if (facettes.cloture30) {
         // « Clôture dans moins de 30 jours » = fenêtre À VENIR : ni offre déjà
         // close, ni date illisible, ni échéance ≥ 30 j. Le motif est rappelé par
         // le compteur de la barre de filtres (« fenêtre 30 j : offres closes
         // exclues »).
         if (expiree || e.jours === null || e.jours >= SEUIL_30_JOURS) continue;
-      } else if (expiree && !expireesVisibles) {
+      } else if (expiree && !facettes.expirees) {
         continue; // masquées par défaut, jamais supprimées : bascule explicite
       }
       retenues.push(e);
     }
 
-    if (tri === "urgent") {
+    if (facettes.tri === "urgent") {
       // L'API renvoie déjà `date_limite` croissante (`tri=urgent`) : ce tri local
       // est un garde-fou (dates illisibles en dernier rang, expirées en fin de
       // liste). Échéance proche d'abord ; sans date lisible au dernier rang ;
@@ -237,34 +255,32 @@ function OffresContenu() {
   }, [
     echeances,
     motsCles,
-    filiereFiltre,
-    paysFiltre,
-    financementFiltre,
-    cloture30,
-    expireesVisibles,
-    tri,
+    facettes.filiere,
+    facettes.pays,
+    facettes.financement,
+    facettes.cloture30,
+    facettes.expirees,
+    facettes.tri,
   ]);
 
   const totalPages = Math.max(1, Math.ceil(filtrees.length / PAR_PAGE));
-  const pageNum = Math.min(page, totalPages);
+  // La page vient de l'URL, bornée à ce qui existe vraiment (une URL bricolée
+  // `?page=99` affiche la dernière page sans réécrire l'URL).
+  const pageNum = Math.min(facettes.page, totalPages);
   const pageCourante = filtrees
     .slice((pageNum - 1) * PAR_PAGE, pageNum * PAR_PAGE)
     .map((e) => e.offre);
 
   // Un filtre calculé par le SERVEUR (catégorie, recherche) qui ne renvoie rien :
   // le message « aucune offre publiée » serait faux — on propose d'élargir.
-  const filtreServeurActif = categorieFiltre !== "toutes" || rechercheApi.trim() !== "";
+  const filtreServeurActif =
+    facettes.categorie !== TOUTES_CATEGORIES || facettes.recherche !== "";
 
   const reinitialiserFiltres = useCallback(() => {
+    // L'URL redevient nue (aucun défaut écrit) ; l'input local suit.
     setMotsCles("");
-    setFiliereFiltre("tous");
-    setPaysFiltre("tous");
-    setFinancementFiltre("tous");
-    setCategorieFiltre("toutes");
-    setTri("urgent");
-    setCloture30(false);
-    setExpireesVisibles(false);
-  }, []);
+    ecrire(FACETTES_PAR_DEFAUT, "filtre");
+  }, [ecrire]);
 
   // Le premier chargement occupe l'écran ; les rechargements (tri, recherche)
   // gardent la liste en place — pas de clignotement pendant la frappe.
@@ -278,7 +294,7 @@ function OffresContenu() {
         <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-card">
           <p className="mb-4 font-medium text-destructive">{error}</p>
           <Button
-            onClick={() => charger(tri, rechercheApi, categorieFiltre)}
+            onClick={() => charger(facettes.tri, facettes.recherche, facettes.categorie)}
             className="h-11 rounded-lg bg-signature px-6 text-white hover:bg-signature-deep"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
@@ -307,20 +323,20 @@ function OffresContenu() {
         <BarreFiltres
           motsCles={motsCles}
           setMotsCles={setMotsCles}
-          filiereFiltre={filiereFiltre}
-          setFiliereFiltre={setFiliereFiltre}
-          paysFiltre={paysFiltre}
-          setPaysFiltre={setPaysFiltre}
-          financementFiltre={financementFiltre}
-          setFinancementFiltre={setFinancementFiltre}
-          categorieFiltre={categorieFiltre}
-          setCategorieFiltre={setCategorieFiltre}
-          tri={tri}
-          setTri={setTri}
-          cloture30={cloture30}
-          setCloture30={setCloture30}
-          expireesVisibles={expireesVisibles}
-          setExpireesVisibles={setExpireesVisibles}
+          filiereFiltre={facettes.filiere}
+          setFiliereFiltre={(valeur) => ecrire({ filiere: valeur })}
+          paysFiltre={facettes.pays}
+          setPaysFiltre={(valeur) => ecrire({ pays: valeur })}
+          financementFiltre={facettes.financement}
+          setFinancementFiltre={(valeur) => ecrire({ financement: valeur })}
+          categorieFiltre={facettes.categorie}
+          setCategorieFiltre={(valeur) => ecrire({ categorie: valeur })}
+          tri={facettes.tri}
+          setTri={(valeur) => ecrire({ tri: valeur })}
+          cloture30={facettes.cloture30}
+          setCloture30={(valeur) => ecrire({ cloture30: valeur })}
+          expireesVisibles={facettes.expirees}
+          setExpireesVisibles={(valeur) => ecrire({ expirees: valeur })}
           nbExpirees={nbExpirees}
           nbResultats={filtrees.length}
           nbTotal={bassin.length}
@@ -361,7 +377,13 @@ function OffresContenu() {
                 <CarteOffre key={offre.id} offre={offre} />
               ))}
             </div>
-            <PaginationOffres page={pageNum} totalPages={totalPages} onPage={setPage} />
+            {/* Pagination = réécriture silencieuse : pas d'entrée d'historique
+                par page (même contrat que la frappe, cf. cleFiltres). */}
+            <PaginationOffres
+              page={pageNum}
+              totalPages={totalPages}
+              onPage={(p) => ecrire({ page: p }, "frappe")}
+            />
           </>
         )}
 
