@@ -53,9 +53,9 @@ facette ne compte pas comme faite.
 | V2-02 | ✅ livré | `verify-chrome-etats` 23/23 — `loading/error/not-found` dans le chrome |
 | V2-03 | ✅ livré | même harnais — `header.sticky` unique sur `/`, `/offres`, `/connexion` ; header présent AVANT les données |
 | V2-04 | ✅ livré | `verify-facettes-url` **5/11 → 11/11** : `?pays=france&tri=recentes` = 9 cartes, **0 hors filtre** (avant : 11/12 hors filtre) |
-| V2-01 | 🔄 en cours | bandeau de résultats collant |
-| V2-05 | 🔄 en cours | panneau de filtres mobile |
-| V2-06 | ⏳ à faire | instrumentation LCP — **aucun gain de vitesse annoncé** tant qu'elle n'est pas faite |
+| V2-01 | ✅ livré | `verify-mobile-filtres` — bandeau `sticky` à top 65 px (= bas du header) toujours visible après 1 400 px de scroll |
+| V2-05 | ✅ livré | même harnais — 28/28 : 1ʳᵉ offre **862 → 437 px**, panneau `aria-modal` avec les 5 selects, Échap rend le focus, filtre → URL |
+| V2-06 | ⏳ en cours | instrumentation LCP — **aucun gain de vitesse annoncé** tant qu'elle n'est pas faite |
 
 ## 3. Vague 3 — « comprendre & oser postuler »
 
