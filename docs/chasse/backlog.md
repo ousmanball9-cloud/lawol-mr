@@ -46,6 +46,17 @@
 collé dans un navigateur neuf doit rendre **exactement** les offres filtrées — sinon la
 facette ne compte pas comme faite.
 
+**État au 03/11/2026** (`main` = `577e780`, Vercel READY) :
+
+| ID | État | Preuve live |
+|---|---|---|
+| V2-02 | ✅ livré | `verify-chrome-etats` 23/23 — `loading/error/not-found` dans le chrome |
+| V2-03 | ✅ livré | même harnais — `header.sticky` unique sur `/`, `/offres`, `/connexion` ; header présent AVANT les données |
+| V2-04 | ✅ livré | `verify-facettes-url` **5/11 → 11/11** : `?pays=france&tri=recentes` = 9 cartes, **0 hors filtre** (avant : 11/12 hors filtre) |
+| V2-01 | 🔄 en cours | bandeau de résultats collant |
+| V2-05 | 🔄 en cours | panneau de filtres mobile |
+| V2-06 | ⏳ à faire | instrumentation LCP — **aucun gain de vitesse annoncé** tant qu'elle n'est pas faite |
+
 ## 3. Vague 3 — « comprendre & oser postuler »
 
 | ID | Action | Source | I | C | E | RICE |
