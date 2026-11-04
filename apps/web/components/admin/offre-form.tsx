@@ -5,7 +5,7 @@
 // source/source_name sont fixés côté client : saisie manuelle hors scrap.
 
 import { useState, type FormEvent } from "react";
-import { FILIERES_FORMULAIRE, VILLES } from "@/lib/referentiels";
+import { FILIERES, VILLES } from "@/lib/referentiels";
 import { TYPE_EN_TETE } from "@/components/offres/types";
 
 // Types proposés : BOURSE uniquement. Le catalogue est « 100 % bourses » (décision
@@ -330,7 +330,7 @@ export function OffreForm({ onCreated }: { onCreated: () => void }) {
         <fieldset className="sm:col-span-2 lg:col-span-3">
           <legend className={LABEL}>Filières cibles (aucune = toutes)</legend>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            {FILIERES_FORMULAIRE.map((f) => (
+            {FILIERES.map((f) => (
               <label
                 key={f.valeur}
                 className="flex items-center gap-2 p-2 text-sm text-foreground bg-background border border-border rounded-lg cursor-pointer hover:bg-muted"

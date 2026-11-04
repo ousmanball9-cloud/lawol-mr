@@ -234,3 +234,17 @@ Gates locales : `tsc --noEmit` 0, `eslint app components lib scripts` 0, `vitest
 **Ce qui n'est PAS un gain** : la hauteur de carte (201 px) est un gain de **densité**, pas de vitesse. `/offres` reste dominé par le fetch API (mesure V2-06). Aucune annonce de rapidité.
 
 **Donnée vérifiée, pas supposée** : sur les 271 bourses du catalogue, **147** portent une catégorie et **191** un financement — la carte les affiche en texte ; l'absence (`inconnu`) reste silencieuse (règle « 12 × non précisé = bruit »). La 1re carte n'affiche qu'un fait parce que sa catégorie ET son financement sont `inconnu`, pas parce que le code les a perdus.
+
+
+### Décision produit tranchée — 35 filières dans les deux formulaires (04/11/2026)
+
+Arbitrage utilisateur : **« je veux les 35 »**. La curation à 10 options (`FILIERES_FORMULAIRE`) est **supprimée**, pas conservée en réserve.
+
+| Avant | Après |
+|---|---|
+| `FILIERES_FORMULAIRE` (10 valeurs : 9 filières + « Autre ») dans le formulaire de profil et le formulaire admin | `FILIERES` (35 valeurs de l'enum) — un étudiant en cybersécurité, urbanisme, génie des procédés ou topographie peut enfin se déclarer sans choisir « Autre » |
+| `FILIERES_FORMULAIRE` + `VALEURS_FILIERES_FORMULAIRE` exportés par le référentiel | **supprimés** (aucun code mort : 0 usage restant) |
+
+**Preuve** : nouveau test `__tests__/referentiels/filieres-formulaires.test.tsx` (3 cas) qui vérifie le référentiel (35, sans doublon, 25 valeurs hors curation présentes), le `<select>` du profil (35 options + l'option vide, libellés « Génie des procédés »/« Cybersécurité ») et les 35 cases du formulaire admin. **Contrôle négatif joué** : avec `FILIERES.slice(0, 10)` le test du profil **échoue** (1 KO), les deux autres restent verts (chacun ne prouve que sa promesse).
+
+`vitest` **228/228** (225 + 3 nouveaux), `tsc` 0, `eslint` 0, `next build` OK.

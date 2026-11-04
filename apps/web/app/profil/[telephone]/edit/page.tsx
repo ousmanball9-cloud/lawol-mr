@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GraduationCap } from "lucide-react";
 import { entetesSession, sessionValidePour } from "@/lib/session";
-import { FILIERES_FORMULAIRE, NIVEAUX, TYPES_OFFRES, VILLES } from "@/lib/referentiels";
+import { FILIERES, NIVEAUX, TYPES_OFFRES, VILLES } from "@/lib/referentiels";
 
 /** Types d'offres sous forme de liste, dans l'ordre du référentiel unique
  *  (`lib/referentiels.ts`) — plus de seconde liste à maintenir (constat A4). */
@@ -243,7 +243,7 @@ export default function EditProfilPage() {
                   required
                 >
                   <option value="">-- Sélectionne ta filière --</option>
-                  {FILIERES_FORMULAIRE.map((f) => (
+                  {FILIERES.map((f) => (
                     <option key={f.valeur} value={f.valeur}>
                       {f.label}
                     </option>

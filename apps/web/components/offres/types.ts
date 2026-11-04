@@ -47,7 +47,6 @@ export type TriOffres = "urgent" | "recentes";
  */
 export {
   FILIERES,
-  FILIERES_FORMULAIRE,
   VILLES,
   NIVEAUX,
   PAYS_ETUDES,

@@ -14,7 +14,12 @@
 /** Couple valeur persistée (enum backend) → libellé affiché. */
 export type Option = { valeur: string; label: string };
 
-/** Enum `Filiere` de `apps/api` (ordre d'affichage du filtre). */
+/**
+ * Enum `Filiere` de `apps/api` — liste complète (35 valeurs), affichée TELLE
+ * QUELLE par les formulaires : un étudiant en génie des procédés, en cybersécurité
+ * ou en urbanisme doit pouvoir se déclarer (décision produit du 04/11/2026 :
+ * la curation à 10 options est supprimée, elle obligeait à choisir « Autre »).
+ */
 export const FILIERES: Option[] = [
   { valeur: "informatique", label: "Informatique" },
   { valeur: "genie_civil", label: "Génie civil" },
@@ -52,32 +57,6 @@ export const FILIERES: Option[] = [
   { valeur: "geographie", label: "Géographie" },
   { valeur: "autre", label: "Autre" },
 ];
-
-/**
- * Sélection courte des DEUX formulaires (profil `/profil/[tel]/edit` et création
- * d'offre admin) : c'est le tronc commun historique du formulaire étudiant.
- *
- * V3-05 est un refactor : le nombre d'options rendues reste celui d'avant
- * (9 filières + « Autre »), seuls les libellés viennent désormais de `FILIERES`
- * (une seule vérité). Élargir ces deux formulaires aux 35 filières de l'enum est
- * une décision PRODUIT distincte — à trancher dans le backlog, pas ici.
- */
-const VALEURS_FILIERES_FORMULAIRE = [
-  "informatique",
-  "genie_civil",
-  "electrique",
-  "mecanique",
-  "gestion",
-  "finance",
-  "droit",
-  "medecine",
-  "agronomie",
-  "autre",
-];
-
-export const FILIERES_FORMULAIRE: Option[] = FILIERES.filter((f) =>
-  VALEURS_FILIERES_FORMULAIRE.includes(f.valeur)
-);
 
 /** Enum `Ville` de `apps/api` (ordre SQL, même liste que le schéma). */
 export const VILLES: Option[] = [
