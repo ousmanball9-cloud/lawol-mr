@@ -161,22 +161,38 @@ touché par la refonte, middleware réel prouvé sain en prod (`/profil/{tel}`
 anonyme → 307). À traiter comme un défaut de session factice du harnais.
 
 
-## 7. Etat d'execution - vague 3 suite (04/11/2026)
+## 7. État d'exécution — vague 3 suite (04/11/2026)
 
-| ID | Etat | Preuve |
+| ID | État | Preuve |
 |---|---|---|
-| V3-04 | livré (code + harnais) | SkeletonCard x6 et EmptyGuidant branchés sur /offres ; harnais erify-etats-offres.mjs (15 cas) ; avant déploiement : **4/15** sur la prod (contrôle négatif = le harnais ne mesure pas l'air) |
-| V3-07 | livré (code) | palettes brutes pp/** + components/** : **98 -> 0**, puis **49 -> 0** (connexion, inscription, profil/edit, profil/parametres, offre-form), puis **6 -> 0** (cta-whatsapp, coffre-documents, KpiCard, offre-detail-modal) ; contraste mesuré 22/22 puis 18/18 paires >= 4.5:1 |
-| V3-09 | **requalifié vague 4** | aucune donnée de calendrier en base (Offre = une seule date_limite) |
+| V3-04 | livré (code + harnais + live) | `SkeletonCard` ×6 et `EmptyGuidant` branchés sur `/offres` ; harnais `verify-etats-offres.mjs` (15 cas) |
+| V3-07 | livré (code) | palettes brutes `app/**` + `components/**` = **153 → 0** (98 + 49 + 6, la 3ᵉ passe étant les 6 occurrences oubliées des composants) ; contraste mesuré 22/22 puis 18/18 paires ≥ 4,5:1 |
+| V3-09 | **requalifié vague 4** | aucune donnée de calendrier en base (`Offre` = une seule `date_limite`) |
 | V3-10 | **requalifié vague 4** | idem : pas de date par pays, l'afficher fabriquerait de faux retardataires |
 
-**Corrections trouvées en chemin et corrigées** (pas des effets de bord : des défauts réels) :
-1. EmptyGuidant portait un **lien mort** href="/profil/[telephone]/parametres" (gabarit littéral, jamais substitué) et une copie figée qui contredisait la page (« Aucune offre ne correspond » + « Aucune offre disponible » juste dessous). Props 	itre / description / hrefPreferences ajoutées ; le catalogue n'invente plus de route de profil, et id="empty-title" (id dupliquable) remplacé par useId().
-2. prefers-reduced-motion **ne couvrait pas** nimate-pulse / nimate-spin / le pouls inline des squelettes : ajoutés au garde de globals.css.
+**Corrections trouvées en chemin et corrigées** (défauts réels, pas des effets de bord) :
+1. `EmptyGuidant` portait un **lien mort** `href="/profil/[telephone]/parametres"` (gabarit littéral jamais substitué) et une copie figée qui contredisait la page qui l'affiche. Props `titre` / `description` / `hrefPreferences` ajoutées ; le catalogue n'invente plus de route de profil ; `id="empty-title"` (dupliquable) remplacé par `useId()`.
+2. `prefers-reduced-motion` **ne couvrait pas** `animate-pulse` / `animate-spin` / le pouls inline des squelettes : ajoutés au garde de `globals.css`.
 3. Illustration d'état vide plafonnée à 220 px (900 px de haut sur mobile avant).
 
-**Deux harnais menteurs corrigés** (la règle « changer le probe, jamais affaiblir l'attente ») :
-- __tests__/profil/parametres-export.test.tsx était **rouge depuis que la page charge les préférences** : le mock servait le profil à la place de /preferences, la page tombait en « Erreur de chargement », et les 2 tests mesuraient l'erreur en croyant mesurer l'export. Corrigé (branche /preferences + URL attendue).
-- __tests__/components/espace/KpiCard.test.tsx figeait 	ext-emerald-600 / 	ext-red-600 : attentes alignées sur les tokens AA (emerald-700, destructive).
+**Deux harnais menteurs corrigés** (règle : changer le probe, jamais affaiblir l'attente) :
+- `__tests__/profil/parametres-export.test.tsx` était **rouge depuis que la page charge les préférences** : le mock servait le profil à la place de `/preferences`, la page tombait en « Erreur de chargement », et les 2 tests mesuraient cette erreur en croyant mesurer l'export (vérifié rouge sur HEAD par `git stash` : préexistant). Corrigé (branche `/preferences` + URL attendue).
+- `__tests__/components/espace/KpiCard.test.tsx` figeait `text-emerald-600` / `text-red-600` : attentes alignées sur les tokens AA (`emerald-700`, `destructive`).
 
-Gates rejouées : 	sc --noEmit 0, eslint app components __tests__ 0, itest **225/225**, grep zéro-noir + zéro palette brute = **0**.
+Gates locales : `tsc --noEmit` 0, `eslint app components __tests__` 0, `vitest` **225/225**, `next build` OK, `grep` zéro-noir + zéro palette brute = **0**.
+
+### Preuves LIVE (04/11/2026 — prod, déploiement `dpl_i4V7kjSq8ftJkR1tQiA881v1AkLU` READY)
+
+| Harnais | Résultat |
+|---|---|
+| `verify-etats-offres.mjs` (nouveau) | **15/15** — squelette avant toute carte, 0 carte pendant l'attente, 1 seule annonce `role=status`, 37 blocs de squelette, 12 cartes ensuite (1re carte à 3 001 ms) ; état vide : message juste, `aria-labelledby` résolue, bouton 44 px, bloc 602 px, **0 lien mort** |
+| `verify-cibles.mjs` | VERT — `/offres` 15 cliquables, **0 < 44 px**, **0 texte < 12 px** ; accueil 22 cliquables, 0 / 0 |
+| `verify-facettes-url.mjs` | **11/11** |
+| `verify-chrome-etats.mjs` | **24/24** |
+| `verify-live-public.mjs` | **11/11** |
+| `verify-mobile-filtres.mjs` | **28/28** |
+| `verify-landing-repli.mjs` | **5/5** |
+
+**Contrôle négatif rejoué avant déploiement** : le même harnais sur la prod d'avant rendait **4/15** — il mesure donc le changement, pas l'air.
+
+**Ce que ce n'est PAS** : aucune amélioration de vitesse. L'attente de `/offres` reste dominée par le fetch API (mesure V2-06) ; la vague 3 a changé l'état AFFICHÉ pendant cette attente, pas sa durée.

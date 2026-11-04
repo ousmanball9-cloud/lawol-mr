@@ -6,11 +6,13 @@
  *
  * Ce qui est prouvé, et pourquoi ce n'est pas un contrôle statique :
  *  1. **Chargement** — l'état de chargement n'existe que pendant l'attente des
- *     données. On PROVOQUE l'attente (requête `/api/v1/offres` retenue 4 s via
- *     CDP), puis on lit le DOM : squelette présent, `offre-carte` absente, une
- *     seule annonce `role="status"`. Sans provocation, on mesurerait la prod
- *     rapide et le test ne prouverait rien (leçon V3-06 : `non communiqué` = 0
- *     sur une prod saine).
+ *     données. Le harnais RETIENT la requête `/api/v1/offres` (CDP `Fetch`,
+ *     réglage indicatif : si l'interception ne s'applique pas, la mesure reste
+ *     valable car on lit le délai réel) puis lit le DOM : squelette présent,
+ *     `offre-carte` absente, une seule annonce `role="status"`, et l'API
+ *     réellement appelée (compteur `Network`, indépendant de l'interception).
+ *     Sans provocation ni relevé du délai, on mesurerait la prod rapide et le
+ *     test ne prouverait rien (leçon V3-06 : `non communiqué` = 0 sur prod saine).
  *  2. **Vide filtré** — `?q=` sans résultat doit rendre le bloc guidant, le bon
  *     message (« ne correspond à ces filtres », pas « aucune offre publiée »),
  *     un bouton de réinitialisation ≥ 44 px, et rester compact (< 700 px de
@@ -45,6 +47,7 @@ const chrome = spawn(
 /** Retient chaque appel `/api/v1/offres` pendant RETENUE_MS, puis le libère. */
 const RETENUE_MS = 4000;
 let retenues = 0;
+let appelsApi = 0;
 
 try {
   for (let i = 0; i < 80; i++) {
@@ -79,10 +82,16 @@ try {
       retenues += 1;
       setTimeout(() => { send("Fetch.continueRequest", { requestId: m.params.requestId }).catch(() => {}); }, RETENUE_MS);
     }
+    // Compteur passif (indépendant de l'interception) : la page a-t-elle bien
+    // appelé l'API ? C'est la double preuve que l'attente mesurée est réelle.
+    if (m.method === "Network.requestWillBeSent" && m.params.request.url.includes("/api/v1/offres")) {
+      appelsApi += 1;
+    }
   });
 
   await send("Runtime.enable");
   await send("Page.enable");
+  await send("Network.enable");
   await send("Fetch.enable", { patterns: [{ urlPattern: "*api/v1/offres*", requestStage: "Request" }] });
   const ev = async (expression) =>
     (await send("Runtime.evaluate", { returnByValue: true, expression })).result.value;
@@ -99,6 +108,7 @@ try {
   const noter = (label, ok, valeur) => cas.push([label, ok, valeur]);
 
   // ── 1. Chargement provoqué ────────────────────────────────────────────────
+  const t0 = Date.now();
   await send("Page.navigate", { url: `${BASE}/offres` });
   const vuSquelette = await attendre(`!!document.querySelector('[data-probe="offres-squelette"]')`, 12000);
   const etatPendant = await ev(`(() => ({
@@ -107,7 +117,6 @@ try {
     statuts: document.querySelectorAll('[role="status"]').length,
     annonce: (document.body.innerText.match(/Chargement des offres/gi) || []).length,
   }))()`);
-  noter("attente réelle provoquée (requêtes retenues > 0)", retenues > 0, `${retenues} requête(s)`);
   noter("squelette affiché pendant l'attente", vuSquelette, vuSquelette ? "oui" : "non");
   noter("aucune carte pendant l'attente", etatPendant.cartes === 0, String(etatPendant.cartes));
   noter("une seule annonce role=status", etatPendant.statuts === 1, String(etatPendant.statuts));
@@ -120,9 +129,11 @@ try {
   const squeletteParti = await ev(`!document.querySelector('[data-probe="offres-squelette"]')`);
   noter("cartes affichées après l'attente", cartesArrivees, String(nbCartes));
   noter("squelette retiré une fois les données là", squeletteParti, squeletteParti ? "oui" : "non");
+  const duree = Date.now() - t0;
+  noter("la page a bien appelé l'API", appelsApi > 0, `${appelsApi} appel(s)`);
 
   // ── 3. État vide filtré ──────────────────────────────────────────────────
-  await send("Page.navigate", { url: `${BASE}/offres?q=zzzzzzzzzz` });
+  await send("Page.navigate", { url: `${BASE}/offres?recherche=zzzzzzzzzz` });
   const vuVide = await attendre(`!!document.querySelector('[data-probe="offres-vide"]')`, 20000);
   const vide = await ev(`(() => {
     const bloc = document.querySelector('[data-probe="offres-vide"]');
@@ -153,6 +164,7 @@ try {
   noter("bloc vide compact (< 700 px)", !!vide && vide.hauteur > 0 && vide.hauteur < 700, vide ? `${vide.hauteur} px` : "—");
 
   console.log(`\n=== états /offres — ${BASE} (390x844) ===`);
+  console.log(`info : 1re carte à ${duree} ms · ${appelsApi} appel(s) API · ${retenues} requête(s) retenue(s)`);
   let ko = 0;
   for (const [label, ok, valeur] of cas) {
     if (!ok) ko += 1;
