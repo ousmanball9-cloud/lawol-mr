@@ -44,6 +44,19 @@ function stubFetch() {
       if (echecSur && chemin === echecSur) {
         return { ok: false, status: 403, json: async () => ({ detail: "refusé" }) } as unknown as Response;
       }
+      // La page charge AUSSI les préférences avancées (garde : une réponse sans
+      // `prefs_avancees` fait échouer l'écran). Le mock doit donc la servir —
+      // sinon le test mesure l'état d'erreur au lieu de l'export.
+      if (chemin.endsWith("/preferences")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            telephone: etat.telephone,
+            prefs_avancees: { villes_exclues: [], types_masques: [], seuil_pertinence: 0 },
+          }),
+        } as unknown as Response;
+      }
       if (chemin.endsWith("/historique")) {
         return {
           ok: true,
@@ -109,14 +122,16 @@ describe("export « Mes données »", () => {
     expect(charge.documents).toEqual([{ id: "d1", nom: "cv.pdf" }]);
     expect(typeof charge.exporte_le).toBe("string");
 
-    // Aucune route inventée : les 3 endpoints gardés existants seulement
-    // (le profil est lu au montage PUIS à l'export → 2 appels, attendu).
+    // Aucune route inventée : les endpoints gardés existants seulement
+    // (le profil est lu au montage PUIS à l'export → 2 appels, attendu ;
+    //  les préférences avancées sont lues au montage).
     const urls = [...new Set(appels.map((a) => a.url))].sort();
     expect(urls).toEqual(
       [
         "/api/v1/profils/22240000001",
         "/api/v1/profils/22240000001/historique",
         "/api/v1/profils/22240000001/documents",
+        "/api/v1/profils/22240000001/preferences",
       ].sort()
     );
     expect(appels.every((a) => a.method === "GET")).toBe(true);

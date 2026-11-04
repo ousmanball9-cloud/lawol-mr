@@ -15,7 +15,7 @@ export function BadgeEcheance({ jours }: { jours: number | null }) {
 
   if (jours < 0) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
+      <span className="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive">
         Clôturée
       </span>
     );

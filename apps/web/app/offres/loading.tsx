@@ -1,29 +1,5 @@
 import { Chrome } from "@/components/chrome/chrome";
-import { Skeleton } from "@/components/ui/skeleton";
-
-/** Carte de squelette : même gabarit qu'une carte d'offre (logo, titre, méta,
- *  résumé, badges) pour que l'arrivée des données ne déplace rien. */
-function CarteSquelette() {
-  return (
-    <div className="rounded-lg border border-border bg-card p-5 shadow-card">
-      <div className="flex items-start gap-3">
-        <Skeleton variant="circular" className="h-10 w-10 shrink-0" />
-        <div className="min-w-0 flex-1">
-          <Skeleton variant="text" width="75%" className="h-4" />
-          <Skeleton variant="text" width="45%" className="mt-2 h-3" />
-        </div>
-      </div>
-      <div className="mt-4 space-y-2">
-        <Skeleton variant="text" />
-        <Skeleton variant="text" width="85%" />
-      </div>
-      <div className="mt-4 flex gap-2">
-        <Skeleton variant="rectangular" width={96} height={28} className="rounded-full" />
-        <Skeleton variant="rectangular" width={72} height={28} className="rounded-full" />
-      </div>
-    </div>
-  );
-}
+import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 
 /**
  * État de chargement du CATALOGUE (`/offres`) — rendu DANS le chrome.
@@ -36,6 +12,10 @@ function CarteSquelette() {
  * `/offres` affichait un spinner plein écran sans header (constat chasse 0 ·
  * B2). Ici le squelette occupe la place du contenu, la navigation reste
  * visible et cliquable.
+ *
+ * V3-04 · B7 : la grille utilise `SkeletonCard` — le MÊME composant que l'état
+ * de chargement client (`IndicateurChargement` dans `page.tsx`), donc les deux
+ * chemins (navigation serveur / attente du fetch) peignent la même chose.
  *
  * Purement décoratif pour les lecteurs d'écran (les blocs sont `aria-hidden`),
  * une seule annonce `role="status"` porte l'information.
@@ -65,9 +45,12 @@ export default function Loading() {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div data-probe="offres-squelette" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <CarteSquelette key={i} />
+              <SkeletonCard
+                key={i}
+                className="rounded-lg border border-border bg-card p-5 shadow-card"
+              />
             ))}
           </div>
         </div>

@@ -332,7 +332,7 @@ export default function EditProfilPage() {
                         type="checkbox"
                         checked={form.types_recherches.includes(t.value)}
                         onChange={() => toggleTypeOffre(t.value)}
-                        className="rounded border-gray-300 text-signature focus:ring-signature"
+                        className="rounded border-input text-signature focus:ring-signature"
                       />
                       <span className="text-sm">{t.label}</span>
                     </label>
@@ -342,7 +342,7 @@ export default function EditProfilPage() {
 
               {/* Erreur */}
               {error && (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">
                   {error}
                 </div>
               )}

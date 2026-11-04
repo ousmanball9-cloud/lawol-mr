@@ -10,6 +10,16 @@ type Variant = "search" | "candidature" | "favori";
 
 interface EmptyGuidantProps {
   variant: Variant;
+  /** Remplace le titre figé du variant (le contexte de la page est plus juste). */
+  titre?: string;
+  /** Remplace la description figée du variant. */
+  description?: string;
+  /**
+   * Cible du lien « Affiner mes préférences ». OMIS = pas de lien du tout :
+   * aucune route n'est inventée (l'ancienne valeur `/profil/[telephone]/parametres`
+   * était un gabarit littéral, donc un lien mort sur toute page publique).
+   */
+  hrefPreferences?: string;
   onActualiser?: () => void;
   actualisation?: boolean;
   className?: string;
@@ -23,10 +33,14 @@ interface EmptyGuidantProps {
  */
 export function EmptyGuidant({
   variant,
+  titre,
+  description,
+  hrefPreferences,
   onActualiser,
   actualisation = false,
   className,
 }: EmptyGuidantProps) {
+  const idTitre = React.useId();
   const messages: Record<Variant, { title: string; description: string }> = {
     search: {
       title: "Aucune offre ne correspond",
@@ -45,7 +59,9 @@ export function EmptyGuidant({
     },
   };
 
-  const { title, description } = messages[variant];
+  const message = messages[variant];
+  const titreAffiche = titre ?? message.title;
+  const descriptionAffichee = description ?? message.description;
 
   return (
     <section
@@ -57,45 +73,49 @@ export function EmptyGuidant({
         "rounded-2xl border border-border",
         className
       )}
-      aria-labelledby="empty-title"
+      aria-labelledby={idTitre}
     >
-      <SvgIllustration variant={variant} animate={true} />
+      <div className="w-full max-w-[220px]">
+        <SvgIllustration variant={variant} animate={true} />
+      </div>
 
       <div className="mt-8 max-w-sm">
         <h2
-          id="empty-title"
+          id={idTitre}
           className={cn(
             "text-xl font-semibold",
             "text-ink dark:text-white",
             "mb-2"
           )}
         >
-          {title}
+          {titreAffiche}
         </h2>
         <p className={cn("text-base", "text-muted-foreground dark:text-white/60")}>
-          {description}
+          {descriptionAffichee}
         </p>
       </div>
 
       <div className="mt-8 w-full max-w-sm flex flex-col sm:flex-row items-center justify-center gap-3">
-        <Link
-          href="/profil/[telephone]/parametres"
-          className={cn(
-            "inline-flex items-center justify-center gap-2",
-            "px-4 py-2.5 rounded-lg",
-            "bg-muted dark:bg-muted",
-            "text-ink dark:text-white",
-            "font-medium text-sm",
-            "hover:bg-muted-foreground/10 dark:hover:bg-muted-foreground/20",
-            "transition-colors",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature",
-            "w-full sm:w-auto"
-          )}
-          aria-label="Affiner mes préférences"
-        >
-          <Settings className="h-4 w-4" aria-hidden="true" />
-          <span>Affiner mes préférences</span>
-        </Link>
+        {hrefPreferences && (
+          <Link
+            href={hrefPreferences}
+            className={cn(
+              "inline-flex items-center justify-center gap-2",
+              "px-4 py-2.5 rounded-lg",
+              "bg-muted dark:bg-muted",
+              "text-ink dark:text-white",
+              "font-medium text-sm",
+              "hover:bg-muted-foreground/10 dark:hover:bg-muted-foreground/20",
+              "transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature",
+              "w-full sm:w-auto"
+            )}
+            aria-label="Affiner mes préférences"
+          >
+            <Settings className="h-4 w-4" aria-hidden="true" />
+            <span>Affiner mes préférences</span>
+          </Link>
+        )}
 
         {onActualiser && (
           <button

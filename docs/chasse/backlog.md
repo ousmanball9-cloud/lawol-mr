@@ -59,6 +59,13 @@ facette ne compte pas comme faite.
 
 ## 3. Vague 3 — « comprendre & oser postuler »
 
+> **Constat de données (03/11/2026, vérifié dans le code)** : `V3-09` (calendrier de
+> sélection daté) et `V3-10` (date limite par pays) exigent une donnée qui **n'existe
+> pas** — le modèle `Offre` ne porte que `date_limite` (une seule date, tous pays
+> confondus) et `metadata` (financeur uniquement). Les afficher aujourd'hui
+> fabriquerait de fausses échéances ou de faux retardataires. Ils passent donc en
+> **vague 4 (décision produit + ingestion)**, pas en vague 3 d'affichage.
+
 **État au 03/11/2026** : V3-01, V3-02, V3-06 et V3-08 livrés et prouvés en ligne
 (`verify-chrome-etats` 24/24 : essentiel à y≈420 px, description à y≈1400 px,
 pièces à préparer entre les deux ; `verify-landing-repli` 5/5 : API bloquée →
@@ -153,3 +160,23 @@ voit `/connexion`) — famille hors périmètre de la vague, code du profil non
 touché par la refonte, middleware réel prouvé sain en prod (`/profil/{tel}`
 anonyme → 307). À traiter comme un défaut de session factice du harnais.
 
+
+## 7. Etat d'execution - vague 3 suite (04/11/2026)
+
+| ID | Etat | Preuve |
+|---|---|---|
+| V3-04 | livré (code + harnais) | SkeletonCard x6 et EmptyGuidant branchés sur /offres ; harnais erify-etats-offres.mjs (15 cas) ; avant déploiement : **4/15** sur la prod (contrôle négatif = le harnais ne mesure pas l'air) |
+| V3-07 | livré (code) | palettes brutes pp/** + components/** : **98 -> 0**, puis **49 -> 0** (connexion, inscription, profil/edit, profil/parametres, offre-form), puis **6 -> 0** (cta-whatsapp, coffre-documents, KpiCard, offre-detail-modal) ; contraste mesuré 22/22 puis 18/18 paires >= 4.5:1 |
+| V3-09 | **requalifié vague 4** | aucune donnée de calendrier en base (Offre = une seule date_limite) |
+| V3-10 | **requalifié vague 4** | idem : pas de date par pays, l'afficher fabriquerait de faux retardataires |
+
+**Corrections trouvées en chemin et corrigées** (pas des effets de bord : des défauts réels) :
+1. EmptyGuidant portait un **lien mort** href="/profil/[telephone]/parametres" (gabarit littéral, jamais substitué) et une copie figée qui contredisait la page (« Aucune offre ne correspond » + « Aucune offre disponible » juste dessous). Props 	itre / description / hrefPreferences ajoutées ; le catalogue n'invente plus de route de profil, et id="empty-title" (id dupliquable) remplacé par useId().
+2. prefers-reduced-motion **ne couvrait pas** nimate-pulse / nimate-spin / le pouls inline des squelettes : ajoutés au garde de globals.css.
+3. Illustration d'état vide plafonnée à 220 px (900 px de haut sur mobile avant).
+
+**Deux harnais menteurs corrigés** (la règle « changer le probe, jamais affaiblir l'attente ») :
+- __tests__/profil/parametres-export.test.tsx était **rouge depuis que la page charge les préférences** : le mock servait le profil à la place de /preferences, la page tombait en « Erreur de chargement », et les 2 tests mesuraient l'erreur en croyant mesurer l'export. Corrigé (branche /preferences + URL attendue).
+- __tests__/components/espace/KpiCard.test.tsx figeait 	ext-emerald-600 / 	ext-red-600 : attentes alignées sur les tokens AA (emerald-700, destructive).
+
+Gates rejouées : 	sc --noEmit 0, eslint app components __tests__ 0, itest **225/225**, grep zéro-noir + zéro palette brute = **0**.

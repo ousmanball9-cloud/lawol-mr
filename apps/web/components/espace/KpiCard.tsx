@@ -63,7 +63,7 @@ export default function KpiCard({
         {trend && trendValue !== undefined && (
           <div
             className={`flex flex-col items-end gap-0.5 shrink-0 ${
-              trend === "up" ? "text-emerald-600" : trend === "down" ? "text-red-600" : "text-muted-foreground"
+              trend === "up" ? "text-emerald-700" : trend === "down" ? "text-destructive" : "text-muted-foreground"
             }`}
           >
             <span className="flex items-center gap-1 text-sm font-medium">

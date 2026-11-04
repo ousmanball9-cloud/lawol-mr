@@ -99,7 +99,7 @@ export default function AdminStatistiquesPage() {
   return (
     <div>
       {/* En-tête de page (même gabarit que les autres écrans admin) */}
-      <div className="p-4 bg-white border-b border-gray-200 sm:flex sm:items-center sm:justify-between lg:mt-1.5">
+      <div className="p-4 bg-card border-b border-border sm:flex sm:items-center sm:justify-between lg:mt-1.5">
         <div className="w-full mb-1 sm:flex sm:items-center sm:justify-between sm:gap-4">
           <div>
             <h1 className="flex items-center gap-2 text-xl font-semibold text-ink sm:text-2xl">
@@ -115,7 +115,7 @@ export default function AdminStatistiquesPage() {
             onClick={handleExporterCsv}
             disabled={!stats || exportEnCours}
             data-probe="stats-export-csv"
-            className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm transition-colors duration-150 hover:border-signature hover:text-signature disabled:cursor-not-allowed disabled:opacity-50 sm:mt-0"
+            className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-ink shadow-sm transition-colors duration-150 hover:border-signature hover:text-signature disabled:cursor-not-allowed disabled:opacity-50 sm:mt-0"
           >
             <Download className="h-4 w-4" aria-hidden="true" />
             {exportEnCours ? "Export…" : "Exporter CSV"}
@@ -137,7 +137,7 @@ export default function AdminStatistiquesPage() {
           <p
             data-probe="stats-erreur"
             role="alert"
-            className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600"
+            className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
           >
             <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
             {erreur}

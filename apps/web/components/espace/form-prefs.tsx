@@ -215,12 +215,12 @@ export function FormPrefs({ telephone }: { telephone: string }) {
               {sauvegarde === "pending" ? "Enregistrement..." : "Enregistrer mes préférences"}
             </Button>
             {sauvegarde === "ok" && (
-              <span role="status" className="text-sm font-medium text-green-800">
+              <span role="status" className="text-sm font-medium text-emerald-700">
                 Préférences enregistrées ✅
               </span>
             )}
             {sauvegarde === "erreur" && (
-              <span role="status" className="text-sm font-medium text-red-700">
+              <span role="status" className="text-sm font-medium text-destructive">
                 Enregistrement impossible — réessaie.
               </span>
             )}

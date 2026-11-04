@@ -4,8 +4,9 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
-import { Briefcase, RefreshCw } from "lucide-react";
+import { SkeletonCard } from "@/components/ui/skeleton";
+import { EmptyGuidant } from "@/components/empty/EmptyGuidant";
+import { RefreshCw } from "lucide-react";
 import { BarreFiltres } from "@/components/offres/barre-filtres";
 import { Chrome } from "@/components/chrome/chrome";
 import { CarteOffre } from "@/components/offres/carte-offre";
@@ -92,12 +93,38 @@ async function chargerBassin(tri: TriOffres, q: string, categorie: string): Prom
   }
 }
 
+/**
+ * État de chargement du catalogue (V3-04 · B7) — squelette plutôt qu'un texte.
+ *
+ * Même grille que le résultat réel (`md:grid-cols-2 xl:grid-cols-3`, 6 cartes =
+ * une demi-page d'avance) et même gabarit de carte (`SkeletonCard`) : l'arrivée
+ * des données ne déplace rien. Rendu DANS le chrome, comme `app/offres/loading.tsx` :
+ * la navigation reste visible pendant l'attente.
+ *
+ * Les blocs sont décoratifs (`aria-hidden` posé par `Skeleton`), une seule
+ * annonce `role="status"` porte l'information pour les lecteurs d'écran.
+ */
 function IndicateurChargement() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4">
-      <Spinner className="h-10 w-10" />
-      <p className="text-sm text-muted-foreground">Chargement des offres...</p>
-    </div>
+    <Chrome>
+      <main className="bg-background px-4 py-10" aria-busy="true">
+        <div className="mx-auto max-w-7xl">
+          <div
+            data-probe="offres-squelette"
+            role="status"
+            className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+          >
+            <p className="sr-only">Chargement des offres…</p>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard
+                key={i}
+                className="rounded-lg border border-border bg-card p-5 shadow-card"
+              />
+            ))}
+          </div>
+        </div>
+      </main>
+    </Chrome>
   );
 }
 
@@ -440,29 +467,45 @@ function OffresContenu() {
         />
 
         {pageCourante.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border bg-background px-4 py-12 text-center">
-            <Briefcase className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-            <p className="font-medium text-foreground">
-              {bassin.length === 0 && !filtreServeurActif
-                ? "Aucune offre disponible pour le moment"
-                : "Aucune offre ne correspond à ces filtres"}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {bassin.length === 0 && !filtreServeurActif
-                ? "Reviens bientôt — de nouvelles offres sont publiées chaque semaine."
-                : "Essaie d'élargir ta recherche."}
-            </p>
+          <section
+            data-probe="offres-vide"
+            className="rounded-2xl border border-border bg-card px-4 pb-10"
+          >
+            {/* Bibliothèque d'états existante (V3-04) : illustration + guidage.
+                Le titre et la description sont passés par la page, parce que
+                deux situations différentes mènent ici : catalogue vide (rien de
+                publié) vs filtres trop étroits. Un seul texte, donc pas de
+                contradiction entre le composant et sa page.
+                `border-0 bg-transparent` : la carte visuelle est portée par
+                l'enveloppe, pour une seule surface et non deux empilées.
+                Aucun `hrefPreferences` : le catalogue est public, on n'invente
+                pas une route de profil sans téléphone. */}
+            <EmptyGuidant
+              variant="search"
+              titre={
+                bassin.length === 0 && !filtreServeurActif
+                  ? "Aucune offre disponible pour le moment"
+                  : "Aucune offre ne correspond à ces filtres"
+              }
+              description={
+                bassin.length === 0 && !filtreServeurActif
+                  ? "Reviens bientôt — de nouvelles offres sont publiées chaque semaine."
+                  : "Essaie d'élargir ta recherche."
+              }
+              className="border-0 bg-transparent dark:bg-transparent"
+            />
             {(bassin.length > 0 || filtreServeurActif) && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={reinitialiserFiltres}
-                className="mt-4 rounded-lg border-border px-4 transition-colors duration-150 hover:border-signature hover:text-signature"
-              >
-                Réinitialiser les filtres
-              </Button>
+              <div role="status" className="mx-auto max-w-md pb-4 text-center">
+                <Button
+                  variant="outline"
+                  onClick={reinitialiserFiltres}
+                  className="h-11 rounded-lg border-border px-4 transition-colors duration-150 hover:border-signature hover:text-signature"
+                >
+                  Réinitialiser les filtres
+                </Button>
+              </div>
             )}
-          </div>
+          </section>
         ) : (
           <>
             <div

@@ -183,7 +183,7 @@ export default function ConnexionPage() {
 
             {/* Erreur */}
             {erreur && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">
                 {erreur}
               </div>
             )}

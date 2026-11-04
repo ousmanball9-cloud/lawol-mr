@@ -25,7 +25,7 @@ const inputClass =
 
 const selectClass = `${inputClass} bg-background`;
 
-const checkboxClass = `rounded border-gray-300 text-signature ${focusVisibleRing}`;
+const checkboxClass = `rounded border-input text-signature ${focusVisibleRing}`;
 
 export default function InscriptionPage() {
   const router = useRouter();
@@ -416,7 +416,7 @@ export default function InscriptionPage() {
 
             {/* Erreur */}
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">
                 {error}
               </div>
             )}

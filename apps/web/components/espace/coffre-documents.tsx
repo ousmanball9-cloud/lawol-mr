@@ -322,8 +322,8 @@ export function CoffreDocuments({ telephone }: { telephone: string }) {
             data-probe="coffre-message"
             className={`mb-4 rounded-lg px-4 py-3 text-sm font-medium ${
               message.ok
-                ? "border border-green-200 bg-green-50 text-green-800"
-                : "border border-red-200 bg-red-50 text-red-700"
+                ? "border border-emerald-600/30 bg-emerald-500/10 text-emerald-700"
+                : "border border-destructive/30 bg-destructive/10 text-destructive"
             }`}
           >
             {message.texte}

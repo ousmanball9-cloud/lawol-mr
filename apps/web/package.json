@@ -19,7 +19,8 @@
     "verify:espace": "node scripts/verify-espace.mjs",
     "verify:offres": "node scripts/verify-offres.mjs",
     "verify:entreprise": "node scripts/verify-entreprise.mjs",
-    "verify:dates": "node scripts/verify-dates.mjs"
+    "verify:dates": "node scripts/verify-dates.mjs",
+    "verify:etats": "node scripts/verify-etats-offres.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.0",

@@ -251,12 +251,12 @@ export default function ParametresPage() {
               {exportEtat === "pending" ? "Préparation..." : "Exporter mes données"}
             </Button>
             {exportEtat === "ok" && (
-              <span role="status" className="text-sm font-medium text-green-800">
+              <span role="status" className="text-sm font-medium text-emerald-700">
                 Export téléchargé ✅
               </span>
             )}
             {exportEtat === "erreur" && (
-              <span role="status" className="text-sm font-medium text-red-700">
+              <span role="status" className="text-sm font-medium text-destructive">
                 Export impossible — réessaie.
               </span>
             )}
@@ -357,12 +357,12 @@ export default function ParametresPage() {
                 {sauvegarde === "pending" ? "Enregistrement..." : "Enregistrer mes préférences"}
               </Button>
               {sauvegarde === "ok" && (
-                <span role="status" className="text-sm font-medium text-green-800">
+                <span role="status" className="text-sm font-medium text-emerald-700">
                   Préférences enregistrées ✅
                 </span>
               )}
               {sauvegarde === "erreur" && (
-                <span role="status" className="text-sm font-medium text-red-700">
+                <span role="status" className="text-sm font-medium text-destructive">
                   Enregistrement impossible — réessaie.
                 </span>
               )}

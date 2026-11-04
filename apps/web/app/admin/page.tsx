@@ -54,12 +54,12 @@ type SanteCollecte = {
 // Cartes de statistiques — widgets du template Flowbite Admin
 // (carte blanche bordée + icône en pastille de couleur + grand chiffre).
 const CARDS = [
-  { label: "Offres actives", key: "offres_actives", icon: Briefcase, iconBg: "bg-blue-100", iconColor: "text-blue-600" },
-  { label: "Offres en attente", key: "offres_en_attente", icon: FileText, iconBg: "bg-indigo-100", iconColor: "text-indigo-600" },
-  { label: "Étudiants actifs", key: "etudiants_actifs", icon: Users, iconBg: "bg-green-100", iconColor: "text-green-600" },
-  { label: "Matches totaux", key: "matches_total", icon: Star, iconBg: "bg-purple-100", iconColor: "text-purple-600" },
-  { label: "Matches notifiés", key: "matches_notifies", icon: Bell, iconBg: "bg-amber-100", iconColor: "text-amber-600" },
-  { label: "Matches postulés", key: "matches_postules", icon: UserCheck, iconBg: "bg-teal-100", iconColor: "text-teal-600" },
+  { label: "Offres actives", key: "offres_actives", icon: Briefcase, iconBg: "bg-signature/10", iconColor: "text-signature" },
+  { label: "Offres en attente", key: "offres_en_attente", icon: FileText, iconBg: "bg-nuit/10", iconColor: "text-nuit" },
+  { label: "Étudiants actifs", key: "etudiants_actifs", icon: Users, iconBg: "bg-emerald-500/15", iconColor: "text-emerald-700" },
+  { label: "Matches totaux", key: "matches_total", icon: Star, iconBg: "bg-nuit-lift/10", iconColor: "text-nuit-lift" },
+  { label: "Matches notifiés", key: "matches_notifies", icon: Bell, iconBg: "bg-amber-500/15", iconColor: "text-amber-700" },
+  { label: "Matches postulés", key: "matches_postules", icon: UserCheck, iconBg: "bg-signature-deep/10", iconColor: "text-signature-deep" },
 ] as const;
 
 // Apparence par statut : vert = collecte fraîche, ambre = partielle,
@@ -67,26 +67,26 @@ const CARDS = [
 const SANTE_STYLE = {
   ok: {
     icone: CheckCircle2,
-    cadre: "bg-green-50 border-green-200 text-green-800",
-    pastille: "bg-green-100 text-green-600",
+    cadre: "bg-emerald-500/10 border-emerald-500/30 text-emerald-700",
+    pastille: "bg-emerald-500/15 text-emerald-700",
     titre: "Collecte automatique à jour",
   },
   degrade: {
     icone: AlertTriangle,
-    cadre: "bg-amber-50 border-amber-200 text-amber-800",
-    pastille: "bg-amber-100 text-amber-600",
+    cadre: "bg-amber-500/10 border-amber-500/30 text-amber-900",
+    pastille: "bg-amber-500/15 text-amber-700",
     titre: "Collecte partielle",
   },
   retard: {
     icone: XCircle,
-    cadre: "bg-red-50 border-red-200 text-red-800",
-    pastille: "bg-red-100 text-red-600",
+    cadre: "bg-destructive/10 border-destructive/30 text-destructive",
+    pastille: "bg-destructive/10 text-destructive",
     titre: "Collecte en retard",
   },
   jamais: {
     icone: XCircle,
-    cadre: "bg-red-50 border-red-200 text-red-800",
-    pastille: "bg-red-100 text-red-600",
+    cadre: "bg-destructive/10 border-destructive/30 text-destructive",
+    pastille: "bg-destructive/10 text-destructive",
     titre: "Aucune collecte enregistrée",
   },
 } as const;
@@ -136,10 +136,10 @@ export default function AdminDashboardPage() {
   return (
     <div>
       {/* En-tête de page (crud du template) */}
-      <div className="p-4 bg-white border-b border-gray-200 sm:flex sm:items-center sm:justify-between lg:mt-1.5">
+      <div className="p-4 bg-card border-b border-border sm:flex sm:items-center sm:justify-between lg:mt-1.5">
         <div className="w-full mb-1">
-          <h1 className="text-xl font-semibold text-gray-900 sm:text-2xl">Dashboard</h1>
-          <p className="mt-1 text-sm font-normal text-gray-500">
+          <h1 className="text-xl font-semibold text-ink sm:text-2xl">Dashboard</h1>
+          <p className="mt-1 text-sm font-normal text-muted-foreground">
             Vue d&apos;ensemble de la plateforme LAWOL.mr
           </p>
         </div>
@@ -147,14 +147,14 @@ export default function AdminDashboardPage() {
 
       <div className="p-4">
         {loading && (
-          <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm sm:p-6">
-            <p className="text-sm text-gray-500">Chargement...</p>
+          <div className="p-4 bg-card border border-border rounded-lg shadow-sm sm:p-6">
+            <p className="text-sm text-muted-foreground">Chargement...</p>
           </div>
         )}
 
         {error && (
           <div
-            className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg border border-red-200"
+            className="p-4 mb-4 text-sm text-destructive bg-destructive/10 rounded-lg border border-destructive/30"
             role="alert"
           >
             {error}
@@ -209,11 +209,11 @@ export default function AdminDashboardPage() {
             {CARDS.map((card) => (
               <div
                 key={card.label}
-                className="items-center justify-between p-4 bg-white border border-gray-200 rounded-lg shadow-sm sm:flex sm:p-6"
+                className="items-center justify-between p-4 bg-card border border-border rounded-lg shadow-sm sm:flex sm:p-6"
               >
                 <div className="w-full">
-                  <h3 className="mb-1 text-base font-normal text-gray-500">{card.label}</h3>
-                  <span className="text-2xl font-bold leading-none text-gray-900 sm:text-3xl">
+                  <h3 className="mb-1 text-base font-normal text-muted-foreground">{card.label}</h3>
+                  <span className="text-2xl font-bold leading-none text-ink sm:text-3xl">
                     {stats[card.key]}
                   </span>
                 </div>
@@ -228,7 +228,7 @@ export default function AdminDashboardPage() {
         )}
 
         {stats && !loading && (
-          <p className="mt-3 text-xs text-gray-500">
+          <p className="mt-3 text-xs text-muted-foreground">
             Taux de notification des matches : {stats.taux_notification} %
           </p>
         )}

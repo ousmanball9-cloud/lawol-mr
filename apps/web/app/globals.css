@@ -140,6 +140,12 @@
     opacity: 1;
     transform: none;
   }
+  /* Squelettes et rotations de chargement (V3-04) : le pouls s'arrête, la structure reste. */
+  .animate-pulse,
+  .animate-spin,
+  [data-probe^="skeleton-"] > div {
+    animation: none !important;
+  }
 }
 
 @layer utilities {

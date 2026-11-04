@@ -46,9 +46,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen pt-16 overflow-hidden bg-gray-50">
+    <div className="flex min-h-screen pt-16 overflow-hidden bg-background">
       {/* Topbar fixe */}
-      <nav className="fixed top-0 left-0 z-30 w-full bg-white border-b border-gray-200">
+      <nav className="fixed top-0 left-0 z-30 w-full bg-card border-b border-border">
         <div className="px-3 py-3 lg:px-5 lg:pl-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center justify-start">
@@ -57,13 +57,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 onClick={() => setMobileOpen((v) => !v)}
                 aria-expanded={mobileOpen}
                 aria-controls="sidebar"
-                className="p-2 text-gray-600 rounded cursor-pointer lg:hidden hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-100"
+                className="p-2 text-muted-foreground rounded cursor-pointer lg:hidden hover:text-ink hover:bg-muted focus:outline-none focus:ring-2 focus:ring-signature/30"
               >
                 <span className="sr-only">Ouvrir la navigation</span>
                 {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
               <Link href="/" className="flex ml-2 md:mr-24">
-                <span className="self-center text-xl font-semibold whitespace-nowrap text-gray-900">
+                <span className="self-center text-xl font-semibold whitespace-nowrap text-ink">
                   LAWOL.mr <span className="text-primary">Admin</span>
                 </span>
               </Link>
@@ -71,7 +71,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <div className="flex items-center">
               <Link
                 href="/"
-                className="items-center hidden px-3 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded-lg sm:inline-flex hover:bg-gray-100 focus:ring-4 focus:ring-gray-100"
+                className="items-center hidden px-3 py-2 text-sm font-medium text-ink bg-card border border-border rounded-lg sm:inline-flex hover:bg-muted focus:ring-4 focus:ring-signature/20"
               >
                 <ExternalLink className="w-4 h-4 mr-2" />
                 Voir le site
@@ -102,7 +102,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           className="h-full border-0 rounded-none"
           theme={{
             root: {
-              inner: "h-full overflow-y-auto overflow-x-hidden bg-white px-3 py-4 border-r border-gray-200 rounded-none",
+              inner: "h-full overflow-y-auto overflow-x-hidden bg-card px-3 py-4 border-r border-border rounded-none",
             },
           }}
         >
@@ -124,21 +124,21 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </SidebarItems>
 
           {/* Pied de sidebar : voir le site + déconnexion */}
-          <div className="pt-2 mt-2 space-y-2 border-t border-gray-200">
+          <div className="pt-2 mt-2 space-y-2 border-t border-border">
             <Link
               href="/"
               onClick={() => setMobileOpen(false)}
-              className="flex items-center p-2 text-base text-gray-900 transition duration-75 rounded-lg group hover:bg-gray-100"
+              className="flex items-center p-2 text-base text-ink transition duration-75 rounded-lg group hover:bg-muted"
             >
-              <ExternalLink className="w-6 h-6 text-gray-500 transition duration-75 group-hover:text-gray-900" />
+              <ExternalLink className="w-6 h-6 text-muted-foreground transition duration-75 group-hover:text-ink" />
               <span className="ml-3">Voir le site</span>
             </Link>
             <button
               type="button"
               onClick={handleLogout}
-              className="flex items-center w-full p-2 text-base text-red-600 transition duration-75 rounded-lg group hover:bg-red-50"
+              className="flex items-center w-full p-2 text-base text-destructive transition duration-75 rounded-lg group hover:bg-destructive/10"
             >
-              <LogOut className="w-6 h-6 text-red-500 transition duration-75 group-hover:text-red-600" />
+              <LogOut className="w-6 h-6 text-destructive transition duration-75 group-hover:text-destructive" />
               <span className="ml-3">Déconnexion</span>
             </button>
           </div>
@@ -146,7 +146,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Contenu principal */}
-      <div className="relative w-full h-full overflow-y-auto bg-gray-50 lg:ml-64">
+      <div className="relative w-full h-full overflow-y-auto bg-background lg:ml-64">
         <main>{children}</main>
       </div>
     </div>

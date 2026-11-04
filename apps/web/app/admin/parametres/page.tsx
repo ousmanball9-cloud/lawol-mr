@@ -143,7 +143,7 @@ export default function AdminParametresPage() {
   return (
     <div>
       {/* En-tête de page (même gabarit que les autres écrans admin) */}
-      <div className="p-4 bg-white border-b border-gray-200 sm:flex sm:items-center sm:justify-between lg:mt-1.5">
+      <div className="p-4 bg-card border-b border-border sm:flex sm:items-center sm:justify-between lg:mt-1.5">
         <div className="w-full mb-1">
           <h1 className="flex items-center gap-2 text-xl font-semibold text-ink sm:text-2xl">
             <Settings className="h-6 w-6 text-signature" aria-hidden="true" />
@@ -290,7 +290,7 @@ export default function AdminParametresPage() {
               <p
                 data-probe="param-erreur"
                 role="alert"
-                className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-600"
+                className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
               >
                 <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
                 {erreur}

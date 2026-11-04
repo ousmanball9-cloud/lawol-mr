@@ -100,10 +100,10 @@ function valider(f: FormState): Record<string, string> {
 }
 
 const INPUT =
-  "bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg " +
-  "focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5";
-const LABEL = "block mb-1 text-sm font-medium text-gray-900";
-const ERREUR = "mt-1 text-xs font-medium text-red-600";
+  "block w-full rounded-lg border border-input bg-card p-2.5 text-sm text-foreground " +
+  "placeholder:text-muted-foreground focus:border-signature focus:outline-none focus:ring-4 focus:ring-signature/20";
+const LABEL = "block mb-1 text-sm font-medium text-ink";
+const ERREUR = "mt-1 text-xs font-medium text-destructive";
 
 export function OffreForm({ onCreated }: { onCreated: () => void }) {
   const [form, setForm] = useState<FormState>(FORM_VIDE);
@@ -197,23 +197,23 @@ export function OffreForm({ onCreated }: { onCreated: () => void }) {
     <form
       onSubmit={onSubmit}
       noValidate
-      className="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm sm:p-6"
+      className="p-4 mb-4 bg-card border border-border rounded-lg shadow-card sm:p-6"
     >
-      <h2 className="mb-1 text-base font-semibold text-gray-900">Nouvelle offre</h2>
-      <p className="mb-4 text-sm text-gray-500">
+      <h2 className="mb-1 text-base font-semibold text-ink">Nouvelle offre</h2>
+      <p className="mb-4 text-sm text-muted-foreground">
         Saisie manuelle (hors scrap) : ex. une bourse découverte hors ligne.
       </p>
 
       {succes && (
         <div
           role="alert"
-          className="flex items-center justify-between p-3 mb-4 text-sm font-medium text-green-800 bg-green-50 border border-green-200 rounded-lg"
+          className="flex items-center justify-between p-3 mb-4 text-sm font-medium text-emerald-700 bg-emerald-500/10 border border-emerald-600/30 rounded-lg"
         >
           <span>{succes}</span>
           <button
             type="button"
             onClick={() => setSucces("")}
-            className="ml-3 font-bold text-green-700 hover:text-green-900"
+            className="ml-3 font-bold text-emerald-700 hover:text-emerald-800"
             aria-label="Fermer le message"
           >
             ×
@@ -223,7 +223,7 @@ export function OffreForm({ onCreated }: { onCreated: () => void }) {
       {erreur && (
         <div
           role="alert"
-          className="p-3 mb-4 text-sm font-medium text-red-800 bg-red-50 border border-red-200 rounded-lg"
+          className="p-3 mb-4 text-sm font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-lg"
         >
           {erreur}
         </div>
@@ -351,11 +351,11 @@ export function OffreForm({ onCreated }: { onCreated: () => void }) {
             {FILIERES.map((f) => (
               <label
                 key={f.v}
-                className="flex items-center gap-2 p-2 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100"
+                className="flex items-center gap-2 p-2 text-sm text-foreground bg-background border border-border rounded-lg cursor-pointer hover:bg-muted"
               >
                 <input
                   type="checkbox"
-                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-signature bg-background border-input rounded focus:ring-4 focus:ring-signature/20"
                   checked={form.filieres.includes(f.v)}
                   onChange={() => basculerFiliere(f.v)}
                 />
@@ -400,7 +400,7 @@ export function OffreForm({ onCreated }: { onCreated: () => void }) {
         <button
           type="submit"
           disabled={envoi}
-          className="px-5 py-2.5 text-sm font-medium text-white bg-blue-700 rounded-lg focus:ring-4 focus:outline-none focus:ring-blue-300 hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-5 py-2.5 text-sm font-medium text-white bg-signature rounded-lg focus:ring-4 focus:outline-none focus:ring-signature/20 hover:bg-signature-deep disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {envoi ? "Création…" : "Créer l'offre"}
         </button>
@@ -412,11 +412,11 @@ export function OffreForm({ onCreated }: { onCreated: () => void }) {
             setErreur("");
             setSucces("");
           }}
-          className="px-5 py-2.5 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-4 focus:ring-gray-100"
+          className="px-5 py-2.5 text-sm font-medium text-ink bg-card border border-border rounded-lg hover:bg-muted focus:ring-4 focus:ring-signature/20"
         >
           Réinitialiser
         </button>
-        <span className="text-xs text-gray-500">* champs obligatoires</span>
+        <span className="text-xs text-muted-foreground">* champs obligatoires</span>
       </div>
     </form>
   );
