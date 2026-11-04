@@ -248,3 +248,21 @@ Arbitrage utilisateur : **« je veux les 35 »**. La curation à 10 options (`FI
 **Preuve** : nouveau test `__tests__/referentiels/filieres-formulaires.test.tsx` (3 cas) qui vérifie le référentiel (35, sans doublon, 25 valeurs hors curation présentes), le `<select>` du profil (35 options + l'option vide, libellés « Génie des procédés »/« Cybersécurité ») et les 35 cases du formulaire admin. **Contrôle négatif joué** : avec `FILIERES.slice(0, 10)` le test du profil **échoue** (1 KO), les deux autres restent verts (chacun ne prouve que sa promesse).
 
 `vitest` **228/228** (225 + 3 nouveaux), `tsc` 0, `eslint` 0, `next build` OK.
+
+
+### Preuves LIVE après déploiement des 35 filières (04/11/2026, `dpl_8B9hHZ3YC7hChnbXizirkSubLpWG` READY, `main` = `85ae2a5`)
+
+| Harnais | Résultat |
+|---|---|
+| `verify-carte-compacte.mjs` | VERT — 12/12 cartes ≤ 210 px, 3 zones, 1 seule pastille |
+| `verify-live-public.mjs` | **11/11** |
+| `verify-cibles.mjs` | VERT — `/offres` **39 cliquables | 0 < 44 px | 0 texte < 12 px** ; accueil 23 cliquables, 0 / 0 |
+| `verify-etats-offres.mjs` | **15/15** |
+| `verify-facettes-url.mjs` | **11/11** |
+| `verify-chrome-etats.mjs` | **24/24** |
+| `verify-mobile-filtres.mjs` | **28/28** |
+| `verify-landing-repli.mjs` | **5/5** |
+
+**Une variation qui n'est PAS un défaut** : `verify-cibles` compte **39** cliquables sur `/offres` là où il en comptait 15. Vérifié par sonde dédiée : **12** sont les cartes, les 24 autres sont la **pagination déjà existante** (`Précédent`, `1…6`, `23`, `Suivant`), le chrome et le pied de page. Le compteur dépend du moment de mesure (la pagination n'apparaît qu'après l'arrivée des données) : aucun élément ajouté, **0 cible sous 44 px**.
+
+**Limite de preuve assumée** : les deux formulaires à 35 filières sont derrière session (`/profil/[tel]/edit`) et garde admin (création d'offre). La preuve est donc **au build** (test `filieres-formulaires.test.tsx`, 3 cas, contrôle négatif joué), pas en live. Aucune preuve live n'est revendiquée pour eux.
