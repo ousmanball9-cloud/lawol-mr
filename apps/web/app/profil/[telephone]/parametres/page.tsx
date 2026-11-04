@@ -4,11 +4,13 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { TYPES_OFFRES } from "@/components/offre-detail-modal";
+import { TYPES_OFFRES, VILLES } from "@/lib/referentiels";
 import { ArrowLeft, ArrowRight, Check, Copy, Download, Settings, UserMinus } from "lucide-react";
 
-/** Enum Ville du backend (ordre SQL), même liste que le schéma. */
-const VILLES = ["nouakchott", "nouadhibou", "kaedi", "rosso", "aleg", "autre"];
+/** Enum Ville du backend — SOURCE UNIQUE : `lib/referentiels.ts` (V3-05).
+ *  Valeurs brutes seulement : l'affichage de cet écran garde sa mise en forme
+ *  historique (snake_case → texte capitalisé, cf. `ville.replace(/_/g, " ")`). */
+const VILLES_VALEURS = VILLES.map((v) => v.valeur);
 
 type Prefs = {
   villes_exclues: string[];
@@ -277,7 +279,7 @@ export default function ParametresPage() {
             <fieldset>
               <legend className="mb-2 text-sm font-semibold text-foreground">Villes exclues</legend>
               <div className="flex flex-wrap gap-2">
-                {VILLES.map((ville) => (
+                {VILLES_VALEURS.map((ville) => (
                   <label
                     key={ville}
                     className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-colors duration-150 hover:border-signature"

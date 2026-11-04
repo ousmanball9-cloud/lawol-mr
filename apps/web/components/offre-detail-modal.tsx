@@ -13,7 +13,7 @@ import {
   MessageCircle,
   X,
 } from "lucide-react";
-import { labelCategorieBourse } from "@/components/offres/types";
+import { labelCategorieBourse, TYPES_OFFRES } from "@/components/offres/types";
 
 /** Champs de l'offre exposés par GET /api/v1/matches (voir docs/brief-offre-detail.md). */
 export type OffreDetail = {
@@ -34,13 +34,10 @@ export type OffreDetail = {
   categorie_bourse?: string | null;
 };
 
-export const TYPES_OFFRES: Record<string, string> = {
-  stage_pfe: "Stage PFE",
-  stage_ete: "Stage été",
-  emploi_junior: "Emploi junior",
-  alternance: "Alternance",
-  bourse: "Bourse d'études",
-};
+/** Référentiel unique des types d'offre — voir `lib/referentiels.ts` (V3-05).
+ *  Ré-exporté ici pour que les cartes, la fiche et les paramètres continuent de
+ *  lire `TYPES_OFFRES` depuis ce module sans importer un second référentiel. */
+export { TYPES_OFFRES };
 
 /**
  * Tenue des badges type d'offre : version épurée (petites capitales + bordure

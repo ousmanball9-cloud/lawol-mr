@@ -10,9 +10,7 @@ import { ecrireSession } from "@/lib/session";
 import { Skeleton, SkeletonText } from "@/components/ui/skeleton";
 import { PinStrengthBar } from "@/components/ui/pin-strength-bar";
 import { validatePin } from "@/hooks/use-pin-validation";
-import { FILIERES, PAYS_ETUDES } from "@/components/offres/types";
-
-const NIVEAUX = ["L1", "L2", "L3", "M1", "M2", "Autre"];
+import { FILIERES, NIVEAUX, PAYS_ETUDES } from "@/lib/referentiels";
 
 const PAYS = PAYS_ETUDES;
 

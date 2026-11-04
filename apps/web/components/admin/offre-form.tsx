@@ -5,35 +5,17 @@
 // source/source_name sont fixés côté client : saisie manuelle hors scrap.
 
 import { useState, type FormEvent } from "react";
+import { FILIERES_FORMULAIRE, VILLES } from "@/lib/referentiels";
+import { TYPE_EN_TETE } from "@/components/offres/types";
 
 // Types proposés : BOURSE uniquement. Le catalogue est « 100 % bourses » (décision
 // produit) et l'API refuse désormais explicitement les autres types (422). Ce
 // formulaire existe pour « une bourse découverte hors ligne » ; proposer un
 // « Emploi junior » n'aurait plus aucun consommateur et recréerait en un clic
 // le défaut corrigé le 27/10 (33 offres non-bourses servies par l'API).
-const TYPES = [{ v: "bourse", l: "Bourse" }];
-
-const VILLES = [
-  { v: "nouakchott", l: "Nouakchott" },
-  { v: "nouadhibou", l: "Nouadhibou" },
-  { v: "kaedi", l: "Kaédi" },
-  { v: "rosso", l: "Rosso" },
-  { v: "aleg", l: "Aleg" },
-  { v: "autre", l: "Autre" },
-];
-
-const FILIERES = [
-  { v: "informatique", l: "Informatique" },
-  { v: "genie_civil", l: "Génie civil" },
-  { v: "electrique", l: "Électrique" },
-  { v: "mecanique", l: "Mécanique" },
-  { v: "gestion", l: "Gestion" },
-  { v: "finance", l: "Finance" },
-  { v: "droit", l: "Droit" },
-  { v: "medecine", l: "Médecine" },
-  { v: "agronomie", l: "Agronomie" },
-  { v: "autre", l: "Autre" },
-];
+// La VALEUR vient du référentiel unique ; le libellé court « Bourse » est propre
+// à ce formulaire admin (le catalogue public dit « Bourse d'études »).
+const TYPES = [{ v: TYPE_EN_TETE, l: "Bourse" }];
 
 type FormState = {
   titre: string;
@@ -292,8 +274,8 @@ export function OffreForm({ onCreated }: { onCreated: () => void }) {
             onChange={(e) => maj("ville", e.target.value)}
           >
             {VILLES.map((v) => (
-              <option key={v.v} value={v.v}>
-                {v.l}
+              <option key={v.valeur} value={v.valeur}>
+                {v.label}
               </option>
             ))}
           </select>
@@ -348,18 +330,18 @@ export function OffreForm({ onCreated }: { onCreated: () => void }) {
         <fieldset className="sm:col-span-2 lg:col-span-3">
           <legend className={LABEL}>Filières cibles (aucune = toutes)</legend>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            {FILIERES.map((f) => (
+            {FILIERES_FORMULAIRE.map((f) => (
               <label
-                key={f.v}
+                key={f.valeur}
                 className="flex items-center gap-2 p-2 text-sm text-foreground bg-background border border-border rounded-lg cursor-pointer hover:bg-muted"
               >
                 <input
                   type="checkbox"
                   className="w-4 h-4 text-signature bg-background border-input rounded focus:ring-4 focus:ring-signature/20"
-                  checked={form.filieres.includes(f.v)}
-                  onChange={() => basculerFiliere(f.v)}
+                  checked={form.filieres.includes(f.valeur)}
+                  onChange={() => basculerFiliere(f.valeur)}
                 />
-                {f.l}
+                {f.label}
               </label>
             ))}
           </div>

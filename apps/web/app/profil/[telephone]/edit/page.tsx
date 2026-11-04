@@ -6,37 +6,11 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GraduationCap } from "lucide-react";
 import { entetesSession, sessionValidePour } from "@/lib/session";
+import { FILIERES_FORMULAIRE, NIVEAUX, TYPES_OFFRES, VILLES } from "@/lib/referentiels";
 
-const FILIERES = [
-  { value: "informatique", label: "Informatique" },
-  { value: "genie_civil", label: "Génie Civil" },
-  { value: "electrique", label: "Électrique" },
-  { value: "mecanique", label: "Mécanique" },
-  { value: "gestion", label: "Gestion" },
-  { value: "finance", label: "Finance" },
-  { value: "droit", label: "Droit" },
-  { value: "medecine", label: "Médecine" },
-  { value: "agronomie", label: "Agronomie" },
-  { value: "autre", label: "Autre" },
-];
-
-const NIVEAUX = ["L1", "L2", "L3", "M1", "M2", "Autre"];
-
-const VILLES = [
-  { value: "nouakchott", label: "Nouakchott" },
-  { value: "nouadhibou", label: "Nouadhibou" },
-  { value: "kaedi", label: "Kaédi" },
-  { value: "rosso", label: "Rosso" },
-  { value: "aleg", label: "Aleg" },
-  { value: "autre", label: "Autre" },
-];
-
-import { TYPES_OFFRES as TYPES_OFFRES_CHARTE } from "@/components/offre-detail-modal";
-
-/** Un seul référentiel de types d'offres (constat chasse 0 · A4) : la carte, la fiche,
- *  la modale et ce formulaire lisent le même `Record`. L'ordre d'affichage est celui
- *  du Record de la charte — plus de seconde liste à maintenir. */
-const TYPES_OFFRES = Object.entries(TYPES_OFFRES_CHARTE).map(([value, label]) => ({ value, label }));
+/** Types d'offres sous forme de liste, dans l'ordre du référentiel unique
+ *  (`lib/referentiels.ts`) — plus de seconde liste à maintenir (constat A4). */
+const TYPES_OFFRES_LISTE = Object.entries(TYPES_OFFRES).map(([value, label]) => ({ value, label }));
 
 const inputClass =
   "w-full rounded-lg border border-input bg-white px-4 py-2.5 text-sm text-foreground transition-colors duration-150 placeholder:text-muted-foreground focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30";
@@ -269,8 +243,8 @@ export default function EditProfilPage() {
                   required
                 >
                   <option value="">-- Sélectionne ta filière --</option>
-                  {FILIERES.map((f) => (
-                    <option key={f.value} value={f.value}>
+                  {FILIERES_FORMULAIRE.map((f) => (
+                    <option key={f.valeur} value={f.valeur}>
                       {f.label}
                     </option>
                   ))}
@@ -310,7 +284,7 @@ export default function EditProfilPage() {
                   className={selectClass}
                 >
                   {VILLES.map((v) => (
-                    <option key={v.value} value={v.value}>
+                    <option key={v.valeur} value={v.valeur}>
                       {v.label}
                     </option>
                   ))}
@@ -323,7 +297,7 @@ export default function EditProfilPage() {
                   Types d&apos;offres recherchés
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  {TYPES_OFFRES.map((t) => (
+                  {TYPES_OFFRES_LISTE.map((t) => (
                     <label
                       key={t.value}
                       className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-input bg-white px-3 py-2.5 text-sm transition-colors duration-150 hover:border-signature hover:bg-signature/5"
