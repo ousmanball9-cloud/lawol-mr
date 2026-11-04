@@ -196,3 +196,41 @@ Gates locales : `tsc --noEmit` 0, `eslint app components __tests__` 0, `vitest` 
 **Contrôle négatif rejoué avant déploiement** : le même harnais sur la prod d'avant rendait **4/15** — il mesure donc le changement, pas l'air.
 
 **Ce que ce n'est PAS** : aucune amélioration de vitesse. L'attente de `/offres` reste dominée par le fetch API (mesure V2-06) ; la vague 3 a changé l'état AFFICHÉ pendant cette attente, pas sa durée.
+
+
+## 8. État d'exécution — vague 3 close (04/11/2026, suite)
+
+| ID | État | Preuve |
+|---|---|---|
+| V3-03 | **livré** | carte d'offre à **3 zones** (`identite` / `faits` / `echeance-cta`), **une seule pastille de confiance** (l'échéance) — financement, catégorie et nature passent en TEXTE (mêmes `data-probe`) ; `amber-200/50/900` bruts → tokens `surlignage/50`, `surlignage/15`, `text-ink` ; harnais neuf `verify-carte-compacte.mjs` |
+| V3-05 | **livré** | `lib/referentiels.ts` = source unique (FILIERES 35, VILLES 6, NIVEAUX 6, PAYS_ETUDES 39, TYPES_OFFRES 5, CATEGORIES_BOURSE 4, TYPES_FINANCEMENT 4 + 8 helpers) ; `components/offres/types.ts` ne fait plus que ré-exporter ; **0 liste d'options** hors du référentiel (grep `valeur:\|value:\|v:\s*"` = 0 sur `app/`, `components/`, `lib/`) |
+
+**Contrôle négatif du harnais carte** (joué par le régisseur sur la prod d'AVANT, avant tout déploiement) : **234 px**, 2 pastilles (`offre-echeance` + `badge-offre` en `rounded-full`), 0 zone → 3 critères KO. Le harnais discrimine, il ne dit pas « vert » par défaut.
+
+**Deux écarts assumés de V3-05** (le refactor ne devait rien changer d'autre) :
+1. `"Génie Civil"` → **`"Génie civil"`** — les copies divergeaient déjà entre elles ; le libellé public (`FILIERES`) fait foi.
+2. `labelTypeOffre("stage_ete")` : « Stage d'été » → « Stage été » — deux chaînes coexistaient ; alignement sur celle que le catalogue affichait déjà. Impact réel nul (catalogue 100 % bourses, `stage_ete` = lignes legacy).
+
+**Point de conception NON tranché (décision produit, pas technique)** : les formulaires *profil* (`/profil/[tel]/edit`) et *création d'offre* admin n'affichent que **10 filières** (9 + « Autre ») alors que l'enum en compte **35**. Le refactor a conservé la curation sous `FILIERES_FORMULAIRE` (libellés issus de `FILIERES`, plus aucune copie) ; passer aux 35 = remplacer un identifiant par un autre sur 2 lignes. À arbitrer avec le produit.
+
+Gates locales : `tsc --noEmit` 0, `eslint app components lib scripts` 0, `vitest` **225/225** (23 fichiers), `next build` OK.
+
+
+### Preuves LIVE — vague 3 close (04/11/2026, prod `dpl_GZHga7BnVGPoBeyvRogT1LLnuCAP` READY, `main` = `453d43e`)
+
+| Harnais | Résultat |
+|---|---|
+| `verify-carte-compacte.mjs` (neuf) | **6/6 VERT** — **aucune des 12 cartes > 210 px** : max **201 px**, distribution `[183, 201, 201, 183, 201, 201, 181, 201, 201, 183, 183, 183]` à 358 px de large ; 3 zones (`identite` / `faits` / `echeance-cta`) ; **1 seule pastille** de confiance (`offre-echeance`) ; cibles ≥ 44 px ; 0 texte < 12 px ; 0 erreur console |
+| `verify-live-public.mjs` | **11/11** — badges lus = `["Bourse d'études" ×4]` (la classe `.badge-offre` survit en texte) |
+| `verify-cibles.mjs` | VERT — `/offres` 15 cliquables, 0 < 44 px, 0 texte < 12 px ; accueil 23 cliquables, 0 / 0 |
+| `verify-etats-offres.mjs` | **15/15** — squelette + état vide intacts après refonte de la carte |
+| `verify-facettes-url.mjs` | **11/11** |
+| `verify-chrome-etats.mjs` | **24/24** |
+| `verify-mobile-filtres.mjs` | **28/28** |
+| `verify-landing-repli.mjs` | **5/5** |
+
+**Contrôle négatif, deux fois** : le harnais carte, joué sur la prod d'AVANT, donnait **234 px / 2 pastilles / 0 zone** (3 KO) ; et la mesure ne porte pas sur une seule carte — **les 12** sont mesurées (une seule qui déborde = cible ratée).
+
+**Ce qui n'est PAS un gain** : la hauteur de carte (201 px) est un gain de **densité**, pas de vitesse. `/offres` reste dominé par le fetch API (mesure V2-06). Aucune annonce de rapidité.
+
+**Donnée vérifiée, pas supposée** : sur les 271 bourses du catalogue, **147** portent une catégorie et **191** un financement — la carte les affiche en texte ; l'absence (`inconnu`) reste silencieuse (règle « 12 × non précisé = bruit »). La 1re carte n'affiche qu'un fait parce que sa catégorie ET son financement sont `inconnu`, pas parce que le code les a perdus.

@@ -8,7 +8,9 @@
  * `/offres`, contre la cible du backlog « ≤ 210 px, 3 zones, un seul badge de
  * confiance » :
  *
- *   1. hauteur de la 1re `[data-probe="offre-carte"]`          ≤ 210 px
+ *   1. hauteur des cartes `[data-probe="offre-carte"]`             ≤ 210 px
+ *      (TOUTES les cartes rendues, pas seulement la première : le titre peut
+ *       tenir sur 1 ou 2 lignes, une seule carte qui déborde = cible ratée)
  *   2. zones déclarées `[data-zone]` dans la carte              = 3
  *   3. éléments de confiance rendus en PASTILLE dans la carte  = 1
  *      (une pastille = `[data-probe="offre-echeance"]`,
@@ -146,10 +148,14 @@ const SONDE = `(() => {
     return r.width > 0 && r.height > 0 && s.visibility !== "hidden" && s.display !== "none" && s.opacity !== "0";
   };
   const txt = (el) => (el.textContent || "").trim().replace(/\\s+/g, " ").slice(0, 30);
-  const carte = document.querySelector('[data-probe="offre-carte"]');
+  const cartes = [...document.querySelectorAll('[data-probe="offre-carte"]')];
+  const carte = cartes[0];
   if (!carte) return { carte: false };
 
   const rectCarte = carte.getBoundingClientRect();
+  // La 1re carte n'est pas la plus haute : le titre peut tenir sur 1 ou 2 lignes.
+  // On mesure donc TOUTES les cartes rendues (une seule qui déborde = cible ratée).
+  const hauteurs = cartes.map((el) => Math.round(el.getBoundingClientRect().height));
 
   // Éléments de confiance : probes/candidats, séparés en pastilles vs faits texte.
   const signaux = [...carte.querySelectorAll(
@@ -180,6 +186,8 @@ const SONDE = `(() => {
   return {
     carte: true,
     hauteur: Math.round(rectCarte.height),
+    hauteurs,
+    hauteurMax: Math.max(...hauteurs),
     largeur: Math.round(rectCarte.width),
     pastilles: pastilles.map((el) => ({ probe: el.getAttribute("data-probe") || el.className, txt: txt(el) })),
     faits: signaux.filter((el) => !pastilles.includes(el)).map((el) => ({
@@ -266,7 +274,7 @@ async function main() {
     const r = await evaluate(cdp, SONDE);
     if (!r || !r.carte) throw new Error("la sonde n'a pas trouvé la première carte");
 
-    const koHauteur = r.hauteur > HAUTEUR_MAX_CARTE;
+    const koHauteur = r.hauteurMax > HAUTEUR_MAX_CARTE;
     const koZones = r.zones.length !== 3;
     const koConfiance = r.pastilles.length !== 1;
     const koCibles = r.ciblesPetites.length > 0;
@@ -275,7 +283,7 @@ async function main() {
     const koConsole = erreurs.length > 0;
 
     const cas = [
-      [`hauteur 1re carte ≤ ${HAUTEUR_MAX_CARTE} px`, !koHauteur, `${r.hauteur} px (largeur ${r.largeur} px)`],
+      [`aucune des ${r.hauteurs.length} cartes > ${HAUTEUR_MAX_CARTE} px`, !koHauteur, `${r.hauteurMax} px max · 1re ${r.hauteur} px · largeur ${r.largeur} px · [${r.hauteurs.join(", ")}]`],
       ["3 zones (identite / faits / echeance-CTA)", !koZones, r.zones],
       ["un seul element de confiance (pastille)", !koConfiance, r.pastilles],
       [`cibles ≥ ${SEUIL_CIBLE}×${SEUIL_CIBLE} px`, !koCibles, r.ciblesPetites],
