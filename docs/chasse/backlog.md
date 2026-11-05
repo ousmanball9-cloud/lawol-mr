@@ -266,3 +266,68 @@ Arbitrage utilisateur : **« je veux les 35 »**. La curation à 10 options (`FI
 **Une variation qui n'est PAS un défaut** : `verify-cibles` compte **39** cliquables sur `/offres` là où il en comptait 15. Vérifié par sonde dédiée : **12** sont les cartes, les 24 autres sont la **pagination déjà existante** (`Précédent`, `1…6`, `23`, `Suivant`), le chrome et le pied de page. Le compteur dépend du moment de mesure (la pagination n'apparaît qu'après l'arrivée des données) : aucun élément ajouté, **0 cible sous 44 px**.
 
 **Limite de preuve assumée** : les deux formulaires à 35 filières sont derrière session (`/profil/[tel]/edit`) et garde admin (création d'offre). La preuve est donc **au build** (test `filieres-formulaires.test.tsx`, 3 cas, contrôle négatif joué), pas en live. Aucune preuve live n'est revendiquée pour eux.
+
+
+## 9. État d'exécution — perf `/offres`, bug inscription, dettes de preuve (05/11/2026)
+
+`main` = `88362ed`. Déploiements : Vercel `dpl_uP1yXXt6K9exKnhuN98YJ6aoP8HR` **READY**, Railway `4b64591d` **SUCCESS**.
+
+### 9.1 Bug d'inscription — cause racine prouvée en prod, corrigé
+
+| | |
+|---|---|
+| Symptôme | « Erreur serveur » à la création d'un compte |
+| Reproduit en prod | `POST /api/v1/profils` → **500** `Internal Server Error` (corps nu) |
+| Cause racine | `pays_etudes` partait dans l'`insert` de la table `profils`, qui **n'a pas cette colonne** (elle n'existe que sur `offres`) → PostgREST `PGRST204` → `APIError` non gérée → 500 |
+| Correctif | `pays_etudes` rangé dans `profils.metadata` (création **et** mise à jour, fusion qui préserve `code_pin_hash`), restitué en lecture ; `metadata` jamais exposée |
+| Correctif front | `lireErreurInscription()` relaie le `detail` FastAPI (409/422/503) au lieu du fourre-tout « Erreur serveur. Veuillez réessayer plus tard » |
+
+**Preuve live après déploiement** (numéro factice `22200000000`) :
+
+```
+POST /api/v1/profils            → 201   (avant : 500)
+  corps : pays_etudes = "france" restitué, id créé, actif = true
+POST même numéro                → 409   « Ce numéro de téléphone est déjà inscrit »
+POST /api/v1/profils/{tel}/connexion → 200 + token
+POST /api/v1/profils/{tel}/desinscription → 200, actif = false
+```
+
+Le **409 nomme la cause** : c'est exactement ce que le front masquait. Aucune ligne de test ne reste active en base.
+
+Harnais durable : `scripts/test-inscription-profil.py` — faux PostgREST qui **refuse toute clé absente de `schema.sql`** (il échouerait si `pays_etudes` repartait en colonne). 15/15 : création, relecture, doublon, mise à jour du PIN.
+
+### 9.2 Perf `/offres` — mesurée, pas promise
+
+| Requête | Offres transférées | Octets | Durée |
+|---|---|---|---|
+| `?limit=500` (avant) | **283** | **286 765** | 1 698 ms |
+| `?limit=13` (après) | **13** | **14 199** | 1 070 ms |
+
+**−95 % d'octets, −37 % de durée** sur la requête qui pesait 78 % du LCP. `limit=13` = 12 cartes + **1 sonde** : la 13ᵉ ligne prouve qu'il existe une page suivante **sans inventer de total** (l'API renvoie une liste nue). D'où la pagination « Précédent · Page N · Suivant » sans numéros + note `sr-only` explicite.
+
+Repli assumé : si `financement` ou `cloture30` est actif, chargement du bassin en lots de 500 (l'API n'a pas ces paramètres) — ces deux filtres restent donc lents, et c'est écrit dans le code.
+
+### 9.3 Dettes de preuve soldées
+
+- `verify-design` : la regex de session lisait le téléphone sur la route **brute** (`/profil/2221234567?onglet=profil` → cookie faux → middleware → `/connexion`). **45/45** pour la première fois.
+- `verify-cibles` : mesurait après un `sleep` fixe, donc parfois l'écran de chargement (15 au lieu de 39). Attend désormais un **état stable** (page prête + compte identique à 500 ms d'écart), imprime l'attente, et sort en **exit 2** si instable — jamais un faux verdict.
+
+### 9.4 Preuves live après ce déploiement
+
+| Harnais | Résultat |
+|---|---|
+| `verify-live-public.mjs` | **11/11** |
+| `verify-carte-compacte.mjs` | VERT — 12 cartes ≤ 210 px, 3 zones, 1 pastille |
+| `verify-etats-offres.mjs` | **15/15** |
+| `verify-facettes-url.mjs` | **11/11** |
+| `verify-cibles.mjs` | VERT — 0 cible < 44 px, 0 texte < 12 px |
+| `verify-chrome-etats.mjs` | **24/24** |
+| `verify-mobile-filtres.mjs` | **28/28** |
+| `verify-landing-repli.mjs` | **5/5** |
+| `verify-design.mjs` | **45/45**, contraste 22/22, largeur 11/11 |
+
+### 9.5 Défaut découvert pendant la preuve — non corrigé, à trancher
+
+Après `desinscription` (`actif = false`), une **nouvelle inscription du même numéro répond 409 « déjà inscrit »** : l'étudiant qui s'est désinscrit ne peut plus jamais revenir, et le message ne le dit pas.
+
+Deux options : (a) message honnête « ce numéro est désinscrit, contacte-nous » ; (b) réactivation automatique à la réinscription — mais elle donne le compte (documents inclus) à quiconque connaît le numéro, donc **pas sans preuve de possession**. Recommandation : (a).
