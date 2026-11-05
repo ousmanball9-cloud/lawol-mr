@@ -235,6 +235,38 @@ check(
     str(FAUX.tables["profils"]),
 )
 
+# ============ 3 bis. Profil DÉSINSCRIT : le 409 dit pourquoi ================
+# Défaut constaté en prod le 05/11 : après désinscription, le même numéro
+# répondait « déjà inscrit » — l'étudiant ne savait pas qu'il pouvait revenir.
+print("\n3 bis. POST /api/v1/profils — numéro désinscrit → 409 explicite")
+FAUX.tables["profils"][0]["actif"] = False
+reponse = client.post(
+    "/api/v1/profils",
+    json={
+        "telephone": TEL,
+        "code_pin": "9999",
+        "nom": "Autre",
+        "prenom": "Personne",
+        "universite": "Universite de Nouadhibou",
+        "filiere": "gestion",
+        "niveau": "M1",
+        "pays_etudes": "canada",
+        "optin_texte": "J'accepte de recevoir les offres sur WhatsApp",
+    },
+)
+check("statut 409", reponse.status_code == 409, reponse.text[:300])
+check(
+    "message nomme la désinscription",
+    "désinscrit" in reponse.text and "WhatsApp" in reponse.text,
+    reponse.text[:300],
+)
+check(
+    "aucune réactivation silencieuse",
+    FAUX.tables["profils"][0]["actif"] is False,
+    str(FAUX.tables["profils"][0].get("actif")),
+)
+FAUX.tables["profils"][0]["actif"] = True
+
 # ================== 4. Mise à jour : metadata fusionnée ======================
 print("\n4. PUT /api/v1/profils/{tel} — pays_etudes mis à jour sans perdre le PIN")
 reponse = client.put(

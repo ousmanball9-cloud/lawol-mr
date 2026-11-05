@@ -74,9 +74,22 @@ async def create_profil(profil: ProfilEtudiantCreate):
     pays_etudes = data.pop("pays_etudes", None)  # pas de colonne → metadata
 
     existant = (
-        supabase.table("profils").select("id").eq("telephone", profil.telephone).execute()
+        supabase.table("profils")
+        .select("id, actif")
+        .eq("telephone", profil.telephone)
+        .execute()
     )
     if existant.data:
+        # Un profil désinscrit n'est pas un cul-de-sac silencieux : on dit
+        # POURQUOI la réinscription est refusée et comment revenir. La
+        # réactivation automatique reste interdite (elle donnerait le compte
+        # et ses documents à quiconque connaît le numéro).
+        if existant.data[0].get("actif") is False:
+            raise HTTPException(
+                409,
+                "Ce numéro a été désinscrit. Contacte-nous sur WhatsApp "
+                "pour réactiver ton compte.",
+            )
         raise HTTPException(409, "Ce numéro de téléphone est déjà inscrit")
 
     metadata: dict = {}
