@@ -132,6 +132,69 @@ const SONDE = (seuilCible, seuilTexte) => `(() => {
   };
 })()`;
 
+/**
+ * État de rendu de la page. Sert uniquement à attendre la fin du chargement
+ * client : tant que le squelette est affiché (ou que la grille n'est pas
+ * rendue), le nombre de cliquables mesuré n'est pas celui de la page finale.
+ */
+const ETAT_PAGE = `(() => ({
+  href: location.href,
+  pret: document.readyState !== "loading",
+  cartes: document.querySelectorAll('[data-probe="offre-carte"]').length,
+  pagination: !!document.querySelector('[data-probe="offres-pagination"]'),
+  grille: !!document.querySelector('[data-probe="offres-grille"]'),
+  squelette: !!document.querySelector('[data-probe="offres-squelette"]'),
+  vide: !!document.querySelector('[data-probe="offres-vide"]'),
+}))()`;
+
+/** La page a fini son chargement client : plus de squelette, contenu rendu. */
+function etatPret(route, etat) {
+  if (!etat || !etat.pret || etat.squelette) return false;
+  if (route === "/offres") return etat.pagination || etat.grille || etat.vide;
+  return true;
+}
+
+/**
+ * Attend un état STABLE avant de compter.
+ *
+ * Un relevé n'est retenu que si la page est prête (pagination / grille / état
+ * vide, jamais le squelette) ET si le nombre de cliquables est identique au
+ * relevé précédent, les deux étant espacés de 500 ms. Sans cette attente,
+ * `/offres` était compté tantôt avant l'arrivée des cartes, tantôt après :
+ * deux comptes différents pour la même page.
+ */
+async function attendreStable(cdp, url, route, seuilCible, seuilTexte, delaiMax = 20000) {
+  const debut = Date.now();
+  let precedent = null;
+  let dernier = null;
+  let dernierEtat = null;
+  while (Date.now() - debut < delaiMax) {
+    let etat = null;
+    let mesure = null;
+    try {
+      etat = await evaluate(cdp, ETAT_PAGE);
+      // Ignore un relevé fait sur l'ancienne page pendant la navigation.
+      if (etat.href.startsWith(url)) {
+        mesure = await evaluate(cdp, SONDE(seuilCible, seuilTexte));
+      }
+    } catch {
+      /* contexte en cours de navigation : on réessaie */
+    }
+    if (mesure) {
+      dernier = mesure;
+      dernierEtat = etat;
+      if (etatPret(route, etat)) {
+        if (precedent && mesure.cliquables === precedent.cliquables) {
+          return { mesure, etat, attenteMs: Date.now() - debut, stable: true };
+        }
+        precedent = mesure;
+      }
+    }
+    await sleep(500);
+  }
+  return { mesure: dernier, etat: dernierEtat, attenteMs: Date.now() - debut, stable: false };
+}
+
 async function main() {
   const browser = findBrowser();
   if (!browser) {
@@ -156,6 +219,7 @@ async function main() {
   );
 
   let echecs = 0;
+  let mesureImpossible = false;
   try {
     if (!(await waitFor(`http://127.0.0.1:${port}/json/version`, 20000))) throw new Error("CDP indisponible");
     const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
@@ -175,15 +239,34 @@ async function main() {
 
     for (const route of PAGES) {
       const url = BASE + route;
-      await cdp.send("Page.navigate", { url });
-      // Attendre le rendu CLIENT (les pages publiques fetchent leur contenu).
+      // Le serveur répond avant de naviguer (même garde qu'avant).
       const pret = await waitFor(url, 20000);
-      await sleep(pret ? 2500 : 5000);
-      const r = await evaluate(cdp, SONDE(SEUIL_CIBLE, SEUIL_TEXTE));
-      const ko = r.sous_seuil.length > 0 || r.textes_sous_seuil.length > 0;
-      if (ko) echecs++;
+      if (!pret) console.log(`info ${route.padEnd(8)} serveur lent à répondre, attente du rendu client…`);
+      await cdp.send("Page.navigate", { url });
+      // Attendre un état STABLE (pagination ou cartes, 2 relevés à 500 ms) :
+      // compter plus tôt mesurait l'écran de chargement, pas la page finale.
+      const { mesure: r, etat, attenteMs, stable } = await attendreStable(
+        cdp,
+        url,
+        route,
+        SEUIL_CIBLE,
+        SEUIL_TEXTE
+      );
+      if (!r) {
+        console.log(`info ${route.padEnd(8)} aucun relevé exploitable après ${attenteMs} ms`);
+        mesureImpossible = true;
+        continue;
+      }
       console.log(
-        `${ko ? "KO " : "OK "} ${route.padEnd(8)} ${String(r.cliquables).padStart(3)} cliquables | ` +
+        `info ${route.padEnd(8)} état ${stable ? "stable" : "INSTABLE"} après ${attenteMs} ms ` +
+          `(cartes ${etat?.cartes ?? "?"}, pagination ${etat?.pagination ? "oui" : "non"}, ` +
+          `cliquables ${r.cliquables})`
+      );
+      if (!stable) mesureImpossible = true;
+      const ko = r.sous_seuil.length > 0 || r.textes_sous_seuil.length > 0;
+      if (ko && stable) echecs++;
+      console.log(
+        `${stable ? (ko ? "KO " : "OK ") : "?? "} ${route.padEnd(8)} ${String(r.cliquables).padStart(3)} cliquables | ` +
           `${r.sous_seuil.length} sous ${SEUIL_CIBLE}px | ${r.textes_sous_seuil.length} textes < ${SEUIL_TEXTE}px | ttfb ${r.ttfb_ms} ms`
       );
       for (const e of r.sous_seuil.slice(0, 10)) {
@@ -198,6 +281,10 @@ async function main() {
     chrome.kill();
   }
 
+  if (mesureImpossible) {
+    console.log("MESURE IMPOSSIBLE — état non stable, aucun verdict produit");
+    process.exit(2);
+  }
   console.log(echecs === 0 ? "VERT — aucune cible sous 44px, aucun texte sous 12px" : `ROUGE — ${echecs} page(s) avec ecart`);
   process.exit(echecs === 0 ? 0 : 1);
 }

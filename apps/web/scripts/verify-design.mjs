@@ -811,7 +811,11 @@ async function runMatrix() {
           });
           // Session factice par route : /profil/* est protégé par middleware.ts,
           // et le token doit porter LE tel de l'URL (2221234567 ou 0000000000).
-          const telRoute = pageDef.route.match(/^\/profil\/([^/]+)/);
+          // On isole le CHEMIN avant de lire le segment : sans cela, `?onglet=profil`
+          // entrait dans le numéro (`2221234567?onglet=profil`) et le middleware,
+          // qui compare au pathname, renvoyait vers /connexion.
+          const cheminRoute = pageDef.route.split("?")[0];
+          const telRoute = cheminRoute.match(/^\/profil\/([^/]+)/);
           if (telRoute) await poserCookieSession(cdp, decodeURIComponent(telRoute[1]), PORT);
           // Appliquer thème dark si demandé
           if (theme === "dark") await setDarkMode(cdp, true);
