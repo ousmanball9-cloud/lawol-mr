@@ -4,17 +4,19 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { SkeletonCard } from "@/components/ui/skeleton";
-import { EmptyGuidant } from "@/components/empty/EmptyGuidant";
 import { RefreshCw } from "lucide-react";
 import { BarreFiltres } from "@/components/offres/barre-filtres";
+import { BandeauResultats } from "@/components/offres/bandeau-resultats";
 import { Chrome } from "@/components/chrome/chrome";
 import { CarteOffre } from "@/components/offres/carte-offre";
+import { EtatVideOffres } from "@/components/offres/etat-vide-offres";
+import { IndicateurChargement } from "@/components/offres/indicateur-chargement";
 import { PaginationOffres } from "@/components/offres/pagination-offres";
-import { joursRestants, parserDateLimite } from "@/components/offres/date-limite";
-import type { Offre, TriOffres } from "@/components/offres/types";
+import type { Offre } from "@/components/offres/types";
 import {
+  AUCUN_FILTRE,
   FACETTES_PAR_DEFAUT,
+  OFFRES_PAR_PAGE,
   TOUTES_CATEGORIES,
   ecrireFacettes,
   lireFacettes,
@@ -22,169 +24,22 @@ import {
   urlOffres,
 } from "@/lib/offres-url";
 import type { FacettesOffres } from "@/lib/offres-url";
-import {
-  jalonFetchDebut,
-  jalonFetchFin,
-  jalonPremierRenduCartes,
-  observerLcp,
-} from "@/lib/perf-offres";
+import { chargerBassin, chargerPageApi } from "@/lib/offres-chargement";
+import type { RequeteCatalogue } from "@/lib/offres-chargement";
+import { calculerEcheances, filtrerEtTrier, normaliserRecherche } from "@/lib/offres-filtrage";
+import { jalonPremierRenduCartes, observerLcp } from "@/lib/perf-offres";
 
-const PAR_PAGE = 12;
-/** Supabase plafonne une requête à 1 000 lignes : on charge le bassin par lots de 500. */
-const BATCH = 500;
-const MAX_OFFSET = 5000;
-/** Seuil du filtre « Clôture dans moins de 30 jours ». */
-const SEUIL_30_JOURS = 30;
 /** Laisse la frappe se poser avant d'interroger l'API (recherche côté serveur). */
 const DELAI_RECHERCHE_MS = 300;
+/** Bassin vide d'identité stable : les mémoïsations ne se recalculent pas pour rien. */
+const BASSIN_VIDE: Offre[] = [];
 
-/** Offre enrichie de son échéance : jours restants (null = date illisible). */
-type Echeance = { offre: Offre; jours: number | null };
-
-/** Rang du tri « plus urgentes » : 0 = encore ouvert, 1 = expirée, 2 = sans date lisible. */
-function rangEcheance(jours: number | null): number {
-  if (jours === null) return 2;
-  return jours < 0 ? 1 : 0;
-}
-
-/**
- * Même nettoyage que `_motif_recherche` côté API : les caractères retirés par le
- * serveur (syntaxe du filtre PostgREST) ne doivent pas créer d'écart entre le
- * sous-ensemble renvoyé par l'API et le filtre local qui le raffine.
- */
-function normaliserRecherche(q: string): string {
-  return q
-    .replace(/[^A-Za-z0-9_\s\-'À-ÖØ-öø-ÿ]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 80);
-}
-
-/** Charge les offres actives retenues par l'API : tri (`tri`), recherche
- *  texte (`q`) et catégorie de bourse (`categorie`) sont calculés CÔTÉ SERVEUR
- *  sur tout le catalogue, pas sur la page affichée. Chargement par lots de 500
- *  (plafond Supabase = 1 000 lignes).
- *  `type_offre=bourse` : le catalogue public ne sert QUE des bourses — les
- *  offres d'emploi/stage collectées restent en base (matching, admin) mais ne
- *  sont jamais publiées ici (décision produit du 16/10). */
-async function chargerBassin(tri: TriOffres, q: string, categorie: string): Promise<Offre[]> {
-  const toutes: Offre[] = [];
-  const parametres = new URLSearchParams({ tri, type_offre: "bourse" });
-  if (q) parametres.set("q", q);
-  if (categorie && categorie !== "toutes") parametres.set("categorie", categorie);
-  // V2-06 : jalon AVANT le premier lot, fin en `finally` (même si l'API échoue,
-  // sinon un échec laisserait une durée de fetch fantôme). Instrumentation
-  // seule : aucun effet sur le chargement.
-  jalonFetchDebut();
-  try {
-    for (let offset = 0; offset < MAX_OFFSET; offset += BATCH) {
-      parametres.set("limit", String(BATCH));
-      parametres.set("offset", String(offset));
-      const res = await fetch(`/api/v1/offres?${parametres.toString()}`);
-      if (!res.ok) throw new Error();
-      const data: unknown = await res.json();
-      if (!Array.isArray(data)) throw new Error();
-      toutes.push(...(data as Offre[]));
-      if (data.length < BATCH) break;
-    }
-    return toutes;
-  } finally {
-    jalonFetchFin();
-  }
-}
-
-/**
- * État de chargement du catalogue (V3-04 · B7) — squelette plutôt qu'un texte.
- *
- * Même grille que le résultat réel (`md:grid-cols-2 xl:grid-cols-3`, 6 cartes =
- * une demi-page d'avance) et même gabarit de carte (`SkeletonCard`) : l'arrivée
- * des données ne déplace rien. Rendu DANS le chrome, comme `app/offres/loading.tsx` :
- * la navigation reste visible pendant l'attente.
- *
- * Les blocs sont décoratifs (`aria-hidden` posé par `Skeleton`), une seule
- * annonce `role="status"` porte l'information pour les lecteurs d'écran.
- */
-function IndicateurChargement() {
-  return (
-    <Chrome>
-      <main className="bg-background px-4 py-10" aria-busy="true">
-        <div className="mx-auto max-w-7xl">
-          <div
-            data-probe="offres-squelette"
-            role="status"
-            className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
-          >
-            <p className="sr-only">Chargement des offres…</p>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <SkeletonCard
-                key={i}
-                className="rounded-lg border border-border bg-card p-5 shadow-card"
-              />
-            ))}
-          </div>
-        </div>
-      </main>
-    </Chrome>
-  );
-}
-
-/** Libellés du tri affichés dans le bandeau collant (le contrôle, lui, reste
- *  dans la barre de filtres : un seul `data-probe="offres-tri"`). */
-const LIBELLES_TRI: Record<TriOffres, string> = {
-  urgent: "Plus urgentes",
-  recentes: "Plus récentes",
-};
-
-/**
- * Bandeau de résultats collant (V2-01) — le compteur était dans la carte de
- * filtres : dès qu'on faisait défiler la grille, il disparaissait.
- *
- * `top` = hauteur du header sticky (h-16 = 4rem) + sa bordure de 1 px, pour se
- * poser EXACTEMENT sous lui (cf. `components/chrome/header.tsx`). z-30 < z-40 :
- * le header reste au-dessus, et le panneau mobile (z-50) couvre les deux.
- */
-function BandeauResultats({
-  nbResultats,
-  nbTotal,
-  nbExpirees,
-  expireesVisibles,
-  cloture30,
-  tri,
-}: {
-  nbResultats: number;
-  nbTotal: number;
-  nbExpirees: number;
-  expireesVisibles: boolean;
-  cloture30: boolean;
-  tri: TriOffres;
-}) {
-  return (
-    <div
-      data-probe="offres-bandeau"
-      className="sticky top-[calc(4rem_+_1px)] z-30 -mx-4 mb-4 border-y border-border bg-background/95 px-4 py-2 backdrop-blur md:mx-0 md:rounded-lg md:border"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <p role="status" className="text-sm text-muted-foreground">
-          <span data-probe="offres-compteur">{nbResultats}</span> offre
-          {nbResultats > 1 ? "s" : ""} affichée{nbResultats > 1 ? "s" : ""}
-          {nbResultats !== nbTotal ? ` sur ${nbTotal}` : ""}
-          {!expireesVisibles && nbExpirees > 0 && !cloture30
-            ? ` · ${nbExpirees} expirée${nbExpirees > 1 ? "s" : ""} masquée${
-                nbExpirees > 1 ? "s" : ""
-              } (affichables ci-dessus)`
-            : ""}
-          {cloture30 && nbExpirees > 0
-            ? " · fenêtre 30 j : offres closes exclues (désactive le filtre pour les afficher)"
-            : ""}
-        </p>
-        <p className="shrink-0 text-sm text-muted-foreground">
-          Tri :{" "}
-          <span className="font-medium text-foreground">{LIBELLES_TRI[tri]}</span>
-        </p>
-      </div>
-    </div>
-  );
-}
+/** Ce que la page a réellement en main, et donc ce qu'elle peut afficher. */
+type Resultat =
+  /** Pagination par l'API : total INCONNU, une page à la fois. */
+  | { mode: "api"; page: number; cartes: Offre[]; aSuivante: boolean }
+  /** Tout le sous-ensemble serveur : total connu, découpage local. */
+  | { mode: "bassin"; bassin: Offre[] };
 
 /**
  * Page publique /offres — recherche + filtres + grille paginée (12/page).
@@ -192,7 +47,21 @@ function BandeauResultats({
  * L'URL est la SEULE source de vérité des facettes (V2-04) : `lireFacettes` la
  * lit, `ecrire` (unique écrivain) la réécrit. Un lien collé dans WhatsApp
  * (`/offres?pays=france&tri=recentes`) rend donc exactement le même catalogue,
- * et le retour arrière restaure les filtres.
+ * et le retour arrière restaure les filtres. `?page=3` fait partie du lien.
+ *
+ * PAGINATION (05/11/2026) — l'attente venait du FETCH : 271 offres rapatriées
+ * pour 12 affichées (1 272 ms des 1 632 ms de LCP, mesure V2-06). La page ne
+ * demande plus que ce qu'elle montre : `limit=13` (12 + 1 sonde) et l'`offset`
+ * de la page. L'API répond une LISTE SANS TOTAL : la 13ᵉ ligne dit seulement
+ * « une page suivante existe », d'où la pagination « Précédent · Page N ·
+ * Suivant ». Aucun total n'est inventé — décision assumée, pas un oubli.
+ *
+ * DEUX MODES, une seule règle : on pagine côté serveur sur les filtres que
+ * l'API sait exprimer (recherche, catégorie, filière, pays, tri). `financement`
+ * et « clôture < 30 j » n'existent pas côté API : dans ce cas SEULEMENT, le
+ * sous-ensemble serveur est chargé en entier (comportement d'avant) pour que la
+ * page 2 reste la suite exacte de la page 1. (`expirees` ne change rien au
+ * chargement : l'API ne sert déjà que des offres non closes.)
  *
  * Seule la frappe reste locale (`motsCles`) : l'input doit être instantané,
  * l'URL n'est écrite qu'après 300 ms — et par `replace`, pour ne pas empiler
@@ -219,7 +88,7 @@ function OffresContenu() {
   // Source de vérité unique : aucune facette n'est recopiée dans un useState.
   const facettes = useMemo(() => lireFacettes(searchParams), [searchParams]);
 
-  const [bassin, setBassin] = useState<Offre[]>([]);
+  const [resultat, setResultat] = useState<Resultat | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   // Seule exception locale : la frappe. L'input reste instantané, l'URL suit
@@ -232,6 +101,9 @@ function OffresContenu() {
   // V2-06 : une seule marque « premier rendu de cartes » par chargement de page
   // (un changement de filtre re-rend la grille, ce n'est pas le premier LCP).
   const cartesMarquees = useRef(false);
+  // Numéro de la requête en cours : une réponse lente ne doit jamais écraser une
+  // plus récente (changement de page rapide, frappe, retour arrière).
+  const numeroRequete = useRef(0);
 
   // V2-06 : LCP réel de la page. `buffered: true` rattrape les candidats peints
   // avant ce montage (hydratation tardive) ; le nettoyage coupe l'observateur.
@@ -275,121 +147,151 @@ function OffresContenu() {
     return () => clearTimeout(id);
   }, [motsCles, facettes.recherche, ecrire]);
 
-  const charger = useCallback(async (triCourant: TriOffres, recherche: string, categorie: string) => {
+  /**
+   * Filtres que l'API ne sait PAS exprimer → il faut tout le sous-ensemble
+   * serveur pour paginer sur le résultat filtré. Sinon on reste en pagination
+   * serveur (une requête de 13 lignes par page).
+   */
+  const modeBassin = facettes.financement !== AUCUN_FILTRE || facettes.cloture30;
+
+  const requete = useMemo<RequeteCatalogue>(
+    () => ({
+      tri: facettes.tri,
+      q: facettes.recherche.trim(),
+      categorie: facettes.categorie,
+      filiere: facettes.filiere,
+      pays: facettes.pays,
+    }),
+    [facettes.tri, facettes.recherche, facettes.categorie, facettes.filiere, facettes.pays]
+  );
+
+  // En mode bassin, tout arrive d'un coup : changer de page ne requête rien.
+  const pageDemandee = modeBassin ? 1 : facettes.page;
+
+  const charger = useCallback(async () => {
+    const numero = ++numeroRequete.current;
     setLoading(true);
     setError("");
     try {
-      setBassin(await chargerBassin(triCourant, recherche.trim(), categorie));
+      if (modeBassin) {
+        const bassin = await chargerBassin(requete);
+        if (numero === numeroRequete.current) setResultat({ mode: "bassin", bassin });
+      } else {
+        const page = await chargerPageApi(requete, pageDemandee);
+        if (numero === numeroRequete.current) {
+          setResultat({ mode: "api", page: pageDemandee, ...page });
+        }
+      }
     } catch {
-      setError("Impossible de charger les offres. Réessaie dans un instant.");
+      if (numero === numeroRequete.current) {
+        setError("Impossible de charger les offres. Réessaie dans un instant.");
+      }
     } finally {
-      setLoading(false);
+      if (numero === numeroRequete.current) setLoading(false);
     }
-  }, []);
+  }, [modeBassin, pageDemandee, requete]);
 
-  // Tri, recherche ET catégorie vivent dans l'API : tout changement rechargé depuis le serveur.
+  // Tri, recherche, catégorie, filière, pays, page : tout changement de la
+  // requête serveur rechargé. Le nettoyage invalide la requête en vol (montage
+  // StrictMode, démontage) : sa réponse ne peut plus écrire dans l'état.
   useEffect(() => {
-    charger(facettes.tri, facettes.recherche, facettes.categorie);
-  }, [charger, facettes.tri, facettes.recherche, facettes.categorie]);
+    charger();
+    return () => {
+      numeroRequete.current += 1;
+    };
+  }, [charger]);
+
+  const bassin = resultat?.mode === "bassin" ? resultat.bassin : BASSIN_VIDE;
 
   /** Échéance recalculée une seule fois par offre (parse + jours restants). */
-  const echeances = useMemo<Echeance[]>(
+  const echeances = useMemo(() => calculerEcheances(bassin), [bassin]);
+
+  const { liste: filtrees, nbExpirees } = useMemo(
     () =>
-      bassin.map((offre) => ({
-        offre,
-        jours: joursRestants(parserDateLimite(offre.date_limite)),
-      })),
-    [bassin],
+      filtrerEtTrier(echeances, motsCles, {
+        filiere: facettes.filiere,
+        pays: facettes.pays,
+        financement: facettes.financement,
+        cloture30: facettes.cloture30,
+        expirees: facettes.expirees,
+        tri: facettes.tri,
+      }),
+    [
+      echeances,
+      motsCles,
+      facettes.filiere,
+      facettes.pays,
+      facettes.financement,
+      facettes.cloture30,
+      facettes.expirees,
+      facettes.tri,
+    ]
   );
 
-  const { liste: filtrees, nbExpirees } = useMemo(() => {
-    const q = normaliserRecherche(motsCles).toLowerCase();
-    const correspond = (offre: Offre) => {
-      if (facettes.filiere !== "tous" && !(offre.filieres_cibles ?? []).includes(facettes.filiere))
-        return false;
-      if (facettes.pays !== "tous" && offre.pays_etudes !== facettes.pays) return false;
-      if (facettes.financement !== "tous" && offre.type_financement !== facettes.financement)
-        return false;
-      // q : le SERVEUR est l'autorité (il cherche dans titre, entreprise ET
-      // description intégrale). Le raffinement local ne regarde donc PAS la
-      // description : la liste ne porte qu'un aperçu (`description_apercu`),
-      // s'y fier exclurait à tort une offre dont le mot-clé tombe plus loin.
-      if (
-        q &&
-        !`${offre.titre} ${offre.entreprise} ${offre.pays_etudes ?? ""}`
-          .toLowerCase()
-          .includes(q)
-      )
-        return false;
-      return true;
-    };
+  /** Résultat paginé par l'API (null en mode bassin). */
+  const pageApi = resultat?.mode === "api" ? resultat : null;
 
-    const retenues: Echeance[] = [];
-    let expirees = 0;
-    for (const e of echeances) {
-      if (!correspond(e.offre)) continue;
-      const expiree = e.jours !== null && e.jours < 0;
-      // Comptées même masquées : l'état « Afficher les expirées » les révèle.
-      if (expiree) expirees += 1;
-      if (facettes.cloture30) {
-        // « Clôture dans moins de 30 jours » = fenêtre À VENIR : ni offre déjà
-        // close, ni date illisible, ni échéance ≥ 30 j. Le motif est rappelé par
-        // le compteur de la barre de filtres (« fenêtre 30 j : offres closes
-        // exclues »).
-        if (expiree || e.jours === null || e.jours >= SEUIL_30_JOURS) continue;
-      } else if (expiree && !facettes.expirees) {
-        continue; // masquées par défaut, jamais supprimées : bascule explicite
-      }
-      retenues.push(e);
-    }
-
-    if (facettes.tri === "urgent") {
-      // L'API renvoie déjà `date_limite` croissante (`tri=urgent`) : ce tri local
-      // est un garde-fou (dates illisibles en dernier rang, expirées en fin de
-      // liste). Échéance proche d'abord ; sans date lisible au dernier rang ;
-      // expirées (si affichées) en toute fin, la plus récemment close en tête.
-      // Sort stable : à rang égal, l'ordre du bassin (API) est conservé.
-      retenues.sort((a, b) => {
-        const rang = rangEcheance(a.jours) - rangEcheance(b.jours);
-        if (rang !== 0) return rang;
-        if (a.jours !== null && a.jours < 0) return (b.jours ?? 0) - (a.jours ?? 0);
-        return (a.jours ?? 0) - (b.jours ?? 0);
-      });
-    }
-    // tri « recentes » : aucun réordonnancement — l'API renvoie déjà
-    // `date_scrape DESC` (offres les plus fraîches en tête).
-    return { liste: retenues, nbExpirees: expirees };
-  }, [
-    echeances,
-    motsCles,
-    facettes.filiere,
-    facettes.pays,
-    facettes.financement,
-    facettes.cloture30,
-    facettes.expirees,
-    facettes.tri,
-  ]);
-
-  const totalPages = Math.max(1, Math.ceil(filtrees.length / PAR_PAGE));
-  // La page vient de l'URL, bornée à ce qui existe vraiment (une URL bricolée
-  // `?page=99` affiche la dernière page sans réécrire l'URL).
-  const pageNum = Math.min(facettes.page, totalPages);
-  const pageCourante = filtrees
-    .slice((pageNum - 1) * PAR_PAGE, pageNum * PAR_PAGE)
+  // Mode bassin : total connu, découpage local (comportement historique).
+  const totalPages = Math.max(1, Math.ceil(filtrees.length / OFFRES_PAR_PAGE));
+  const pageLocale = Math.min(facettes.page, totalPages);
+  const cartesLocales = filtrees
+    .slice((pageLocale - 1) * OFFRES_PAR_PAGE, pageLocale * OFFRES_PAR_PAGE)
     .map((e) => e.offre);
+
+  /**
+   * Recherche en cours de frappe (l'URL n'a pas encore suivi, 300 ms) : on
+   * raffine la page DÉJÀ à l'écran pour un retour immédiat. Dès que l'URL a
+   * suivi, c'est le serveur qui fait foi — raffiner encore retirerait des
+   * offres qu'il a légitimement trouvées dans leur description (que la liste ne
+   * transporte pas) et trouerait la page.
+   */
+  const qFrappe = useMemo(() => {
+    if (motsCles.trim() === facettes.recherche) return "";
+    return normaliserRecherche(motsCles).toLowerCase();
+  }, [motsCles, facettes.recherche]);
+
+  const cartesApi = useMemo(() => {
+    if (!pageApi) return [];
+    if (!qFrappe) return pageApi.cartes;
+    return pageApi.cartes.filter((offre) =>
+      `${offre.titre} ${offre.entreprise} ${offre.pays_etudes ?? ""}`
+        .toLowerCase()
+        .includes(qFrappe)
+    );
+  }, [pageApi, qFrappe]);
+
+  // Vue unique : mêmes noms pour les deux modes, le rendu ne sait pas d'où ça vient.
+  const cartes = pageApi ? cartesApi : cartesLocales;
+  const pageAffichee = pageApi ? facettes.page : pageLocale;
+  const aSuivante = pageApi ? pageApi.aSuivante : pageLocale < totalPages;
+  /** `null` = total inconnu (l'API ne le fournit pas) — jamais reconstitué. */
+  const totalConnu = pageApi ? null : filtrees.length;
+
+  // Les données en main sont-elles celles de la page demandée ? Un changement de
+  // PAGE montre le squelette (pas de cartes d'une autre page sous une URL qui
+  // dit « page 2 ») ; un changement de FILTRE garde la liste en place — même
+  // page, pas de clignotement pendant la frappe.
+  const pretPourLaPage =
+    resultat !== null && (resultat.mode === "bassin" || resultat.page === facettes.page);
 
   // V2-06 : jalon « première carte à l'écran ». L'effet tourne après le commit
   // (donc après la peinture des cartes) ; le `ref` garantit une marque unique.
   useEffect(() => {
-    if (cartesMarquees.current || pageCourante.length === 0) return;
+    if (cartesMarquees.current || cartes.length === 0) return;
     cartesMarquees.current = true;
     jalonPremierRenduCartes();
-  }, [pageCourante.length]);
+  }, [cartes.length]);
 
-  // Un filtre calculé par le SERVEUR (catégorie, recherche) qui ne renvoie rien :
-  // le message « aucune offre publiée » serait faux — on propose d'élargir.
-  const filtreServeurActif =
-    facettes.categorie !== TOUTES_CATEGORIES || facettes.recherche !== "";
+  // Un filtre actif (catégorie, recherche, filière, pays — tous côté serveur —
+  // ou une recherche en cours de frappe) qui ne renvoie rien : le message
+  // « aucune offre publiée » serait faux — on propose d'élargir. La frappe
+  // compte : pendant les 300 ms de debounce, elle raffine déjà la page.
+  const filtreActif =
+    facettes.categorie !== TOUTES_CATEGORIES ||
+    facettes.recherche !== "" ||
+    facettes.filiere !== AUCUN_FILTRE ||
+    facettes.pays !== AUCUN_FILTRE ||
+    qFrappe !== "";
 
   const reinitialiserFiltres = useCallback(() => {
     // L'URL redevient nue (aucun défaut écrit) ; l'input local suit.
@@ -397,19 +299,14 @@ function OffresContenu() {
     ecrire(FACETTES_PAR_DEFAUT, "filtre");
   }, [ecrire]);
 
-  // Le premier chargement occupe l'écran ; les rechargements (tri, recherche)
-  // gardent la liste en place — pas de clignotement pendant la frappe.
-  if (loading && bassin.length === 0) {
-    return <IndicateurChargement />;
-  }
-
+  // Le premier chargement (et un changement de PAGE) occupe l'écran.
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
         <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-card">
           <p className="mb-4 font-medium text-destructive">{error}</p>
           <Button
-            onClick={() => charger(facettes.tri, facettes.recherche, facettes.categorie)}
+            onClick={charger}
             className="h-11 rounded-lg bg-signature px-6 text-white hover:bg-signature-deep"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
@@ -419,6 +316,19 @@ function OffresContenu() {
       </div>
     );
   }
+
+  if (!pretPourLaPage) return <IndicateurChargement />;
+
+  // Page demandée au-delà de la fin du catalogue (`?page=99` fabriqué) : l'API
+  // renvoie une liste vide et la sonde est muette — la page n'existe pas. On le
+  // dit et on propose de reculer, sans réécrire l'URL dans le dos de l'élève.
+  // On teste la page SERVEUR (`pageApi.cartes`), pas les cartes raffinées par la
+  // frappe : une recherche en cours peut vider l'affichage sans que la page
+  // n'existe pas.
+  const pageHorsCatalogue = pageApi !== null && pageApi.cartes.length === 0 && facettes.page > 1;
+
+  // Catalogue réellement vide (aucun filtre) vs filtres trop étroits.
+  const catalogueVide = !filtreActif && (pageApi !== null || bassin.length === 0);
 
   return (
     <Chrome>
@@ -453,59 +363,31 @@ function OffresContenu() {
           expireesVisibles={facettes.expirees}
           setExpireesVisibles={(valeur) => ecrire({ expirees: valeur })}
           nbExpirees={nbExpirees}
-          nbResultats={filtrees.length}
+          nbResultats={cartes.length}
           onReinitialiser={reinitialiserFiltres}
         />
 
         <BandeauResultats
-          nbResultats={filtrees.length}
-          nbTotal={bassin.length}
+          nbAffichees={cartes.length}
+          total={totalConnu}
+          page={pageAffichee}
+          aSuivante={aSuivante}
           nbExpirees={nbExpirees}
           expireesVisibles={facettes.expirees}
           cloture30={facettes.cloture30}
           tri={facettes.tri}
         />
 
-        {pageCourante.length === 0 ? (
-          <section
-            data-probe="offres-vide"
-            className="rounded-2xl border border-border bg-card px-4 pb-10"
-          >
-            {/* Bibliothèque d'états existante (V3-04) : illustration + guidage.
-                Le titre et la description sont passés par la page, parce que
-                deux situations différentes mènent ici : catalogue vide (rien de
-                publié) vs filtres trop étroits. Un seul texte, donc pas de
-                contradiction entre le composant et sa page.
-                `border-0 bg-transparent` : la carte visuelle est portée par
-                l'enveloppe, pour une seule surface et non deux empilées.
-                Aucun `hrefPreferences` : le catalogue est public, on n'invente
-                pas une route de profil sans téléphone. */}
-            <EmptyGuidant
-              variant="search"
-              titre={
-                bassin.length === 0 && !filtreServeurActif
-                  ? "Aucune offre disponible pour le moment"
-                  : "Aucune offre ne correspond à ces filtres"
-              }
-              description={
-                bassin.length === 0 && !filtreServeurActif
-                  ? "Reviens bientôt — de nouvelles offres sont publiées chaque semaine."
-                  : "Essaie d'élargir ta recherche."
-              }
-              className="border-0 bg-transparent dark:bg-transparent"
-            />
-            {(bassin.length > 0 || filtreServeurActif) && (
-              <div role="status" className="mx-auto max-w-md pb-4 text-center">
-                <Button
-                  variant="outline"
-                  onClick={reinitialiserFiltres}
-                  className="h-11 rounded-lg border-border px-4 transition-colors duration-150 hover:border-signature hover:text-signature"
-                >
-                  Réinitialiser les filtres
-                </Button>
-              </div>
-            )}
-          </section>
+        {cartes.length === 0 ? (
+          <EtatVideOffres
+            page={facettes.page}
+            pageHorsCatalogue={pageHorsCatalogue}
+            catalogueVide={catalogueVide}
+            aDesOffres={bassin.length > 0}
+            filtreActif={filtreActif}
+            onAllerPage={(p) => ecrire({ page: p }, "frappe")}
+            onReinitialiser={reinitialiserFiltres}
+          />
         ) : (
           <>
             <div
@@ -513,15 +395,18 @@ function OffresContenu() {
               aria-busy={loading}
               className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
             >
-              {pageCourante.map((offre) => (
+              {cartes.map((offre) => (
                 <CarteOffre key={offre.id} offre={offre} />
               ))}
             </div>
             {/* Pagination = réécriture silencieuse : pas d'entrée d'historique
-                par page (même contrat que la frappe, cf. cleFiltres). */}
+                par page (même contrat que la frappe, cf. cleFiltres).
+                `totalPages` n'est fourni QUE si le total est connu : sinon le
+                composant affiche « Précédent · Page N · Suivant ». */}
             <PaginationOffres
-              page={pageNum}
-              totalPages={totalPages}
+              page={pageAffichee}
+              totalPages={pageApi ? undefined : totalPages}
+              aSuivante={aSuivante}
               onPage={(p) => ecrire({ page: p }, "frappe")}
             />
           </>

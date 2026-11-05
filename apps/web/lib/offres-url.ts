@@ -32,6 +32,31 @@ export const TOUTES_CATEGORIES = "toutes";
 /** Longueur maximale d'une recherche : même plafond que le nettoyage de l'API. */
 export const MAX_RECHERCHE = 80;
 
+/** Taille d'une page du catalogue — source unique pour la page ET pour l'API. */
+export const OFFRES_PAR_PAGE = 12;
+
+/**
+ * On demande UNE ligne de plus que la page (12 + 1 = 13) : la 13ᵉ n'est jamais
+ * affichée, sa seule présence répond à « y a-t-il une page suivante ? ».
+ *
+ * Pourquoi une sonde et pas un total : `GET /api/v1/offres` renvoie une LISTE
+ * nue (aucun champ `total` dans le corps) et le backend ne compte pas. Plutôt
+ * que d'inventer un nombre de pages, la pagination est « au fil de l'eau » :
+ * Précédent · Page N · Suivant (cf. `PaginationOffres`). C'est une décision
+ * assumée, pas un oubli.
+ */
+export const LIMITE_PAGE_SONDEE = OFFRES_PAR_PAGE + 1;
+
+/**
+ * Offset serveur de la page `page` (1 = première page → offset 0).
+ * Une valeur illisible retombe sur la première page : une URL bricolée ne doit
+ * jamais produire un offset négatif ou non entier.
+ */
+export function offsetDepuisPage(page: number): number {
+  const sure = Number.isSafeInteger(page) && page > 0 ? page : 1;
+  return (sure - 1) * OFFRES_PAR_PAGE;
+}
+
 export type FacettesOffres = {
   /** Texte cherché (`?recherche=`), déjà trimé. */
   recherche: string;

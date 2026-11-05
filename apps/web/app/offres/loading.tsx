@@ -14,7 +14,8 @@ import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
  * visible et cliquable.
  *
  * V3-04 · B7 : la grille utilise `SkeletonCard` — le MÊME composant que l'état
- * de chargement client (`IndicateurChargement` dans `page.tsx`), donc les deux
+ * de chargement client (`IndicateurChargement` dans
+ * `components/offres/indicateur-chargement.tsx`), donc les deux
  * chemins (navigation serveur / attente du fetch) peignent la même chose.
  *
  * Purement décoratif pour les lecteurs d'écran (les blocs sont `aria-hidden`),
