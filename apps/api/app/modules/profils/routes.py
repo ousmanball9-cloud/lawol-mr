@@ -34,8 +34,22 @@ from fastapi import APIRouter, Depends, HTTPException
 
 router = APIRouter(prefix="/api/v1/profils", tags=["profils"])
 
-# Clé du hash du PIN dans profils.metadata (jsonb — pas de migration)
+# Clés de profils.metadata (jsonb — pas de migration)
 CLE_PIN = "code_pin_hash"
+CLE_PAYS_ETUDES = "pays_etudes"
+
+
+def _profil_depuis_ligne(ligne: dict) -> ProfilEtudiant:
+    """ProfilEtudiant depuis une ligne SQL.
+
+    `pays_etudes` n'a pas de colonne dans profils (règle « zéro migration ») :
+    il vit dans profils.metadata et est réinjecté dans la réponse.
+    """
+    donnees = dict(ligne)
+    metadata = donnees.get("metadata")
+    if isinstance(metadata, dict) and metadata.get(CLE_PAYS_ETUDES):
+        donnees["pays_etudes"] = metadata[CLE_PAYS_ETUDES]
+    return ProfilEtudiant.model_validate(donnees)
 
 
 # ---------- Création ----------
@@ -44,7 +58,12 @@ async def create_profil(profil: ProfilEtudiantCreate):
     """Inscription. Le code PIN n'est jamais inséré en clair : seul son hash
     part dans metadata. Un numéro déjà inscrit renvoie 409 (l'upsert est
     interdit : il permettait de ré-inscrire le numéro d'autrui et de
-    remplacer son code PIN)."""
+    remplacer son code PIN).
+
+    `pays_etudes` n'existe pas comme colonne dans profils : il est rangé dans
+    metadata (règle 2 du dépôt). L'insérer tel quel faisait répondre 500 à
+    toute nouvelle inscription (PostgREST PGRST204).
+    """
     if not profil.optin_texte or not profil.optin_texte.strip():
         raise HTTPException(
             422, "L'opt-in est obligatoire pour recevoir les offres sur WhatsApp"
@@ -52,6 +71,7 @@ async def create_profil(profil: ProfilEtudiantCreate):
 
     data = profil.model_dump(mode="json")
     code_pin = data.pop("code_pin", None)  # jamais de PIN en clair dans l'insert
+    pays_etudes = data.pop("pays_etudes", None)  # pas de colonne → metadata
 
     existant = (
         supabase.table("profils").select("id").eq("telephone", profil.telephone).execute()
@@ -59,13 +79,18 @@ async def create_profil(profil: ProfilEtudiantCreate):
     if existant.data:
         raise HTTPException(409, "Ce numéro de téléphone est déjà inscrit")
 
+    metadata: dict = {}
     if code_pin:
-        data["metadata"] = {CLE_PIN: hasher_pin(code_pin)}
+        metadata[CLE_PIN] = hasher_pin(code_pin)
+    if pays_etudes:
+        metadata[CLE_PAYS_ETUDES] = pays_etudes
+    if metadata:
+        data["metadata"] = metadata
 
     res = supabase.table("profils").insert(data).execute()
     if not res.data:
         raise HTTPException(500, "Erreur lors de l'insertion du profil")
-    return ProfilEtudiant.model_validate(res.data[0])
+    return _profil_depuis_ligne(res.data[0])
 
 
 # ---------- Connexion par code PIN ----------
@@ -123,7 +148,7 @@ async def get_profil(telephone: str, _session: str = Depends(garde_profil)):
     res = supabase.table("profils").select("*").eq("telephone", telephone).execute()
     if not res.data:
         raise HTTPException(404, "Profil non trouvé")
-    return ProfilEtudiant.model_validate(res.data[0])
+    return _profil_depuis_ligne(res.data[0])
 
 
 # ---------- Mutants (token Bearer exigé) ----------
@@ -140,8 +165,15 @@ async def update_profil(
 
     # Seuls les champs présents (non-null) sont modifiés
     changes = update.model_dump(exclude_none=True, mode="json")
-    if not changes:
+    pays_etudes = changes.pop("pays_etudes", None)  # pas de colonne → metadata
+    if not changes and pays_etudes is None:
         raise HTTPException(422, "Aucun champ à modifier")
+
+    if pays_etudes is not None:
+        metadata = res.data[0].get("metadata")
+        metadata = dict(metadata) if isinstance(metadata, dict) else {}
+        metadata[CLE_PAYS_ETUDES] = pays_etudes
+        changes["metadata"] = metadata
 
     res = (
         supabase.table("profils")
@@ -151,7 +183,7 @@ async def update_profil(
     )
     if not res.data:
         raise HTTPException(500, "Erreur lors de la mise à jour du profil")
-    return ProfilEtudiant.model_validate(res.data[0])
+    return _profil_depuis_ligne(res.data[0])
 
 
 @router.post("/{telephone}/desinscription")

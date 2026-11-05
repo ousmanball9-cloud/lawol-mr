@@ -25,6 +25,32 @@ const selectClass = `${inputClass} bg-background`;
 
 const checkboxClass = `rounded border-input text-signature ${focusVisibleRing}`;
 
+/**
+ * Message d'erreur lisible pour l'inscription.
+ * Priorité au `detail` renvoyé par l'API (cause réelle : numéro déjà pris,
+ * opt-in manquant, champ invalide…) ; repli explicite par statut HTTP.
+ */
+async function lireErreurInscription(res: Response): Promise<string> {
+  const brut = await res.text().catch(() => "");
+  try {
+    const data = JSON.parse(brut) as { detail?: unknown; error?: unknown };
+    if (typeof data?.detail === "string" && data.detail.trim()) return data.detail;
+    if (Array.isArray(data?.detail) && data.detail.length > 0) {
+      const premier = data.detail[0] as { msg?: unknown };
+      if (typeof premier?.msg === "string" && premier.msg.trim()) return premier.msg;
+    }
+    if (typeof data?.error === "string" && data.error.trim()) return data.error;
+  } catch {
+    // Corps non JSON (API/proxy en panne) → message par statut ci-dessous.
+  }
+  if (res.status === 409) return "Ce numéro de téléphone est déjà inscrit";
+  if (res.status === 422) return "Données invalides. Vérifiez le formulaire.";
+  if (res.status === 502 || res.status === 503) {
+    return "Le service d'inscription est momentanément indisponible. Réessayez dans quelques minutes.";
+  }
+  return `L'inscription a échoué (erreur ${res.status}). Réessayez ou contacte-nous sur WhatsApp.`;
+}
+
 export default function InscriptionPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -130,13 +156,8 @@ export default function InscriptionPage() {
         } else {
           router.push(`/connexion?tel=${telephoneClean}`);
         }
-      } else if (res.status === 409) {
-        setError("Ce numéro de téléphone est déjà inscrit");
-      } else if (res.status === 422) {
-        const data = await res.json().catch(() => null);
-        setError(data?.detail || "Données invalides. Vérifiez le formulaire.");
       } else {
-        setError("Erreur serveur. Veuillez réessayer plus tard.");
+        setError(await lireErreurInscription(res));
       }
     } catch {
       setError("Erreur de connexion. Vérifiez votre internet et réessayez.");
