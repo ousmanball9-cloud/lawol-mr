@@ -331,3 +331,14 @@ Repli assumé : si `financement` ou `cloture30` est actif, chargement du bassin 
 Après `desinscription` (`actif = false`), une **nouvelle inscription du même numéro répond 409 « déjà inscrit »** : l'étudiant qui s'est désinscrit ne peut plus jamais revenir, et le message ne le dit pas.
 
 Deux options : (a) message honnête « ce numéro est désinscrit, contacte-nous » ; (b) réactivation automatique à la réinscription — mais elle donne le compte (documents inclus) à quiconque connaît le numéro, donc **pas sans preuve de possession**. Recommandation : (a).
+
+
+### 9.6 Vague 4 — item traité : le thème sombre est retiré (06/11/2026)
+
+Aucun basculeur n'a jamais existé : il ne restait que 10 variantes `dark:`, un bloc `.dark` dans `globals.css` et `darkMode` dans `tailwind.config`. Supprimés.
+
+`verify-design` passe de 45 à **36 cas** (12 pages × 1 thème × 3 viewports), **calculé** et non figé. Ce n'est pas un affaiblissement : contraste WCAG **22/22**, matrice et largeur desktop gardent exactement les mêmes contrôles. Le test `PostesBarres` change de **sens**, pas de niveau : il affirmait `dark:bg-signature/20`, il affirme désormais l'absence de toute variante `dark:`.
+
+Preuve live : `verify-design` **36/36 TOUT VERT**, `verify-carte` VERT, `verify-live-public` **11/11**, `verify-cibles` VERT.
+
+Les 4 autres sujets de vague 4 (montant, éligibilité par origine, V3-09, V3-10) sont des **chantiers d'ingestion** : arbitrages écrits dans `.opencode/memory/decision-log-produit.md`, aucune ligne de code avant décision.
