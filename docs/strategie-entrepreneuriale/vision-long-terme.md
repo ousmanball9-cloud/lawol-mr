@@ -2,12 +2,12 @@
 
 > Ce document est vivant. Il sera complété au fil de nos discussions entrepreneuriales.
 
-## 1. Le problème (à affiner ensemble)
+## 1. Le problème (défini)
 
-Dans de nombreux pays dont la Mauritanie, les étudiants et jeunes diplômés rencontrent des difficultés à :
-- **Trouver** des bourses et stages internationaux pertinents ;
-- **Postuler** simplement (dispersion des sources, langues, critères d'éligibilité) ;
-- **Suivre** leurs candidatures (relances, deadlines, réponses).
+Dans de nombreux pays dont la Mauritanie, les étudiants et jeunes diplômés rencontrent trois difficultés majeures :
+- **Accès** : difficile de trouver les bourses et stages internationaux pertinents (sources dispersées, langues, critères d'éligibilité opaques) ;
+- **Postulation** : ne savent pas postuler seuls (processus fragmentés, dossiers complexes, deadlines manqués) ;
+- **Suivi** : aucune visibilité sur l'état de leur candidature (relances, réponses, statut opaque).
 
 LAWOL se positionne comme une plateforme bourses/stages 100 % dédiée aux étudiants mauritaniens (refonte « Jobteaser 100 % bourses »).
 
@@ -18,35 +18,34 @@ LAWOL se positionne comme une plateforme bourses/stages 100 % dédiée aux étud
 - **API** : `https://lawol-mr-production.up.railway.app` (Railway)
 - **Charte** : « Nuit d'Indigo » — zéro noir, tokens existants uniquement
 - **Règle métier clé** : catalogue 100 % bourses. Une source d'emploi ne produit jamais `bourse` → `emploi_junior` ou `stage_pfe`.
+- **Canal email** : opérationnel depuis plusieurs jours (P2 validé dans les faits)
 
-## 3. Vision à long terme (en cours de définition)
+## 3. Vision à long terme (définie)
 
-À compléter ensemble :
+- **Cible** : bacheliers, licenciés, et tous élèves et étudiants mauritaniens
+- **Horizon 6-12 mois** : plateforme fonctionnelle avec accès gratuit aux bourses, accompagnement et suivi payants ; premier seuil de réponse > 30 %
+- **Horizon 1-3 ans** : plateforme et application mobile de bourse pour les Mauritaniens ; extension possible à d'autres pays (Sénégal, Mali, Côte d'Ivoire) après validation
+- **Horizon 3-5 ans** : hub éducatif panafricain ou plateforme de référence pour les étudiants mauritaniens à l'étranger
+- **Modèle économique** : **gratuit pour l'accès aux bourses disponibles** ; **l'accompagnement de postulation et le suivi de candidature sont payants**
+- **Canaux de notification** : WhatsApp (canal principal, Meta en attente de vérification), email (opérationnel), in-app
 
-- [ ] **Horizon 6-12 mois** : quel usage quotidien ? quel North Star (ex. candidatures déclarées/semaine) ?
-- [ ] **Horizon 1-3 ans** : quels pays additionnels ? quels types d'offres (bourses → stages → emplois juniors → formation) ?
-- [ ] **Horizon 3-5 ans** : quelle place LAWOL occupe-t-il dans l'écosystème éducatif mauritanien et africain ?
-- [ ] **Modèle économique** : freemium, abonnement, sponsoring institutions, frais de mise en relation ?
-- [ ] **Canaux de notification** : WhatsApp (canal principal, Meta en attente de vérification), email (filet de sécurité), in-app.
+## 4. Métriques de succès (à définir ensemble)
 
-## 4. Métriques de succès (à définir)
-
-À compléter : KPIs principaux, seuils de décision, tableaux de bord.
+À compléter : KPIs principaux, seuils de décision, tableaux de bord. **À définir avec le fondateur.**
 
 ## 5. Décisions structurantes déjà prises
 
 | Date | Décision | Rationale | Statut |
 |------|----------|-----------|--------|
-| 06/11/2026 | Option A "Boucle de promesse" pour le prototypage | Valider l'hypothèse "un étudiant reçoit et réagit" avant ingestion de masse | En cours (P1 fait, P2 en cours) |
+| 06/11/2026 | Option A "Boucle de promesse" pour le prototypage | Valider l'hypothèse "un étudiant reçoit et réagit" avant ingestion de masse | En cours (P1 fait, P2 fait) |
 | 16/10/2026 | Catalogue 100 % bourses (règle par source) | Éviter la confusion bourse/emploi, respecter le positionnement | Actif |
+| 06/11/2026 | Modèle économique : accès gratuit, accompagnement + suivi payants | Séparer l'information (gratuite) du service (payant) | Actif |
 
-## 6. Questions ouvertes pour notre discussion
+## 6. Questions restantes pour notre discussion
 
-1. Quel est le **problème exact** que tu veux résoudre aujourd'hui avec LAWOL ?
-2. Qui est **vraiment l'utilisateur cible** (étudiant en licence ? master ? jeune diplômé ?) ?
-3. Quelle est la **vision à 3 ans** : rester une plateforme bourses mauritanienne, ou devenir un hub éducatif panafricain ?
-4. Quel **modèle économique** envisages-tu pour rendre le projet durable ?
-5. Quels sont les **3 premiers indicateurs** de succès que tu veux suivre ?
+1. Quels sont les **3 premiers indicateurs de succès (KPI)** que tu veux suivre ? (North Star, seuil de réponse, taux de conversion accompagnement payant…)
+2. Quel **prix** envisages-tu pour l'accompagnement de postulation et le suivi ?
+3. Quels **partenaires locaux** (universités, ambassades, ONG) pourraient diffuser LAWOL auprès des bacheliers et licenciés ?
 
 ---
 *Ce document est le point de départ de notre réflexion entrepreneuriale. Complète-le ou pose-moi des questions pour qu'on l'enrichisse ensemble.*
