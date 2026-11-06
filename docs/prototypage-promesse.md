@@ -126,13 +126,15 @@ Vérifications :
 
 ---
 
-### P5 — WhatsApp manuel + seuil de décision
+### P5 — Email manuel + seuil de décision (WhatsApp non prêt)
 
 Fichier : `docs/prototypage-promesse.md` (section runbook, à compléter)
 
-- Envoi manuel des 3 meilleures offres aux étudiants de la cohorte (numéro classique, en attendant la vérification Meta)
-- Comptage des réponses
-- **Seuil PRD écrit** : > 30 % → continuer ; < 30 % → problème offre/matching
+- WhatsApp non prêt (Meta bloqué, pas de vérification entreprise) → **l'email est le canal de mesure pour P5**
+- Envoi manuel des 3 meilleures offres aux étudiants de la cohorte par email (canal déjà opérationnel, P2 validé)
+- Comptage des réponses (lectures, clics, réponses email)
+- **Seuil PRD écrit** : > 30 % → continuer (activer WhatsApp quand prêt, puis bot) ; < 30 % → problème offre/matching, pas de canal
+- Préparer le runbook WhatsApp pour activation ultérieure (dès que Meta vérifie)
 
 ---
 

@@ -29,9 +29,19 @@ LAWOL se positionne comme une plateforme bourses/stages 100 % dédiée aux étud
 - **Modèle économique** : **gratuit pour l'accès aux bourses disponibles** ; **l'accompagnement de postulation et le suivi de candidature sont payants**
 - **Canaux de notification** : WhatsApp (canal principal, Meta en attente de vérification), email (opérationnel), in-app
 
-## 4. Métriques de succès (à définir ensemble)
+## 4. Métriques de succès (5 KPIs retenus)
 
-À compléter : KPIs principaux, seuils de décision, tableaux de bord. **À définir avec le fondateur.**
+| KPI | Définition | Objectif |
+|-----|------------|----------|
+| **KPI 1 — North Star** | Candidatures déclarées / semaine | À définir après premier run |
+| **KPI 2 — Seuil de réponse** | % d'étudiants qui lisent/répondent aux notifications | > 30 % (seuil go/no-go PRD §9) |
+| **KPI 3 — Taux de conversion** | % d'étudiants qui prennent l'accompagnement payant (postulation + suivi) | À définir |
+| **KPI 4 — Couverture offre** | Nombre de bourses affichées / mois | Croissance mensuelle |
+| **KPI 5 — Base active** | Nombre d'étudiants inscrits actifs (opt-in + connectés) | Croissance mensuelle |
+
+**Seuils de décision** : si KPI 2 < 30 % → problème offre/matching, pas de canal. Si KPI 2 > 30 % → continuer (Meta WhatsApp, bot).
+
+**Tableaux de bord** : à construire après validation des 5 lots P1..P5.
 
 ## 5. Décisions structurantes déjà prises
 
