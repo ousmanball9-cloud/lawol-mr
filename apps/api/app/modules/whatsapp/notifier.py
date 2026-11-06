@@ -12,9 +12,10 @@ WhatsApp principal, email en filet de sécurité. L'injection `envoi`
 (signature (telephone, texte)) reste le chemin de preuve du harnais
 scripts/verify-lotcd.py : WhatsApp seul, zéro réseau.
 """
-from datetime import date
+from datetime import date, timedelta
 
 from apps.api.app.core.database import supabase
+from apps.api.app.modules.matching.engine import MAX_MATCHES_PAR_SEMAINE
 from apps.api.app.modules.notifications.canal import envoyer_notification
 from apps.api.app.modules.whatsapp.textes import (
     construire_texte_notification,
@@ -131,22 +132,40 @@ def run_deadline_job(
     return stats
 
 
-def run_notification_job() -> dict:
+def run_notification_job(
+    *,
+    envoi=None,
+    aujourdhui: date | None = None,
+) -> dict:
     """Envoie les matches non notifiés et les marque comme notifiés.
+
+    Garde-fous P3 :
+      (a) Seuls les profils avec `optin_at` présent dans profils.metadata
+          sont notifiés.
+      (b) `actif=false` (STOP/désinscription) bloque tout envoi.
+      (c) Quota hebdo MAX_MATCHES_PAR_SEMAINE : on compte les envois déjà
+          faits cette semaine (matches notifie=true, date_match dans les
+          7 derniers jours) et on bloque au-delà.
 
     Envoi via le dispatch canal-agnostique (Lot E) : WhatsApp d'abord, repli
     email. Un match n'est marqué notifié que si AU MOINS UN canal a réussi.
 
-    Optimisation Railway : lot limité à 20 pour éviter timeout.
-    Filtre : seulement profils AVEC email (pour que le fallback email fonctionne).
+    `envoi` injectable pour le harnais de preuve (signature (telephone, texte),
+    exceptions propagées). Sans injection → dispatch canal-agnostique
+    (envoyer_notification depuis notifications/canal.py).
+
+    `aujourdhui` injectable pour calculer la fenêtre de 7 jours sans attendre.
     """
+    today = aujourdhui or date.today()
+
     # 1. Matches non notifiés, avec profil + offre — LOT RÉDUIT
-    # Filtre : profil.email non nul
+    # Filtre : profil.email non nul ; actif + metadata lus pour les garde-fous P3
     res = (
         supabase.table("matches")
         .select(
             "id, score, "
-            "profil:profils!inner(id, prenom, nom, telephone, email, filiere, niveau), "
+            "profil:profils!inner(id, prenom, nom, telephone, email, filiere, "
+            "niveau, actif, metadata), "
             "offre:offres(id, titre, entreprise, ville, date_limite, type_offre)"
         )
         .eq("notifie", False)
@@ -160,26 +179,72 @@ def run_notification_job() -> dict:
     for i, m in enumerate(matches):
         print(f"  Match {i}: id={m['id']}, profil={m.get('profil')}")
     if not matches:
-        return {"matches_trouves": 0, "notifies": 0, "erreurs": 0}
+        return {"matches_trouves": 0, "notifies": 0, "erreurs": 0, "ignores": 0}
 
-    # 2. Envoyer chaque notification
+    # 2. Compter les envois déjà faits cette semaine (quota anti-spam P3-c)
+    semaine_derniere = (today - timedelta(days=7)).isoformat()
+    envois_semaine: dict[str, int] = {}
+    for m in matches:
+        pid = m["profil"]["id"]
+        if pid not in envois_semaine:
+            res_semaine = (
+                supabase.table("matches")
+                .select("id")
+                .eq("profil_id", pid)
+                .eq("notifie", True)
+                .gte("date_match", semaine_derniere)
+                .execute()
+            )
+            envois_semaine[pid] = len(res_semaine.data or [])
+
+    # 3. Envoyer chaque notification avec les 3 garde-fous P3
     notifies = 0
     erreurs = 0
+    ignores = 0
     for m in matches:
         try:
             profil = m["profil"]
             offre = m["offre"]
-            print(f"🔍 DEBUG notifier: traitement match {m['id']}, profil telephone={profil.get('telephone')}, email={profil.get('email')}")
+            pid = profil["id"]
+
+            # Garde-fou (b) : actif=false (STOP/désinscription) bloque tout envoi
+            if not profil.get("actif"):
+                ignores += 1
+                continue
+
+            # Garde-fou (a) : seul optin_at présent dans metadata autorise l'envoi
+            metadata = profil.get("metadata") or {}
+            if not metadata.get("optin_at"):
+                ignores += 1
+                continue
+
+            # Garde-fou (c) : quota hebdo MAX_MATCHES_PAR_SEMAINE
+            if envois_semaine.get(pid, 0) >= MAX_MATCHES_PAR_SEMAINE:
+                ignores += 1
+                continue
+
             texte = construire_texte_notification(offre)
-            resultat = envoyer_notification(profil, texte)
-            if not resultat["ok"]:
-                raise RuntimeError("aucun canal joignable (WhatsApp/email)")
+            if envoi is not None:
+                # Chemin de preuve (harnais) : envoi injecté, signature
+                # (telephone, texte) inchangée, exceptions propagées
+                envoi(profil["telephone"], texte)
+            else:
+                # Chemin prod : dispatch canal-agnostique WhatsApp → email
+                resultat = envoyer_notification(profil, texte)
+                if not resultat["ok"]:
+                    raise RuntimeError("aucun canal joignable (WhatsApp/email)")
 
             # Marquer comme notifié
             supabase.table("matches").update({"notifie": True}).eq("id", m["id"]).execute()
+            envois_semaine[pid] = envois_semaine.get(pid, 0) + 1
             notifies += 1
         except Exception as e:  # noqa: BLE001
             erreurs += 1
             print(f"⚠️ notification échouée (match {m['id']}): {e}")
 
-    return {"matches_trouves": len(matches), "notifies": notifies, "erreurs": erreurs}
+    return {
+        "matches_trouves": len(matches),
+        "notifies": notifies,
+        "erreurs": erreurs,
+        "ignores": ignores,
+    }

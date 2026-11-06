@@ -106,11 +106,52 @@ Si l'un des deux est KO, ou si le destinataire est invalide (controle négatif),
 
 Fichiers : `apps/api/app/modules/whatsapp/notifier.py`, `apps/api/app/modules/matching/engine.py`, `scripts/test-notifications.py` (étendu)
 
-Vérifications (tests `test-*.py` verts + contrôles négatifs sur chacune des 3 règles) :
-- (a) Seuls les profils `optin_at` présent sont notifiés
-- (b) `actif=false` (STOP/désinscription) bloque tout envoi
-- (c) Quota hebdo `MAX_MATCHES_PAR_SEMAINE` s'applique
-- Zéro migration SQL (tout en `metadata` jsonb)
+#### Implémentation des 3 garde-fous
+
+Tous les garde-fous sont appliqués dans `run_notification_job()`
+(`apps/api/app/modules/whatsapp/notifier.py`), sans aucune migration SQL :
+tout passe par `profils.metadata` (jsonb) et les colonnes existantes.
+
+**(a) Opt-in (`optin_at`)** : avant tout envoi, le job lit
+`profil.metadata["optin_at"]`. Si la clé est absente ou `None`, le profil est
+ignoré (contrôle négatif : pas d'envoi). Aucun champ SQL n'est ajouté —
+`optin_at` est écrit dans `metadata` lors de l'inscription/desinscription.
+
+**(b) STOP (`actif=false`)** : le job sélectionne désormais `actif` et
+`metadata` dans le join `profils`. Si `profil.actif` est `false`, le match est
+ignoré avant toute tentative d'envoi (désinscription respectée immédiatement).
+
+**(c) Quota hebdo (`MAX_MATCHES_PAR_SEMAINE`)** : définie à `5` dans
+`apps/api/app/modules/matching/engine.py`. Le job compte, pour chaque profil,
+les `matches` déjà `notifie=true` avec `date_match` dans les 7 derniers jours.
+Si le compte est `>= MAX_MATCHES_PAR_SEMAINE`, aucun nouvel envoi n'est fait
+pour ce profil durant la semaine glissante. Le compteur est incrémenté à chaque
+envoi réussi au sein du run.
+
+Le job accepte deux paramètres injectables (compatibles avec les appels
+existants sans argument) :
+- `envoi` : fonction `(telephone, texte)` injectée pour le harnais de preuve
+  (zéro réseau, signature identique à `run_deadline_job`) ;
+- `aujourdhui` : `date` injectable pour calculer la fenêtre de 7 jours sans
+  attendre le jour J.
+
+#### Contrôles négatifs (dans `scripts/test-notifications.py`, section P3)
+
+Chaque contrôle négatif fait tomber le harnais (code de sortie != 0) si la règle
+est violée :
+1. Profil sans `optin_at` → un envoi pour ce téléphone fait échouer le test.
+2. Profil `actif=false` → un envoi pour ce téléphone fait échouer le test.
+3. Quota atteint (5 envois cette semaine) → un nouvel envoi fait échouer le test.
+
+#### Exécution des tests
+
+```bash
+python -X utf8 scripts/test-notifications.py
+```
+
+Le script est 100 % hors-ligne (mock Supabase en mémoire, aucun appel réseau,
+zéro migration SQL). Code de sortie 0 = tous les checks verts, y compris les 3
+contrôles négatifs P3.
 
 ---
 
