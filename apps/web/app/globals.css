@@ -35,17 +35,6 @@
     --signature: 221.2 83.2% 53.3%; /* #2563EB */
     --surlignage: 37.7 92.2% 50.2%; /* #F59E0B */
   }
-  .dark {
-    --background: 243 47% 20%; --foreground: 0 0% 98%;
-    --card: 243 40% 24%; --card-foreground: 0 0% 98%;
-    --popover: 243 40% 24%; --popover-foreground: 0 0% 98%;
-    --primary: 221.2 83.2% 53.3%; --primary-foreground: 0 0% 100%;
-    --secondary: 240 4.8% 12%; --secondary-foreground: 0 0% 98%;
-    --muted: 240 4.8% 12%; --muted-foreground: 240 5% 70%;
-    --accent: 240 4.8% 12%; --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 45%; --destructive-foreground: 0 0% 100%;
-    --border: 240 4.8% 16%; --input: 240 4.8% 16%; --ring: 221.2 83.2% 53.3%;
-  }
 }
 @layer base {
   * { @apply border-border; }

@@ -69,7 +69,7 @@ export function EmptyGuidant({
       data-variant={variant}
       className={cn(
         "flex flex-col items-center text-center py-16 px-4",
-        "bg-card dark:bg-card dark:text-white/80",
+        "bg-card",
         "rounded-2xl border border-border",
         className
       )}
@@ -84,13 +84,13 @@ export function EmptyGuidant({
           id={idTitre}
           className={cn(
             "text-xl font-semibold",
-            "text-ink dark:text-white",
+            "text-ink",
             "mb-2"
           )}
         >
           {titreAffiche}
         </h2>
-        <p className={cn("text-base", "text-muted-foreground dark:text-white/60")}>
+        <p className={cn("text-base", "text-muted-foreground")}>
           {descriptionAffichee}
         </p>
       </div>
@@ -102,10 +102,10 @@ export function EmptyGuidant({
             className={cn(
               "inline-flex items-center justify-center gap-2",
               "px-4 py-2.5 rounded-lg",
-              "bg-muted dark:bg-muted",
-              "text-ink dark:text-white",
+              "bg-muted",
+              "text-ink",
               "font-medium text-sm",
-              "hover:bg-muted-foreground/10 dark:hover:bg-muted-foreground/20",
+              "hover:bg-muted-foreground/10",
               "transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature",
               "w-full sm:w-auto"

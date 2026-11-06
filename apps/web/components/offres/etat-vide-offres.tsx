@@ -59,7 +59,7 @@ export function EtatVideOffres({
               ? "Reviens bientôt — de nouvelles offres sont publiées chaque semaine."
               : "Essaie d'élargir ta recherche."
         }
-        className="border-0 bg-transparent dark:bg-transparent"
+        className="border-0 bg-transparent"
       />
       {pageHorsCatalogue ? (
         <div role="status" className="mx-auto flex max-w-md flex-wrap justify-center gap-3 pb-4">
