@@ -342,3 +342,16 @@ Aucun basculeur n'a jamais existé : il ne restait que 10 variantes `dark:`, un 
 Preuve live : `verify-design` **36/36 TOUT VERT**, `verify-carte` VERT, `verify-live-public` **11/11**, `verify-cibles` VERT.
 
 Les 4 autres sujets de vague 4 (montant, éligibilité par origine, V3-09, V3-10) sont des **chantiers d'ingestion** : arbitrages écrits dans `.opencode/memory/decision-log-produit.md`, aucune ligne de code avant décision.
+
+## 10. Vague 4 - V4-A livre (06/11/2026)
+
+Contrat `offres.metadata` ecrit (`docs/contrat-metadata-offres.md`) + harnais
+`scripts/couverture-metadata.py` (self-test 16 offres / 9 pieges, controle
+negatif 3/3 : 3 validateurs ouverts -> 3 fois le harnais tombe).
+
+Mesure reelle : catalogue public **281** offres, `categorie_bourse` affichable
+**154 (54,8 %)** -- l'ecart avec les 268 presentes est le silence assume
+`inconnu`, pas une erreur. **0 cle hors contrat.**
+`pays_financeur` / `deadline_source` / `date_publication` / `relais` =
+**0 sur 505 lignes** (`mesrs` = 0 ligne, verifie par comptage des 15 sources) :
+V3-09/V3-10 dependent d'abord de la SOURCE, pas d'un ecran.
