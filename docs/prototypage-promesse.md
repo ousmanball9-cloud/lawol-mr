@@ -56,10 +56,49 @@ Contrôle négatif : 3 pièges injectés doivent faire tomber le harnais (ex. : 
 Fichier : `scripts/verify-envoi-live.py` (mode `--live`, 1 destinataire de test)
 
 Vérification :
-- 1 notification réelle envoyée par le chemin de prod
+- 1 notification réelle envoyée par le chemin de prod (`canal.py` -> `email_sender`, SMTP)
 - `matches.notifie = true` en base après envoi
-- Contrôle négatif : destinataire invalide → harnais KO
+- Contrôle négatif : destinataire invalide → harnais KO (code de sortie != 0)
 - Zéro modification de règle de matching
+- Aucun secret affiché (noms de variables SMTP uniquement)
+
+#### Configuration SMTP_* (Railway / Vercel)
+
+Les vars SMTP ne sont jamais committées. Elles se définissent dans les dashboards :
+
+**Railway (API, `apps/api`) — variables d'environnement du service :**
+- `SMTP_HOST` — hôte SMTP (ex. `smtp.gmail.com`)
+- `SMTP_PORT` — port (défaut `587` → STARTTLS ; `465` → SSL implicite)
+- `SMTP_USER` — identifiant SMTP (optionnel si relayage autorisé)
+- `SMTP_PASSWORD` — mot de passe SMTP (secret, jamais en dur)
+- `EMAIL_FROM` — adresse expéditeur (doit être validée chez le provider)
+- `EMAIL_FROM_NAME` — nom affiché (défaut `LAWOL.mr`)
+
+En local, ces mêmes vars vivent dans `.env` (git-ignoré, jamais committé ; noms listés dans `.env.example`).
+
+**Vercel (front) :** aucune var SMTP côté front (l'API est hébergée sur Railway). Ne pas dupliquer `SMTP_*` côté Vercel.
+
+#### Execution du test live
+
+```
+python -X utf8 scripts/verify-envoi-live.py --live --dest etudiant@exemple.mr [--match-id <uuid>]
+```
+
+- `--live` : obligatoire, déclenche l'envoi veritable.
+- `--dest` : email du destinataire de test (doit correspondre a un `profils.email` en base).
+- `--match-id` : ID d'un match `notifie=false` a notifier (optionnel ; sinon le plus ancien non notifie du profil est selectionne).
+
+Pre-condition : les vars `SMTP_*` doivent etre presentes. Si elles manquent, le script arrete et liste les **noms** de vars manquantes (jamais leurs valeurs), et rend un code != 0.
+
+#### Ce qui constitue une preuve valide
+
+Une preuve P2 valide = le script termine avec code de sortie 0 et affiche les deux checks suivants en vert :
+1. `email accepte par le canal de prod (pas d'erreur SMTP)` — l'email est bien parti par `canal.py` -> `email_sender`.
+2. `matches.notifie = true confirme en base` — la re-lecture de la ligne `matches` confirme le marquage.
+
+Si l'un des deux est KO, ou si le destinataire est invalide (controle négatif), le harnais rend code != 0 : preuve non valide.
+
+**Signaler** : si `SMTP_*` n'est pas configurable dans l'environnement cible (dashboard Railway/Vercel ou `.env` local), le test live est impossible sans vars reelles — le script arrete et liste les noms de vars manquantes.
 
 ---
 
