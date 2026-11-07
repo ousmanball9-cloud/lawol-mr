@@ -4,6 +4,7 @@ import { TYPES_OFFRES } from "@/components/offre-detail-modal";
 import { FINANCEMENTS_CONNUS, labelFinancementHonteux } from "./financement";
 import { labelCategorieBourse, labelPays } from "./types";
 import { joursRestants, parserDateLimite } from "./date-limite";
+import { formaterMontant } from "@/lib/montant";
 import type { Offre } from "./types";
 
 /** Seuil « urgent » : sous 7 jours, la pastille passe de l'indigo au surlignage. */
@@ -45,6 +46,9 @@ export function CarteOffre({ offre }: { offre: Offre }) {
   // Financement : affiché SEULEMENT s'il est réellement renseigné. Sur la carte on
   // n'annonce pas une absence (12 × « non précisé » = bruit) — la fiche, elle, la dit.
   const financementConnu = FINANCEMENTS_CONNUS.has((offre.type_financement ?? "").trim());
+  // Montant annoncé (contrat §2.1) : même ligne que le financement pour ne pas
+  // ajouter une hauteur de carte (cible ≤ 210 px prouvée par verify-carte-compacte).
+  const montantTexte = formaterMontant(offre.montant);
 
   return (
     <Link
@@ -92,15 +96,30 @@ export function CarteOffre({ offre }: { offre: Offre }) {
             </>
           )}
         </p>
-        {financementConnu && (
+        {(financementConnu || montantTexte) && (
           <p
             data-probe="offre-financement"
             className="flex items-center gap-1.5 overflow-hidden whitespace-nowrap"
           >
             <Award className="h-3.5 w-3.5 shrink-0 text-signature" aria-hidden="true" />
-            <span className="min-w-0 truncate font-medium text-foreground">
-              {labelFinancementHonteux(offre.type_financement)}
-            </span>
+            {financementConnu && (
+              <span className="min-w-0 truncate font-medium text-foreground">
+                {labelFinancementHonteux(offre.type_financement)}
+              </span>
+            )}
+            {financementConnu && montantTexte && (
+              <span aria-hidden="true" className="shrink-0">
+                ·
+              </span>
+            )}
+            {montantTexte && (
+              <span
+                data-probe="offre-montant"
+                className="shrink-0 font-semibold tabular-nums text-signature-deep"
+              >
+                {montantTexte}
+              </span>
+            )}
           </p>
         )}
       </div>

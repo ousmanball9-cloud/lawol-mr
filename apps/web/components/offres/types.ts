@@ -1,3 +1,5 @@
+import type { Montant } from "@/lib/montant";
+
 /** Offre publique — forme renvoyée par GET /api/v1/offres et /api/v1/offres/{id}. */
 export type Offre = {
   id: string;
@@ -21,6 +23,9 @@ export type Offre = {
   /** Qui finance la bourse — `gouvernementale | institutionnelle | fondation |
    *  entreprise | inconnu` (enum backend). Absent sur les charges anciennes. */
   categorie_bourse?: string | null;
+  /** Montant annoncé (`docs/contrat-metadata-offres.md` §2.1). `null` = silence :
+   *  l'API ne sert que la valeur stockée et conforme, jamais une estimation. */
+  montant?: Montant | null;
   active: boolean;
 };
 

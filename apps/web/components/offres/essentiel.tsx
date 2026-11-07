@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   CalendarDays,
+  Coins,
   GraduationCap,
   MapPin,
   ShieldCheck,
@@ -9,6 +10,7 @@ import {
 import { FINANCEMENTS_CONNUS } from "./financement";
 import { labelFinancement, labelPays, type Offre } from "./types";
 import { parserDateLimite } from "./date-limite";
+import { formaterMontant } from "@/lib/montant";
 
 /**
  * Bloc « L'essentiel » de la fiche bourse — 5 faits de décision, avant toute prose.
@@ -85,6 +87,8 @@ export function FicheEssentiel({ offre }: { offre: Offre }) {
     ? labelPays(offre.pays_etudes)
     : NON_COMMUNIQUE;
   const dateLimite = dateExacte(offre.date_limite);
+  // Montant annoncé (contrat §2.1) : `null` si l'annonce ne chiffre rien.
+  const montantTexte = formaterMontant(offre.montant);
 
   // Ordre volontaire : ce qui peut éliminer la candidature d'abord.
   const eliminants: Fait[] = [
@@ -123,6 +127,14 @@ export function FicheEssentiel({ offre }: { offre: Offre }) {
       valeur: financementTexte,
       icone: Wallet,
       absent: financementTexte === NON_COMMUNIQUE,
+    },
+    {
+      cle: "montant",
+      probe: "essentiel-montant",
+      libelle: "Montant annoncé",
+      valeur: montantTexte ?? NON_COMMUNIQUE,
+      icone: Coins,
+      absent: !montantTexte,
     },
     {
       cle: "pays",

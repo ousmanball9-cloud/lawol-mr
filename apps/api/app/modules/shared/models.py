@@ -4,6 +4,7 @@ from typing import Any, Literal, Optional
 from uuid import UUID
 
 import bleach
+from apps.api.app.modules.matching.extraction import montant_stocke
 from apps.api.app.modules.scraper.engine import (
     CategorieBourse,
     categorie_bourse_pour_offre,
@@ -197,6 +198,18 @@ class OffreStageCreate(OffreStageBase):
     pass
 
 
+class MontantPublic(BaseModel):
+    """Montant annoncé d'une offre — contrat `docs/contrat-metadata-offres.md` §2.1.
+
+    `periode` = « total » signifie « aucune périodicité publiée » : l'écran
+    n'ajoute alors AUCUN qualificatif de durée (il ne dit pas « par an »).
+    """
+
+    valeur: float
+    devise: str
+    periode: Literal["mois", "an", "total"]
+
+
 class OffreStagePublic(BaseModel):
     id: UUID
     titre: str
@@ -221,6 +234,8 @@ class OffreStagePublic(BaseModel):
     # `metadata['categorie_bourse']` ; ligne legacy sans metadata → même règle
     # par source que le filtre `?categorie=` (sinon « inconnu »).
     categorie_bourse: str = CategorieBourse.INCONNU.value
+    # Montant annoncé (contrat metadata §2.1) — None = silence, jamais un 0.
+    montant: Optional[MontantPublic] = None
 
     @model_validator(mode="before")
     @classmethod
@@ -234,6 +249,10 @@ class OffreStagePublic(BaseModel):
                     data.get("entreprise") or "",
                     data.get("titre") or "",
                 ),
+                # Contrat `docs/contrat-metadata-offres.md` §2.1 : la valeur
+                # STOCKÉE est servie telle quelle (jamais recalculée ici), et
+                # seulement si sa forme est conforme — sinon `None` = silence.
+                "montant": montant_stocke(data.get("metadata")),
             }
         return data
 

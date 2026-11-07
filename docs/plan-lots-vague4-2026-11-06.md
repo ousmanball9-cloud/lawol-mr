@@ -116,3 +116,24 @@ Piège : <ce qui a coûté du temps>
 **Décision de suite (V4-B)** : l'extraction du montant se mesure sur les
 **281 offres sans montant** (0/281) — le lot doit donc livrer l'extracteur ET
 son taux d'extraction réel, jamais un « c'est branché ».
+
+---
+
+## V4-B + V4-C livres (07/11/2026)
+
+| Livrable | Preuve |
+|---|---|
+| `matching/extraction.py` : `montant_depuis_texte` / `montant_stocke` / `montant_effectif`, 5 gardes | `scripts/test-montant.py` **39/39** (23 cas reels) |
+| Controle negatif extraction | 5 gardes neutralisees -> **5 fois les cas attendus tombent** |
+| **Cause racine** : `metadata` reconstruit a l'upsert | `scraper/sources/base.py` pose `metadata['montant']` au point d'ecriture unique ; `scripts/test-montant-ecriture.py` **11/11** (payload capture, zero reseau) |
+| Backfill | `--apply` : **20 montants reecrits** (les 19 perdus + 1 nouveau) |
+| API | `MontantPublic` + champ `montant` ; la valeur STOCKEE est servie telle quelle, `None` = silence |
+| Web | `lib/montant.ts` ; carte (probe `offre-montant` sur la ligne financement, aucune hauteur ajoutee) ; fiche (`essentiel-montant`) |
+| Gates web | `tsc` 0 - `eslint` 0 - `vitest` **234/234** - `next build` VERT |
+
+**Couverture mesuree** : 288 offres publiques, **33 affichables (11,5 %)** ;
+**1 montant** sur les 12 premieres cartes (tri `recentes`), 0 en tri `urgent`.
+Fait brut, assume : la fonctionnalite est visible mais rare.
+
+**Lecon integree** : un backfill n'est pas une correction si le point d'ecriture
+regulier reconstruit le document. La garde appartient a `save`, pas a un script.

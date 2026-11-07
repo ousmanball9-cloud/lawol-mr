@@ -355,3 +355,33 @@ Mesure reelle : catalogue public **281** offres, `categorie_bourse` affichable
 `pays_financeur` / `deadline_source` / `date_publication` / `relais` =
 **0 sur 505 lignes** (`mesrs` = 0 ligne, verifie par comptage des 15 sources) :
 V3-09/V3-10 dependent d'abord de la SOURCE, pas d'un ecran.
+
+## 11. Vague 4 - V4-B + V4-C livres (07/11/2026)
+
+**V4-B (extraction)** : `montant_depuis_texte` / `montant_stocke` /
+`montant_effectif` dans `matching/extraction.py`. Extracteur volontairement
+ETROIT -- un montant faux est pire qu'un montant absent. 5 gardes explicites :
+question (`?`), ce que l'etudiant PAIE, plafond (`up to`), ambiguite (2 montants
+differents dans la fenetre), enveloppe de programme (> 100 000 avec
+`programme|budget|envelope`).
+Preuve : `scripts/test-montant.py` **39/39** (23 cas reels du catalogue),
+controle negatif **5 gardes neutralisees -> 5 fois les cas attendus tombent**.
+
+**Cause racine corrigee** : `BaseScraper.save` RECONSTRUIT `metadata` puis
+upsert -- un backfill seul etait efface a la collecte suivante (mesure : 42
+ecrits, **19 disparus** apres une passe). La cle est desormais posee au POINT
+D'ECRITURE UNIQUE (`scraper/sources/base.py`), prouve par
+`scripts/test-montant-ecriture.py` **11/11** (payload d'upsert capture, zero
+reseau, controle negatif inclus).
+
+**V4-C (affichage)** : `MontantPublic` + champ `montant` dans
+`OffreStagePublic` ; `apps/web/lib/montant.ts` (formateur testable, silence sur
+valeur non conforme) ; carte (probe `offre-montant` sur la ligne du financement,
+donc AUCUNE hauteur ajoutee) + fiche (3e fait `essentiel-montant`).
+Preuve : `__tests__/offres/montant.test.ts` 6/6, `vitest` **234/234**,
+`next build` VERT, `verify-montant.mjs` ecrit.
+
+**Couverture reelle (mesuree, pas promise)** : 288 offres publiques,
+**33 avec montant affichable (11,5 %)** ; sur les 12 premieres cartes du
+catalogue, **1** montant visible. C'est faible et assume : la fonctionnalite
+est visible mais rare tant que la collecte ne ramene pas plus de textes chiffres.

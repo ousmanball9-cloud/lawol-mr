@@ -15,3 +15,4 @@ Format : `YYYY-MM-DD — Décision — Rationale — Statut — Décidé par`
 | 2026-11-06 | Vision LAWOL | Plateforme et application de bourse pour les Mauritaniens ; hub panafricain à 3-5 ans | Actif | Fondateur |
 | 2026-11-06 | Modèle économique LAWOL | Accès gratuit aux bourses ; accompagnement de postulation + suivi payants | Actif | Fondateur |
 | 2026-11-06 | Positionnement marché LAWOL | Segmentation, avantage compétitif, risques | Actif | Régisseur + Fondateur |
+| 2026-11-07 | Montant annonce : extracteur etroit + affichage carte/fiche (V4-B/V4-C) | Un montant faux coute plus cher qu'un montant absent ; la cle est ecrite au point d'ecriture unique `BaseScraper.save` (un backfill seul est efface a la collecte) | Actif | Regisseur |

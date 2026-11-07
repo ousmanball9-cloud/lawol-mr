@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Iterable
 
 from apps.api.app.core.database import supabase
+from apps.api.app.modules.matching.extraction import montant_depuis_texte
 from apps.api.app.modules.scraper.engine import (
     CLE_METADATA_CATEGORIE,
     categorie_bourse_pour_source,
@@ -133,6 +134,17 @@ class BaseScraper(ABC):
                 metadata[CLE_METADATA_CATEGORIE] = categorie_bourse_pour_source(
                     self.source_name, o.entreprise, o.titre
                 )
+                # MONTANT (contrat `docs/contrat-metadata-offres.md` §2.1) : posé
+                # ICI, au point d'écriture unique. Mesuré le 06/11/2026 : un
+                # backfill seul ne tient pas — `metadata` est RECONSTRUIT à chaque
+                # upsert, donc 19 des 42 montants écrits avaient déjà disparu
+                # après une passe de collecte. Les gardes de
+                # `montant_depuis_texte` décident ; sans certitude, pas de clé.
+                montant = montant_depuis_texte(
+                    f"{o.titre or ''} {o.description or ''}".strip()
+                )
+                if montant:
+                    metadata["montant"] = montant
                 data["metadata"] = metadata
 
                 # Pays d'études : seulement si non renseigné (jamais d'écrasement)
