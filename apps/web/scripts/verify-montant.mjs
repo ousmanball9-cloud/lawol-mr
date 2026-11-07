@@ -183,11 +183,14 @@ const FORMATEUR = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
 const SYMBOLES = { EUR: "€", USD: "$", GBP: "£", HKD: "HK$", NZD: "NZ$", CAD: "CA$", AUD: "AU$", SGD: "S$", BRL: "R$" };
 const SUFFIXES = { mois: " / mois", an: " / an", total: "" };
 
-/** Même règle que apps/web/lib/montant.ts — le harnais ne juge pas autrement. */
+/** Même règle que apps/web/lib/montant.ts — le harnais ne juge pas autrement.
+ *  La sonde normalise `\s+` en espace simple (U+202F / U+00A0 → " ") : l'attendu
+ *  subit la MÊME normalisation, sinon on compare deux encodages, pas deux textes. */
 function attendu(montant) {
   if (!montant || !(montant.valeur > 0) || !/^[A-Z]{3}$/.test(montant.devise ?? "")) return null;
   if (!(montant.periode in SUFFIXES)) return null;
-  return `${FORMATEUR.format(montant.valeur)} ${SYMBOLES[montant.devise] ?? montant.devise}${SUFFIXES[montant.periode]}`;
+  const texte = `${FORMATEUR.format(montant.valeur)} ${SYMBOLES[montant.devise] ?? montant.devise}${SUFFIXES[montant.periode]}`;
+  return texte.replace(/\s+/g, " ");
 }
 
 /** Traverse les offres de l'API jusqu'à trouver une offre avec / sans montant. */
