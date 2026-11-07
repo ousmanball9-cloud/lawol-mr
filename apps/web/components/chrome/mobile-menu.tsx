@@ -58,7 +58,7 @@ export function MobileMenu() {
         aria-expanded={ouvert}
         aria-controls="menu-mobile"
         aria-label={ouvert ? "Fermer le menu" : "Ouvrir le menu"}
-        className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-foreground transition-colors duration-150 hover:bg-muted"
+        className="flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-card text-foreground transition-colors duration-150 hover:bg-muted"
       >
         {/* Icône 3 lignes → ✕ (animation CSS, aucun déplacement de layout) */}
         <span className="relative block h-4 w-5" aria-hidden="true">

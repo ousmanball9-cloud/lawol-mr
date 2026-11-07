@@ -10,9 +10,7 @@ import { ecrireSession } from "@/lib/session";
 import { Skeleton, SkeletonText } from "@/components/ui/skeleton";
 import { PinStrengthBar } from "@/components/ui/pin-strength-bar";
 import { validatePin } from "@/hooks/use-pin-validation";
-import { FILIERES, PAYS_ETUDES } from "@/components/offres/types";
-
-const NIVEAUX = ["L1", "L2", "L3", "M1", "M2", "Autre"];
+import { FILIERES, NIVEAUX, PAYS_ETUDES } from "@/lib/referentiels";
 
 const PAYS = PAYS_ETUDES;
 
@@ -25,7 +23,33 @@ const inputClass =
 
 const selectClass = `${inputClass} bg-background`;
 
-const checkboxClass = `rounded border-gray-300 text-signature ${focusVisibleRing}`;
+const checkboxClass = `rounded border-input text-signature ${focusVisibleRing}`;
+
+/**
+ * Message d'erreur lisible pour l'inscription.
+ * Priorité au `detail` renvoyé par l'API (cause réelle : numéro déjà pris,
+ * opt-in manquant, champ invalide…) ; repli explicite par statut HTTP.
+ */
+async function lireErreurInscription(res: Response): Promise<string> {
+  const brut = await res.text().catch(() => "");
+  try {
+    const data = JSON.parse(brut) as { detail?: unknown; error?: unknown };
+    if (typeof data?.detail === "string" && data.detail.trim()) return data.detail;
+    if (Array.isArray(data?.detail) && data.detail.length > 0) {
+      const premier = data.detail[0] as { msg?: unknown };
+      if (typeof premier?.msg === "string" && premier.msg.trim()) return premier.msg;
+    }
+    if (typeof data?.error === "string" && data.error.trim()) return data.error;
+  } catch {
+    // Corps non JSON (API/proxy en panne) → message par statut ci-dessous.
+  }
+  if (res.status === 409) return "Ce numéro de téléphone est déjà inscrit";
+  if (res.status === 422) return "Données invalides. Vérifiez le formulaire.";
+  if (res.status === 502 || res.status === 503) {
+    return "Le service d'inscription est momentanément indisponible. Réessayez dans quelques minutes.";
+  }
+  return `L'inscription a échoué (erreur ${res.status}). Réessayez ou contacte-nous sur WhatsApp.`;
+}
 
 export default function InscriptionPage() {
   const router = useRouter();
@@ -132,13 +156,8 @@ export default function InscriptionPage() {
         } else {
           router.push(`/connexion?tel=${telephoneClean}`);
         }
-      } else if (res.status === 409) {
-        setError("Ce numéro de téléphone est déjà inscrit");
-      } else if (res.status === 422) {
-        const data = await res.json().catch(() => null);
-        setError(data?.detail || "Données invalides. Vérifiez le formulaire.");
       } else {
-        setError("Erreur serveur. Veuillez réessayer plus tard.");
+        setError(await lireErreurInscription(res));
       }
     } catch {
       setError("Erreur de connexion. Vérifiez votre internet et réessayez.");
@@ -152,7 +171,7 @@ export default function InscriptionPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
       <div className="w-full max-w-lg lg:max-w-5xl">
         {/* Double panneau desktop : branding (fond-nuit) + formulaire — mobile : formulaire seul */}
-        <div data-probe="carte-conteneur" className="flex overflow-hidden rounded-lg border border-border bg-card shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <div data-probe="carte-conteneur" className="flex overflow-hidden rounded-lg border border-border bg-card shadow-card">
           <aside
             data-probe="branding"
             aria-hidden="true"
@@ -416,7 +435,7 @@ export default function InscriptionPage() {
 
             {/* Erreur */}
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">
                 {error}
               </div>
             )}

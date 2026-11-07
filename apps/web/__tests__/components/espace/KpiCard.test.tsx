@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+﻿import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import KpiCard from "@/components/espace/KpiCard";
 import { ArrowUp, ArrowDown, Minus } from "lucide-react";
@@ -12,8 +12,8 @@ describe("KpiCard", () => {
   });
 
   it("displays icon, label, and value", () => {
-    render(<KpiCard icon={<ArrowUp />} label="Offres reçues" value="1,234" />);
-    expect(screen.getByText("Offres reçues")).toBeInTheDocument();
+    render(<KpiCard icon={<ArrowUp />} label="Offres reÃ§ues" value="1,234" />);
+    expect(screen.getByText("Offres reÃ§ues")).toBeInTheDocument();
     expect(screen.getByText("1,234")).toBeInTheDocument();
     expect(screen.getByTestId("kpi-carte-anim")).toContainHTML('<svg'); // icon
   });
@@ -43,7 +43,7 @@ describe("KpiCard", () => {
     render(<KpiCard icon={<ArrowUp />} label="Test" value={10} trend="up" trendValue="+12%" />);
     expect(screen.getByText("+12%")).toBeInTheDocument();
     const trendContainer = screen.getByText("+12%").parentElement;
-    expect(trendContainer).toHaveClass("text-emerald-600");
+    expect(trendContainer).toHaveClass("text-emerald-700");
     // Check for up arrow SVG
     const upArrow = trendContainer?.querySelector("svg");
     expect(upArrow).toBeInTheDocument();
@@ -53,7 +53,7 @@ describe("KpiCard", () => {
     render(<KpiCard icon={<ArrowUp />} label="Test" value={10} trend="down" trendValue="-5%" />);
     expect(screen.getByText("-5%")).toBeInTheDocument();
     const trendContainer = screen.getByText("-5%").parentElement;
-    expect(trendContainer).toHaveClass("text-red-600");
+    expect(trendContainer).toHaveClass("text-destructive");
     const downArrow = trendContainer?.querySelector("svg");
     expect(downArrow).toBeInTheDocument();
   });

@@ -22,8 +22,8 @@ export default function ConfirmationPage() {
     <Chrome>
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
       <div className="w-full max-w-md lg:max-w-4xl">
-        {/* Double panneau desktop : prochaines étapes (bg-ink) + message de succès — mobile : carte seule */}
-        <div data-probe="carte-conteneur" className="flex overflow-hidden rounded-lg border border-border bg-card shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        {/* Double panneau desktop : prochaines étapes (fond-nuit) + message de succès — mobile : carte seule */}
+        <div data-probe="carte-conteneur" className="flex overflow-hidden rounded-lg border border-border bg-card shadow-card">
           <aside
             data-probe="branding"
             aria-hidden="true"

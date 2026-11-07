@@ -1,5 +1,8 @@
 # Brief — Adaptation desktop (layout riche grand écran)
 
+> ⚠️ PÉRIMÉ (29/10/2026) : direction pré-D26. Charte en vigueur = « Nuit
+> d'Indigo » (`ink` = texte slate, jamais une surface, zéro noir).
+
 Feedback utilisateur : « la vue sur ordinateur doit être grande, pas comme sur
 smartphone, l'app doit s'adater ». Objectif : chaque page exploitte la largeur
 disponible sur desktop (>1024px) au lieu d'une colonne centrée type mobile.

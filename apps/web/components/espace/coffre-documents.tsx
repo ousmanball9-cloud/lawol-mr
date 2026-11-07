@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { ExternalLink, FileText, RefreshCw, Trash2, Upload } from "lucide-react";
 
 /** Limite imposée côté client : 5 Mo (le serveur confirme par 413 au-delà). */
@@ -306,7 +307,7 @@ export function CoffreDocuments({ telephone }: { telephone: string }) {
       {/* Dépôt : input file + contrôles client AVANT tout envoi */}
       <section
         data-probe="coffre-depot"
-        className="rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]"
+        className="rounded-lg border border-border bg-card p-6 shadow-card"
       >
         <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
           Déposer un document
@@ -321,8 +322,8 @@ export function CoffreDocuments({ telephone }: { telephone: string }) {
             data-probe="coffre-message"
             className={`mb-4 rounded-lg px-4 py-3 text-sm font-medium ${
               message.ok
-                ? "border border-green-200 bg-green-50 text-green-800"
-                : "border border-red-200 bg-red-50 text-red-700"
+                ? "border border-emerald-600/30 bg-emerald-500/10 text-emerald-700"
+                : "border border-destructive/30 bg-destructive/10 text-destructive"
             }`}
           >
             {message.texte}
@@ -375,7 +376,7 @@ export function CoffreDocuments({ telephone }: { telephone: string }) {
       {/* Liste des documents */}
       <section
         data-probe="coffre-liste"
-        className="rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]"
+        className="rounded-lg border border-border bg-card p-6 shadow-card"
       >
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-lg font-bold tracking-[-0.01em] text-foreground">
@@ -416,10 +417,7 @@ export function CoffreDocuments({ telephone }: { telephone: string }) {
         ) : chargement && documents.length === 0 ? (
           /* État 2 — chargement : spinner de charte */
           <div className="flex flex-col items-center gap-4 py-10" role="status">
-            <div
-              aria-hidden="true"
-              className="h-10 w-10 animate-spin rounded-full border-2 border-signature border-t-transparent"
-            />
+            <Spinner className="h-10 w-10" />
             <p className="text-sm text-muted-foreground">Chargement de tes documents...</p>
           </div>
         ) : documents.length === 0 ? (

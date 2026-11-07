@@ -25,7 +25,7 @@ const PLAFOND = 5000;
 
 // Badges « type » façon template Flowbite (pastilles de couleur).
 const TYPE_BADGE: Record<string, string> = {
-  bourse: "bg-yellow-100 text-yellow-800",
+  bourse: "bg-surlignage/20 text-amber-900",
 };
 
 function typeLabel(type: string) {
@@ -95,18 +95,18 @@ export default function AdminOffresPage() {
   return (
     <div>
       {/* En-tête de page (crud du template) */}
-      <div className="p-4 bg-white border-b border-gray-200 sm:flex sm:items-center sm:justify-between lg:mt-1.5">
+      <div className="p-4 bg-card border-b border-border sm:flex sm:items-center sm:justify-between lg:mt-1.5">
         <div className="w-full mb-1">
-          <h1 className="text-xl font-semibold text-gray-900 sm:text-2xl">
+          <h1 className="text-xl font-semibold text-ink sm:text-2xl">
             Offres
             {!loading && (
-              <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded">
+              <span className="ml-2 bg-signature/10 text-signature-deep text-xs font-medium mr-2 px-2.5 py-0.5 rounded">
                 {offres.length}
                 {total > offres.length ? ` / ${total}` : ""}
               </span>
             )}
           </h1>
-          <p className="mt-1 text-sm font-normal text-gray-500">
+          <p className="mt-1 text-sm font-normal text-muted-foreground">
             Toutes les offres de la plateforme, y compris les offres clôturées
             {!loading && cloturees > 0 ? ` (${cloturees} clôturée${cloturees > 1 ? "s" : ""})` : ""}
           </p>
@@ -116,7 +116,7 @@ export default function AdminOffresPage() {
             type="button"
             onClick={() => setFormOuvert((v) => !v)}
             aria-expanded={formOuvert}
-            className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-700 rounded-lg hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300"
+            className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-signature rounded-lg hover:bg-signature-deep focus:ring-4 focus:outline-none focus:ring-signature/30"
           >
             {formOuvert ? "Fermer le formulaire" : "Nouvelle offre"}
           </button>
@@ -126,14 +126,14 @@ export default function AdminOffresPage() {
       <div className="p-4">
         {formOuvert && <OffreForm onCreated={chargerOffres} />}
         {loading && (
-          <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm sm:p-6">
-            <p className="text-sm text-gray-500">Chargement...</p>
+          <div className="p-4 bg-card border border-border rounded-lg shadow-sm sm:p-6">
+            <p className="text-sm text-muted-foreground">Chargement...</p>
           </div>
         )}
 
         {!loading && erreur && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-800">
+          <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+            <p className="text-sm text-destructive">
               Impossible de charger les offres (session admin expirée ou API
               injoignable). Reconnecte-toi puis recharge la page.
             </p>
@@ -141,9 +141,9 @@ export default function AdminOffresPage() {
         )}
 
         {!loading && !erreur && (
-          <div className="overflow-x-auto bg-white border border-gray-200 rounded-lg shadow-md">
-            <table className="w-full text-sm text-left text-gray-500">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-100">
+          <div className="overflow-x-auto bg-card border border-border rounded-lg shadow-md">
+            <table className="w-full text-sm text-left text-muted-foreground">
+              <thead className="text-xs text-muted-foreground uppercase bg-muted">
                 <tr>
                   <th scope="col" className="px-4 py-3">Titre</th>
                   <th scope="col" className="px-4 py-3">Entreprise</th>
@@ -152,25 +152,25 @@ export default function AdminOffresPage() {
                   <th scope="col" className="px-4 py-3">Publiée</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-card divide-y divide-border">
                 {offres.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
+                    <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
                       Aucune offre trouvée.
                     </td>
                   </tr>
                 )}
                 {offres.map((offre) => (
-                  <tr key={offre.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">
+                  <tr key={offre.id} className="hover:bg-muted/50">
+                    <td className="px-4 py-3 font-medium text-ink whitespace-nowrap">
                       {offre.titre}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{offre.entreprise}</td>
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{offre.pays_etudes ?? "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{offre.entreprise}</td>
+                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{offre.pays_etudes ?? "—"}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span
                         className={`text-xs font-medium mr-2 px-2.5 py-0.5 rounded ${
-                          TYPE_BADGE[offre.type_offre] ?? "bg-gray-100 text-gray-800"
+                          TYPE_BADGE[offre.type_offre] ?? "bg-muted text-ink"
                         }`}
                       >
                         {typeLabel(offre.type_offre)}
@@ -180,8 +180,8 @@ export default function AdminOffresPage() {
                       <span
                         className={`text-xs font-medium mr-2 px-2.5 py-0.5 rounded ${
                           offre.active
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
+                            ? "bg-emerald-500/15 text-emerald-700"
+                            : "bg-destructive/10 text-destructive"
                         }`}
                       >
                         {offre.active ? "Oui" : "Clôturée"}

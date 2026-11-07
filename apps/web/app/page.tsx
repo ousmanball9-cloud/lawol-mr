@@ -139,7 +139,7 @@ export default function HomePage() {
             <div className="mb-10 text-sm text-white/70">
               <Link
                 href="/connexion"
-                className="underline underline-offset-4 transition-colors duration-150 hover:text-white"
+                className="inline-flex min-h-11 items-center underline underline-offset-4 transition-colors duration-150 hover:text-white"
               >
                 Déjà inscrit ? Connecte-toi
               </Link>

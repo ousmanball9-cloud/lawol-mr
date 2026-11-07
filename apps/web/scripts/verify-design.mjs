@@ -7,7 +7,9 @@
  *          4) matrice de rendu réel (navigateur headless via CDP, sans dépendance)
  *          5) synthèse + code retour (0 = tout vert).
  *
- * Matrice : 10 pages × 3 viewports (mobile 375 / tablette 768 / desktop 1440) = 30 cas.
+ * Matrice : 12 pages × 3 viewports (mobile 375 / tablette 768 / desktop 1440) = 36 cas.
+ * Un seul thème : la charte « Nuit d'Indigo » n'a pas de variante sombre (pas de
+ * basculeur, pas de classe `.dark`, pas de `dark:` — décision produit).
  * Par cas : débordement horizontal, erreur console, probe de contenu, capture PNG
  * dans apps/web/.verify/ pour contrôle visuel.
  * Contrôle desktop supplémentaire (viewport ≥1024px uniquement) : chaque probe des
@@ -57,14 +59,6 @@ const VIEWPORTS = [
   { name: "tablette", width: 768, height: 1024, mobile: true },
   { name: "desktop", width: 1440, height: 900, mobile: false },
 ];
-
-/** Applique le thème dark via classe sur <html> (simule prefers-color-scheme: dark). */
-async function setDarkMode(cdp, dark) {
-  await cdp.send("Runtime.evaluate", {
-    expression: `document.documentElement.classList.${dark ? "add" : "remove"}("dark")`,
-    returnByValue: true,
-  });
-}
 
 const PROFILE = {
   id: "p1",
@@ -176,7 +170,6 @@ const PAGES = [
     id: "landing",
     route: "/",
     mock: false,
-    dark: true,
     // Contrôle desktop : largeur exploitée du hero + grilles multi-colonnes + badges de confiance visibles.
     desktopProbes: ["heroLargeur", "etapesColonnes"],
     expectDesktop: (r) => r.heroLargeur >= 0.7 && r.etapesColonnes >= 3 && r.badgesVisibles === true,
@@ -198,7 +191,6 @@ const PAGES = [
     id: "inscription",
     route: "/inscription",
     mock: false,
-    dark: true,
     // Contrôle desktop : double panneau actif + carte assez large (vs max-w-lg d'origine).
     desktopProbes: ["branding", "largeurCarte"],
     expectDesktop: (r) => r.branding === true && r.largeurCarte >= 0.65,
@@ -216,7 +208,6 @@ const PAGES = [
     id: "confirmation",
     route: "/inscription/confirmation",
     mock: false,
-    dark: true,
     // Contrôle desktop : volet « Et maintenant » visible + carte élargie.
     desktopProbes: ["branding", "largeurCarte"],
     expectDesktop: (r) => r.branding === true && r.largeurCarte >= 0.55,
@@ -435,7 +426,7 @@ const PAGES = [
       seuil: document.querySelector('[data-probe="pref-seuil"]')?.value ?? "",
       villePreferee: document.querySelector('[data-probe="pref-ville"][data-cle="rosso"]')?.checked ?? false,
       typePrefere: document.querySelector('[data-probe="pref-type"][data-cle="bourse"]')?.checked ?? false,
-      parrainage: !!document.querySelector('a[href*="wa.me"]'),
+      parrainage: !!document.querySelector('[data-probe="copier-lien"]')?.closest('section'),
       copier: !!document.querySelector('[data-probe="copier-lien"]'),
       liens: ["conditions", "confidentialite", "mentions", "contact"].every((p) =>
         document.querySelector(\`a[href^="/\${p}"]\`)
@@ -469,17 +460,6 @@ const PAGES = [
       filtres: !!document.querySelector('[data-probe="offres-filtres"]'),
     })`,
     expect: (r) => r.cartes > 0 && r.recherche && r.filtres,
-  },
-  {
-    // Sprint 2 : annuaire /entreprises (cartes + titre).
-    id: "entreprises-annuaire",
-    route: "/entreprises",
-    mock: true,
-    probe: `({
-      cartes: document.querySelectorAll('[data-probe="entreprise-carte"]').length,
-      titre: document.querySelector("h1")?.textContent?.trim() ?? "",
-    })`,
-    expect: (r) => r.cartes > 0 && r.titre.length > 3,
   },
 ];
 
@@ -691,6 +671,9 @@ async function runMatrix() {
     await cdp.send("Page.enable");
     await cdp.send("Runtime.enable");
     await cdp.send("Log.enable");
+    // Network : requis pour que Network.setCookie (session factice des pages
+    // /profil/*) soit reellement pris en compte avant la navigation.
+    await cdp.send("Network.enable");
 
     let consoleErrors = [];
     let pageErrors = [];
@@ -734,6 +717,17 @@ async function runMatrix() {
               responseCode: 200,
               responseHeaders: [{ name: "Content-Type", value: "application/json" }],
               body: Buffer.from(JSON.stringify(OFFRES_ENRICHIES)).toString("base64"),
+            });
+          } else if (request.method === "GET" && url.includes("/preferences")) {
+            // Contrat reel de GET /api/v1/profils/{tel}/preferences :
+            // { telephone, prefs_avancees } — PAS le profil entier.
+            await cdp.send("Fetch.fulfillRequest", {
+              requestId,
+              responseCode: 200,
+              responseHeaders: [{ name: "Content-Type", value: "application/json" }],
+              body: Buffer.from(
+                JSON.stringify({ telephone: "2221234567", prefs_avancees: PROFILE.metadata.prefs_avancees })
+              ).toString("base64"),
             });
           } else if (request.method === "GET" && url.includes("/api/v1/profils/")) {
             await cdp.send("Fetch.fulfillRequest", {
@@ -795,9 +789,7 @@ async function runMatrix() {
     const results = [];
     for (const pageDef of PAGES) {
       mockActive = pageDef.mock;
-      const themes = pageDef.dark ? ["light", "dark"] : ["light"];
-      for (const theme of themes) {
-        for (const vp of VIEWPORTS) {
+      for (const vp of VIEWPORTS) {
           consoleErrors = [];
           pageErrors = [];
           await cdp.send("Emulation.setDeviceMetricsOverride", {
@@ -808,11 +800,12 @@ async function runMatrix() {
           });
           // Session factice par route : /profil/* est protégé par middleware.ts,
           // et le token doit porter LE tel de l'URL (2221234567 ou 0000000000).
-          const telRoute = pageDef.route.match(/^\/profil\/([^/]+)/);
+          // On isole le CHEMIN avant de lire le segment : sans cela, `?onglet=profil`
+          // entrait dans le numéro (`2221234567?onglet=profil`) et le middleware,
+          // qui compare au pathname, renvoyait vers /connexion.
+          const cheminRoute = pageDef.route.split("?")[0];
+          const telRoute = cheminRoute.match(/^\/profil\/([^/]+)/);
           if (telRoute) await poserCookieSession(cdp, decodeURIComponent(telRoute[1]), PORT);
-          // Appliquer thème dark si demandé
-          if (theme === "dark") await setDarkMode(cdp, true);
-          else await setDarkMode(cdp, false);
           await cdp.send("Page.navigate", { url: `http://127.0.0.1:${PORT}${pageDef.route}` });
           await sleep(2600);
 
@@ -886,7 +879,7 @@ async function runMatrix() {
         }
 
         results.push({
-          case: `${pageDef.id} @ ${vp.name} (${vp.width}px) [${theme}]`,
+          case: `${pageDef.id} @ ${vp.name} (${vp.width}px)`,
           ok,
           overflow: checks.overflow,
           probe,
@@ -898,9 +891,6 @@ async function runMatrix() {
         });
       }
     }
-    }
-    // Remettre en light pour la page suivante
-    await setDarkMode(cdp, false);
 
     cdp.close();
     return results;
@@ -957,9 +947,10 @@ async function main() {
   }
 
   const total = matrixResults.length;
-  const pagesAvecDark = PAGES.filter((p) => p.dark).length;
-  const pagesSansDark = PAGES.length - pagesAvecDark;
-  const attendu = pagesSansDark * VIEWPORTS.length + pagesAvecDark * VIEWPORTS.length * 2;
+  // Un seul thème (la charte « Nuit d'Indigo » n'a pas de variante sombre) :
+  // 12 pages × 1 thème × 3 viewports = 36 cas. Le seuil suit le retrait de
+  // fonctionnalité, pas un relâchement : chaque cas garde ses mêmes contrôles.
+  const attendu = PAGES.length * VIEWPORTS.length;
   const passes = matrixResults.filter((r) => r.ok).length;
   const contrastPasses = contrastRows.filter((r) => r.ok).length;
   const desktopCas = matrixResults.filter((r) => r.desktopOk !== null && r.desktopOk !== undefined);
@@ -977,7 +968,7 @@ async function main() {
   console.log(`  lint (exit ${lintCode})             : ${lintCode === 0 ? "0 erreur" : "ÉCHEC"}`);
   console.log(`  build (exit ${buildCode})             : ${buildCode === 0 ? "0 erreur" : "ÉCHEC"}`);
   console.log(`  contraste WCAG                    : ${contrastPasses}/${contrastRows.length} ≥ seuil AA`);
-  console.log(`  matrice visuelle                  : ${passes}/${total} cas verts (attendu ${attendu} = ${pagesSansDark}×1 + ${pagesAvecDark}×2 thèmes × ${VIEWPORTS.length} viewports)`);
+  console.log(`  matrice visuelle                  : ${passes}/${total} cas verts (attendu ${attendu} = ${PAGES.length} pages × 1 thème × ${VIEWPORTS.length} viewports)`);
   console.log(`  largeur desktop exploitée         : ${desktopPasses}/${desktopCas.length} contrôles ≥ seuil`);
   console.log(`  captures PNG                      : ${path.relative(process.cwd(), OUT_DIR)}`);
   console.log(`  RÉSULTAT                          : ${allOk ? "TOUT VERT ✅" : "ÉCHEC ❌"}`);

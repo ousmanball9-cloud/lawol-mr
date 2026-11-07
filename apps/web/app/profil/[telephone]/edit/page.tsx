@@ -6,38 +6,11 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GraduationCap } from "lucide-react";
 import { entetesSession, sessionValidePour } from "@/lib/session";
+import { FILIERES, NIVEAUX, TYPES_OFFRES, VILLES } from "@/lib/referentiels";
 
-const FILIERES = [
-  { value: "informatique", label: "Informatique" },
-  { value: "genie_civil", label: "Génie Civil" },
-  { value: "electrique", label: "Électrique" },
-  { value: "mecanique", label: "Mécanique" },
-  { value: "gestion", label: "Gestion" },
-  { value: "finance", label: "Finance" },
-  { value: "droit", label: "Droit" },
-  { value: "medecine", label: "Médecine" },
-  { value: "agronomie", label: "Agronomie" },
-  { value: "autre", label: "Autre" },
-];
-
-const NIVEAUX = ["L1", "L2", "L3", "M1", "M2", "Autre"];
-
-const VILLES = [
-  { value: "nouakchott", label: "Nouakchott" },
-  { value: "nouadhibou", label: "Nouadhibou" },
-  { value: "kaedi", label: "Kaédi" },
-  { value: "rosso", label: "Rosso" },
-  { value: "aleg", label: "Aleg" },
-  { value: "autre", label: "Autre" },
-];
-
-const TYPES_OFFRES = [
-  { value: "stage_pfe", label: "Stage PFE" },
-  { value: "stage_ete", label: "Stage été" },
-  { value: "emploi_junior", label: "Emploi junior" },
-  { value: "alternance", label: "Alternance" },
-  { value: "bourse", label: "Bourse d'études" },
-];
+/** Types d'offres sous forme de liste, dans l'ordre du référentiel unique
+ *  (`lib/referentiels.ts`) — plus de seconde liste à maintenir (constat A4). */
+const TYPES_OFFRES_LISTE = Object.entries(TYPES_OFFRES).map(([value, label]) => ({ value, label }));
 
 const inputClass =
   "w-full rounded-lg border border-input bg-white px-4 py-2.5 text-sm text-foreground transition-colors duration-150 placeholder:text-muted-foreground focus:border-signature focus:outline-none focus:ring-2 focus:ring-signature/30";
@@ -176,7 +149,7 @@ export default function EditProfilPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
       <div className="w-full max-w-lg">
-        <div className="rounded-lg border border-border bg-card p-8 shadow-[0_1px_3px_rgba(10,10,10,0.04)] sm:p-10">
+        <div className="rounded-lg border border-border bg-card p-8 shadow-card sm:p-10">
           <div className="mb-8 text-center">
             <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-lg bg-nuit text-white">
               <GraduationCap className="h-7 w-7" />
@@ -271,7 +244,7 @@ export default function EditProfilPage() {
                 >
                   <option value="">-- Sélectionne ta filière --</option>
                   {FILIERES.map((f) => (
-                    <option key={f.value} value={f.value}>
+                    <option key={f.valeur} value={f.valeur}>
                       {f.label}
                     </option>
                   ))}
@@ -311,7 +284,7 @@ export default function EditProfilPage() {
                   className={selectClass}
                 >
                   {VILLES.map((v) => (
-                    <option key={v.value} value={v.value}>
+                    <option key={v.valeur} value={v.valeur}>
                       {v.label}
                     </option>
                   ))}
@@ -324,7 +297,7 @@ export default function EditProfilPage() {
                   Types d&apos;offres recherchés
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  {TYPES_OFFRES.map((t) => (
+                  {TYPES_OFFRES_LISTE.map((t) => (
                     <label
                       key={t.value}
                       className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-input bg-white px-3 py-2.5 text-sm transition-colors duration-150 hover:border-signature hover:bg-signature/5"
@@ -333,7 +306,7 @@ export default function EditProfilPage() {
                         type="checkbox"
                         checked={form.types_recherches.includes(t.value)}
                         onChange={() => toggleTypeOffre(t.value)}
-                        className="rounded border-gray-300 text-signature focus:ring-signature"
+                        className="rounded border-input text-signature focus:ring-signature"
                       />
                       <span className="text-sm">{t.label}</span>
                     </label>
@@ -343,7 +316,7 @@ export default function EditProfilPage() {
 
               {/* Erreur */}
               {error && (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">
                   {error}
                 </div>
               )}

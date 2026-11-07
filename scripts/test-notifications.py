@@ -45,18 +45,34 @@ class _Resultat:
         self.count = count
 
 
+class _Not:
+    """Filtre PostgREST not_.is_(colonne, "null") = colonne IS NOT NULL."""
+    def __init__(self, table):
+        self._table = table
+
+    def is_(self, colonne, valeur):
+        self._table._not_filtres.append((colonne, valeur))
+        return self._table
+
+
 class _FauxTable:
     def __init__(self, base, nom):
         self._base, self._nom, self._mode = base, nom, "select"
         self._filtres, self._donnees = [], None
         self._tri, self._limite = None, None
+        self._not_filtres = []
+        self.not_ = _Not(self)
 
     def select(self, colonnes="*", **kwargs):
         self._mode = "select"
         return self
 
     def eq(self, colonne, valeur):
-        self._filtres.append((colonne, valeur))
+        self._filtres.append((colonne, "eq", valeur))
+        return self
+
+    def gte(self, colonne, valeur):
+        self._filtres.append((colonne, "gte", valeur))
         return self
 
     def order(self, colonne, desc=False):
@@ -75,16 +91,42 @@ class _FauxTable:
         self._base.appels_insert += 1
         raise AssertionError("insert interdit : cette preuve ne crée jamais de ligne")
 
+    def _valeur(self, ligne, cle):
+        """Valeur d'une clé, supportant la notation pointée (ex. 'profil.email')."""
+        cur = ligne
+        for partie in cle.split("."):
+            if not isinstance(cur, dict):
+                return None
+            cur = cur.get(partie)
+        return cur
+
+    def _correspond(self, ligne):
+        for f in self._filtres:
+            c, op, v = f[0], f[1] if len(f) == 3 else "eq", f[-1]
+            lv = self._valeur(ligne, c)
+            if op == "eq" and lv != v:
+                return False
+            if op == "gte" and (lv is None or lv < v):
+                return False
+        for c, v in self._not_filtres:
+            lv = self._valeur(ligne, c)
+            if v == "null":
+                if lv is None:  # IS NULL → exclu par NOT
+                    return False
+            elif lv == v:
+                return False
+        return True
+
     def execute(self):
         lignes = [
             ligne
             for ligne in self._base.tables.setdefault(self._nom, [])
-            if all(ligne.get(c) == v for c, v in self._filtres)
+            if self._correspond(ligne)
         ]
         if self._mode == "select":
             if self._tri:
                 colonne, desc = self._tri
-                lignes = sorted(lignes, key=lambda r: str(r.get(colonne) or ""), reverse=desc)
+                lignes = sorted(lignes, key=lambda r: str(self._valeur(r, colonne) or ""), reverse=desc)
             if self._limite is not None:
                 lignes = lignes[: self._limite]
             # deepcopy = aller-retour JSON
@@ -482,6 +524,179 @@ try:
     check("le module n'expose QUE ces 2 routes", routes_seules == attendues, str(routes_seules))
 except Exception as e:  # noqa: BLE001 — toute erreur d'import devient un KO lisible
     check("import de app/main.py", False, f"{type(e).__name__}: {e}")
+
+# ==================== P3. Garde-fous opt-in / STOP / quota ====================
+print("\nP3. Garde-fous : opt-in, STOP (actif=false), quota hebdo")
+
+# Données P3 : matches avec profil + offre imbriqués (comme le join PostgREST).
+# Remplace les tables (les tests 1-10 ont déjà consommé les données d'origine).
+FAUX.tables["matches"] = [
+    # --- Profil A : optin_at présent, actif=true → DOIT être notifié ---
+    {
+        "id": "p3-match-optin",
+        "profil_id": "p3-prof-optin",
+        "notifie": False,
+        "date_match": AUJ.isoformat(),
+        "profil": {
+            "id": "p3-prof-optin",
+            "telephone": "22136000010",
+            "email": "optin@example.mr",
+            "actif": True,
+            "metadata": {"optin_at": "2026-10-01T08:00:00+00:00"},
+        },
+        "offre": {
+            "id": "p3-off-optin",
+            "titre": "Bourse Test Opt-in",
+            "entreprise": "Organisme Test",
+            "ville": "Nouakchott",
+            "type_offre": "bourse",
+            "date_limite": j(30),
+        },
+    },
+    # --- Profil B : PAS d'optin_at, actif=true → NE DOIT PAS être notifié ---
+    {
+        "id": "p3-match-no-optin",
+        "profil_id": "p3-prof-no-optin",
+        "notifie": False,
+        "date_match": AUJ.isoformat(),
+        "profil": {
+            "id": "p3-prof-no-optin",
+            "telephone": "22136000011",
+            "email": "nooptin@example.mr",
+            "actif": True,
+            "metadata": {},
+        },
+        "offre": {
+            "id": "p3-off-no-optin",
+            "titre": "Bourse Test Pas Opt-in",
+            "entreprise": "Organisme Test",
+            "ville": "Nouakchott",
+            "type_offre": "bourse",
+            "date_limite": j(30),
+        },
+    },
+    # --- Profil C : actif=false (STOP), optin_at présent → NE DOIT PAS être notifié ---
+    {
+        "id": "p3-match-stop",
+        "profil_id": "p3-prof-stop",
+        "notifie": False,
+        "date_match": AUJ.isoformat(),
+        "profil": {
+            "id": "p3-prof-stop",
+            "telephone": "22136000012",
+            "email": "stop@example.mr",
+            "actif": False,
+            "metadata": {"optin_at": "2026-10-01T08:00:00+00:00"},
+        },
+        "offre": {
+            "id": "p3-off-stop",
+            "titre": "Bourse Test STOP",
+            "entreprise": "Organisme Test",
+            "ville": "Nouakchott",
+            "type_offre": "bourse",
+            "date_limite": j(30),
+        },
+    },
+    # --- Profil D : optin_at présent, actif=true, quota atteint → NE DOIT PAS être notifié ---
+    {
+        "id": "p3-match-quota",
+        "profil_id": "p3-prof-quota",
+        "notifie": False,
+        "date_match": AUJ.isoformat(),
+        "profil": {
+            "id": "p3-prof-quota",
+            "telephone": "22136000013",
+            "email": "quota@example.mr",
+            "actif": True,
+            "metadata": {"optin_at": "2026-10-01T08:00:00+00:00"},
+        },
+        "offre": {
+            "id": "p3-off-quota",
+            "titre": "Bourse Test Quota",
+            "entreprise": "Organisme Test",
+            "ville": "Nouakchott",
+            "type_offre": "bourse",
+            "date_limite": j(30),
+        },
+    },
+    # 5 matchs déjà notifiés cette semaine pour p3-prof-quota
+    # (quota = MAX_MATCHES_PAR_SEMAINE = 5 → quota atteint)
+    {
+        "id": "p3-match-quota-deja-1",
+        "profil_id": "p3-prof-quota",
+        "notifie": True,
+        "date_match": j(-1),
+    },
+    {
+        "id": "p3-match-quota-deja-2",
+        "profil_id": "p3-prof-quota",
+        "notifie": True,
+        "date_match": j(-2),
+    },
+    {
+        "id": "p3-match-quota-deja-3",
+        "profil_id": "p3-prof-quota",
+        "notifie": True,
+        "date_match": j(-3),
+    },
+    {
+        "id": "p3-match-quota-deja-4",
+        "profil_id": "p3-prof-quota",
+        "notifie": True,
+        "date_match": j(-4),
+    },
+    {
+        "id": "p3-match-quota-deja-5",
+        "profil_id": "p3-prof-quota",
+        "notifie": True,
+        "date_match": j(-5),
+    },
+]
+
+envois_p3: list[tuple[str, str]] = []
+
+
+def envoi_p3(telephone: str, texte: str) -> None:
+    """Envoi factice : enregistre l'appel, ne fait aucun réseau."""
+    envois_p3.append((telephone, texte))
+
+
+# Appel du job avec envoi injecté et date fixe (pas d'appel réseau réel)
+stats = _notifier.run_notification_job(envoi=envoi_p3, aujourdhui=AUJ)
+
+telephones_notifies = {tel for tel, _ in envois_p3}
+
+# --- Contrôle positif : seul le profil opt-in éligible est notifié ---
+check("P3-a : profil avec optin_at est notifié",
+      "22136000010" in telephones_notifies,
+      f"telephones_notifies={telephones_notifies}")
+check("P3 : exactement 1 envoi (1 seul profil éligible parmi 4)",
+      len(envois_p3) == 1,
+      f"n={len(envois_p3)} envois={envois_p3}")
+
+# --- Contrôles négatifs : chaque violation fait tomber le harnais ---
+check("P3-b : profil SANS optin_at NOT notifié (contrôle négatif opt-in)",
+      "22136000011" not in telephones_notifies,
+      f"envois={envois_p3}")
+check("P3-b : profil actif=false (STOP) NOT notifié (contrôle négatif STOP)",
+      "22136000012" not in telephones_notifies,
+      f"envois={envois_p3}")
+check("P3-c : quota hebdo atteint NOT notifié (contrôle négatif quota)",
+      "22136000013" not in telephones_notifies,
+      f"envois={envois_p3}")
+
+# Le match notifié est marqué notifie=True en base
+match_optin = [m for m in FAUX.tables["matches"] if m.get("id") == "p3-match-optin"]
+check("P3 : match opt-in marqué notifie=True en base",
+      bool(match_optin) and match_optin[0].get("notifie") is True,
+      str(match_optin))
+
+# Stats cohérentes
+check("P3 stats : matches_trouves=4", stats["matches_trouves"] == 4,
+      f"stats={stats}")
+check("P3 stats : notifies=1", stats["notifies"] == 1, f"stats={stats}")
+check("P3 stats : ignores=3 (opt-in manquant + STOP + quota)", stats["ignores"] == 3,
+      f"stats={stats}")
 
 # --------------------------------- Bilan --------------------------------------
 print(f"\n{'=' * 60}")

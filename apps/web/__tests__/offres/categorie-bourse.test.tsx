@@ -20,7 +20,28 @@ import { OffreDetailModal } from "@/components/offre-detail-modal";
 import { TypesBourses } from "@/components/landing/types-bourses";
 import type { Offre } from "@/components/offres/types";
 
-const etat = vi.hoisted(() => ({ recherche: "" }));
+/**
+ * Navigation factice mais RÉACTIVE : depuis V2-04 la page lit l'URL comme
+ * source de vérité, donc `router.push/replace` doit mettre à jour la requête
+ * ET re-rendre le composant. Un mock figé testerait un état que l'app n'a plus.
+ */
+const etat = vi.hoisted(() => {
+  const abonnes = new Set<() => void>();
+  const api = {
+    recherche: "",
+    abonner(abonne: () => void) {
+      abonnes.add(abonne);
+      return () => {
+        abonnes.delete(abonne);
+      };
+    },
+    aller(url: string) {
+      api.recherche = url.includes("?") ? url.slice(url.indexOf("?") + 1) : "";
+      abonnes.forEach((abonne) => abonne());
+    },
+  };
+  return api;
+});
 
 vi.mock("next/link", () => ({
   default: ({ href, children }: { href?: string; children?: ReactNode }) => (
@@ -28,9 +49,22 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-vi.mock("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams(etat.recherche),
-}));
+vi.mock("next/navigation", async () => {
+  const { useSyncExternalStore } = await import("react");
+  const useSearchParams = () => {
+    const recherche = useSyncExternalStore(
+      etat.abonner,
+      () => etat.recherche,
+      () => etat.recherche
+    );
+    return new URLSearchParams(recherche);
+  };
+  const useRouter = () => ({
+    push: (url: string) => etat.aller(url),
+    replace: (url: string) => etat.aller(url),
+  });
+  return { useSearchParams, useRouter };
+});
 
 // Le chrome global (header/footer/session) n'est pas le sujet de ces preuves.
 vi.mock("@/components/chrome/chrome", () => ({

@@ -8,13 +8,20 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run --no-file-parallelism",
     "verify:design": "node scripts/verify-design.mjs",
+    "verify:facettes": "node scripts/verify-facettes-url.mjs",
+    "verify:mobile": "node scripts/verify-mobile-filtres.mjs",
+    "verify:chrome": "node scripts/verify-chrome-etats.mjs",
+    "verify:landing": "node scripts/verify-landing-repli.mjs",
     "verify:modal": "node scripts/verify-offre-modal.mjs",
     "verify:desc": "node scripts/verify-desc-reelles.mjs",
     "verify:espace": "node scripts/verify-espace.mjs",
     "verify:offres": "node scripts/verify-offres.mjs",
     "verify:entreprise": "node scripts/verify-entreprise.mjs",
-    "verify:dates": "node scripts/verify-dates.mjs"
+    "verify:dates": "node scripts/verify-dates.mjs",
+    "verify:etats": "node scripts/verify-etats-offres.mjs",
+    "verify:carte": "node scripts/verify-carte-compacte.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.0",

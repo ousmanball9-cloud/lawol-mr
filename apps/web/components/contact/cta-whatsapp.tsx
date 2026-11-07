@@ -40,7 +40,7 @@ export function CtaWhatsApp() {
 
   if (!lien) {
     return (
-      <p data-probe="cta-whatsapp-repli" className="text-gray-600 mb-4">
+      <p data-probe="cta-whatsapp-repli" className="text-muted-foreground mb-4">
         Notre équipe répond aux questions sur l&apos;inscription, les bourses reçues et
         la modification de ton profil. Écris-nous par e-mail :{" "}
         <a
@@ -56,7 +56,7 @@ export function CtaWhatsApp() {
 
   return (
     <>
-      <p className="text-gray-600 mb-4">
+      <p className="text-muted-foreground mb-4">
         Le canal le plus rapide : WhatsApp. Notre équipe répond aux questions sur
         l&apos;inscription, les bourses reçues et la modification de ton profil.
       </p>

@@ -220,3 +220,206 @@ def financement_effectif(offre: dict) -> str | None:
     if declare and declare != "inconnu":
         return declare
     return extraire_financement(_texte_offre(offre))
+
+
+# --------------------------------------------------------------------- montant
+# Contrat : docs/contrat-metadata-offres.md §2.1
+#
+# Mesure du 06/11/2026 sur le catalogue public (281 offres) : **54** contiennent
+# un montant chiffré visible. L'extracteur est donc volontairement ÉTROIT —
+# un montant faux est pire qu'un montant absent (décision produit 05/11).
+#
+# Ce qui est REFUSÉ, et pourquoi :
+# - une QUESTION (« Does X really offer €55,000/Year? ») n'affirme rien ;
+# - « up to €22,000 » = un plafond, pas un montant reçu ;
+# - deux montants différents dans la même fenêtre (« €5,000, €10,000 or
+#   €15,000 », « ($43,800 per year value) … $600 per month ») = ambiguïté de
+#   périodicité, on se tait ;
+# - un montant que l'étudiant PAIE (« will reduce your tuition fee to € 2,771 »,
+#   « contribution is capped at ») n'est pas une bourse ;
+# - « full tuition + stipend » n'a pas de chiffre : c'est `type_financement`.
+
+_DEVISES_SYMBOLES = {
+    "€": "EUR",
+    "$": "USD",
+    "US$": "USD",
+    "£": "GBP",
+    "HK$": "HKD",
+    "NZ$": "NZD",
+    "C$": "CAD",
+    "CDN$": "CAD",
+    "A$": "AUD",
+    "S$": "SGD",
+    "R$": "BRL",
+}
+
+# Un montant = un NOMBRE collé à une devise, dans un sens ou dans l'autre.
+# Les préfixes sont EXPLICITES (`NZ$`, `CDN $`…) : un `[A-Za-z]{0,3}` générique
+# avalerait « awar**d $**500 » et changerait la devise.
+_RE_MONTANT = re.compile(
+    r"(?P<sym>CDN\s?\$|HK\$|NZ\$|US\$|C\$|A\$|S\$|R\$|[€$£])\s?(?P<n1>\d[\d\s.,]*\d|\d)"
+    r"|(?P<n2>\d[\d\s.,]*\d|\d)\s?(?P<code>EUR|USD|GBP|HKD|NZD|CAD|AUD|SGD|BRL)\b"
+    r"|(?P<n3>\d[\d\s.,]*\d|\d)\s?(?P<mot>euros?|dollars?)\b",
+    re.I,
+)
+_RE_PERIODE_MOIS = re.compile(
+    r"(/\s*month|per\s+month|monthly|a\s+month|par\s+mois|/\s*mois|mensuel)", re.I
+)
+_RE_PERIODE_AN = re.compile(
+    r"(/\s*year|per\s+year|per\s+annum|annual|annually|a\s+year|par\s+an|/\s*an|annuel)",
+    re.I,
+)
+_RE_PLAFOND = re.compile(r"(up\s+to|jusqu'[àa]|maximum|max\.?)\s*$", re.I)
+_RE_A_PAYER = re.compile(
+    r"(will\s+pay|you\s+pay|pay\s+a\s+tuition|tuition\s+contribution|"
+    r"contribution\s+is\s+capped|will\s+reduce|reduce\s+your\s+tuition|"
+    r"r[eé]duire\s+(?:vos\s+)?frais|frais\s+de\s+scolarit[eé]\s+ramen[eé]s)",
+    re.I,
+)
+_RE_QUALIFICATIF_DOLLAR = (
+    (re.compile(r"(canad|canadian)\s*$", re.I), "CAD"),
+    (re.compile(r"(austral|australian)\s*$", re.I), "AUD"),
+    (re.compile(r"(hong\s?kong|hk)\s*$", re.I), "HKD"),
+)
+
+# Une ENVELOPPE de programme (« €420,000 Funding » pour tout un appel) n'est pas
+# un montant étudiant. Seuil haut volontaire : un stipend annuel en HK$ ou un
+# package de doctorat peuvent légitimement dépasser 100 000 dans leur devise.
+_RE_ENVELOPPE = re.compile(r"(programme|program\b|budget|envelope|total\s+funding)", re.I)
+SEUIL_ENVELOPPE = 100000
+
+MONTANT_MINIMUM = 100  # en dessous : frais, arrhes, amende — pas une bourse
+
+
+def _nombre_montant(brut: str) -> float | None:
+    """« 21,805 » / « 36.000 » / « 1 400 » → nombre. Aucune invention."""
+    texte = re.sub(r"[\s\u00a0\u202f]", "", brut or "")
+    if not texte:
+        return None
+    # Séparateurs de milliers (1.234.567 ou 21,805) : tous les groupes = 3 chiffres.
+    if re.fullmatch(r"\d{1,3}(?:[.,]\d{3})+", texte):
+        return float(texte.replace(".", "").replace(",", ""))
+    if re.fullmatch(r"\d+[.,]\d{1,2}", texte):  # décimale réelle
+        return float(texte.replace(",", "."))
+    if re.fullmatch(r"\d+", texte):
+        return float(texte)
+    return None
+
+
+def _devise_montant(match: re.Match[str], avant: str) -> str | None:
+    symbole = match.group("sym")
+    if symbole:
+        cle = re.sub(r"\s+", "", symbole).upper()
+        return _DEVISES_SYMBOLES.get(cle)
+    code = match.group("code")
+    if code:
+        return code.upper()
+    mot = (match.group("mot") or "").lower()
+    if mot.startswith("euro"):
+        return "EUR"
+    if mot.startswith("dollar"):
+        for motif, devise in _RE_QUALIFICATIF_DOLLAR:
+            if motif.search(avant):
+                return devise
+        return "USD"
+    return None
+
+
+def _valeur_normalisee(match: re.Match[str]) -> float | None:
+    brut = match.group("n1") or match.group("n2") or match.group("n3")
+    return _nombre_montant(brut)
+
+
+def _periode_montant(texte: str, debut: int, fin: int) -> str:
+    """`mois` / `an` / `total` — lue APRES puis AVANT le montant."""
+    apres = texte[fin : fin + 30]
+    if _RE_PERIODE_MOIS.search(apres):
+        return "mois"
+    if _RE_PERIODE_AN.search(apres):
+        return "an"
+    avant = texte[max(0, debut - 25) : debut]
+    if _RE_PERIODE_MOIS.search(avant):
+        return "mois"
+    if _RE_PERIODE_AN.search(avant):
+        return "an"
+    return "total"
+
+
+def montant_depuis_texte(texte: str | None) -> dict | None:
+    """Montant certain lu dans un texte, au format du contrat, ou None.
+
+    Renvoie `{"valeur": int|float, "devise": "EUR", "periode": "mois"}`.
+    Chaque refus est explicite dans le code : on préfère zéro montant à un faux.
+    """
+    if not texte or len(texte.strip()) < 8:
+        return None
+
+    for match in _RE_MONTANT.finditer(texte):
+        debut, fin = match.start(), match.end()
+        fenetre = texte[max(0, debut - 140) : fin + 140]
+
+        if "?" in fenetre:  # une question n'affirme rien
+            continue
+        if _RE_A_PAYER.search(fenetre):  # ce que l'étudiant paie
+            continue
+        avant_court = texte[max(0, debut - 20) : debut]
+        if _RE_PLAFOND.search(avant_court):  # « up to » = plafond
+            continue
+
+        valeur = _valeur_normalisee(match)
+        if valeur is None or valeur < MONTANT_MINIMUM:
+            continue
+        if valeur > SEUIL_ENVELOPPE and _RE_ENVELOPPE.search(fenetre):
+            continue  # budget d'un appel, pas la somme versée à un étudiant
+        devise = _devise_montant(match, avant_court)
+        if devise is None:
+            continue
+
+        # Ambiguïté : deux montants différents dans la même fenêtre.
+        valeurs = {
+            v
+            for autre in _RE_MONTANT.finditer(fenetre)
+            if (v := _valeur_normalisee(autre)) is not None
+        }
+        if len(valeurs) > 1:
+            continue
+
+        periode = _periode_montant(texte, debut, fin)
+        entier = int(valeur) if float(valeur).is_integer() else round(valeur, 2)
+        return {"valeur": entier, "devise": devise, "periode": periode}
+
+    return None
+
+
+def montant_stocke(meta) -> dict | None:
+    """`metadata['montant']` si sa forme respecte le contrat §2.1, sinon None.
+
+    Source UNIQUE de lecture pour l'API et pour le backfill : une valeur
+    stockée non conforme est ignorée partout, jamais « réparée » à la volée.
+    """
+    if not isinstance(meta, dict):
+        return None
+    stocke = meta.get("montant")
+    if not isinstance(stocke, dict):
+        return None
+    valeur = stocke.get("valeur")
+    devise = stocke.get("devise")
+    periode = stocke.get("periode")
+    if (
+        isinstance(valeur, (int, float))
+        and not isinstance(valeur, bool)
+        and valeur > 0
+        and isinstance(devise, str)
+        and re.fullmatch(r"[A-Z]{3}", devise)
+        and periode in ("mois", "an", "total")
+    ):
+        return {"valeur": valeur, "devise": devise, "periode": periode}
+    return None
+
+
+def montant_effectif(offre: dict) -> dict | None:
+    """Montant de l'offre : `metadata['montant']` valide prioritaire, sinon texte."""
+    stocke = montant_stocke(offre.get("metadata"))
+    if stocke:
+        return stocke
+    return montant_depuis_texte(_texte_offre(offre))

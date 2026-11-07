@@ -18,7 +18,6 @@ export interface PostesBarresProps {
  * - Barres : conteneur bg-signature/10 + enfant bg-signature width = (count/maxCount)*100%
  * - Tooltip au hover via group/absolute avec count + poste
  * - Data-probe pour tests automatisés
- * - Dark mode : dark:bg-signature/20 / dark:bg-signature
  * - Accessible : structure sémantique, texte lisible
  */
 export default function PostesBarres({ data, maxCount, className }: PostesBarresProps) {
@@ -35,9 +34,9 @@ export default function PostesBarres({ data, maxCount, className }: PostesBarres
               <span className="text-sm font-medium text-ink truncate pr-2">{poste}</span>
               <span className="text-sm font-semibold text-signature shrink-0">{count}</span>
             </div>
-            <div className="relative h-6 overflow-hidden rounded-full bg-signature/10 dark:bg-signature/20">
+            <div className="relative h-6 overflow-hidden rounded-full bg-signature/10">
               <div
-                className="h-full rounded-full bg-signature dark:bg-signature transition-all duration-500 ease-out"
+                className="h-full rounded-full bg-signature transition-all duration-500 ease-out"
                 style={{ width: `${percentage}%` }}
                 role="img"
                 aria-label={`${poste} : ${count} candidatures`}

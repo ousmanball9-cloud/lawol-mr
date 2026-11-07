@@ -252,7 +252,7 @@ export function NotificationsCloche() {
                   <>
                     <span className="flex min-w-0 flex-1 flex-col gap-1">
                       <span
-                        className={`inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        className={`inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
                           n.type === "echeance"
                             ? "border border-amber-200 bg-amber-50 text-amber-900"
                             : "bg-signature/10 text-signature"
@@ -271,7 +271,7 @@ export function NotificationsCloche() {
                       {n.texte && (
                         <span className="line-clamp-2 text-xs text-muted-foreground">{n.texte}</span>
                       )}
-                      <span className="text-[11px] text-muted-foreground">{dateRelative(n.date)}</span>
+                      <span className="text-xs text-muted-foreground">{dateRelative(n.date)}</span>
                     </span>
                     {!n.lue && (
                       <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-nuit" aria-hidden="true" />

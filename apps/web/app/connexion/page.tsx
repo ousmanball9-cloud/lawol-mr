@@ -89,7 +89,7 @@ export default function ConnexionPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
       <div className="w-full max-w-lg lg:max-w-5xl">
         {/* Double panneau desktop : branding (fond-nuit) + formulaire — mobile : formulaire seul */}
-        <div data-probe="carte-conteneur" className="flex overflow-hidden rounded-lg border border-border bg-card shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <div data-probe="carte-conteneur" className="flex overflow-hidden rounded-lg border border-border bg-card shadow-card">
           <aside
             data-probe="branding"
             aria-hidden="true"
@@ -183,7 +183,7 @@ export default function ConnexionPage() {
 
             {/* Erreur */}
             {erreur && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">
                 {erreur}
               </div>
             )}

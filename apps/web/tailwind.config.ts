@@ -2,7 +2,6 @@ import type { Config } from "tailwindcss"
 import { fontFamily } from "tailwindcss/defaultTheme"
 
 const config = {
-  darkMode: ["class"],
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
   theme: {
     container: { center: true, padding: "2rem", screens: { "2xl": "1400px" } },
@@ -27,6 +26,15 @@ const config = {
         surlignage: "#F59E0B",
       },
       borderRadius: { lg: "var(--radius)", md: "calc(var(--radius) - 2px)", sm: "calc(var(--radius) - 4px)" },
+      // Rythme de page (le reste vient de l'échelle Tailwind par défaut : 4/8/12/16/24/32/48/64/96).
+      spacing: { section: "64px", "section-lg": "96px", gutter: "16px" },
+      // Profondeur = bordure/anneau, pas flou noir (mesure chasse 1 : Stripe 0 ombre, Linear 1px inset).
+      // Teinte d'ombre = indigo de la charte : aucune ombre rgba(0,0,0,…) n'est autorisée.
+      boxShadow: {
+        card: "0 1px 2px rgba(30, 27, 75, 0.06), 0 0 0 1px rgba(30, 27, 75, 0.06)",
+        lift: "0 2px 6px rgba(30, 27, 75, 0.10), 0 0 0 1px rgba(37, 99, 235, 0.35)",
+        panel: "0 12px 32px rgba(30, 27, 75, 0.16), 0 0 0 1px rgba(30, 27, 75, 0.08)",
+      },
       fontFamily: {
         sans: ["var(--font-sans)", ...fontFamily.sans],
         display: ["var(--font-display)", ...fontFamily.sans],

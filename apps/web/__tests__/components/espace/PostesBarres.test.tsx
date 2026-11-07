@@ -76,13 +76,13 @@ describe("PostesBarres", () => {
     expect(barFills[0]).toHaveClass("bg-signature");
   });
 
-  it("applies dark mode classes", () => {
+  it("n'émet aucune variante dark (thème unique « Nuit d'Indigo »)", () => {
     render(<PostesBarres data={sampleData} />);
     const container = screen.getByTestId("postes-barres");
     const barContainers = container.querySelectorAll("div.relative.h-6");
-    expect(barContainers[0]).toHaveClass("dark:bg-signature/20");
+    expect(barContainers[0].className).not.toMatch(/\bdark:/);
     const barFills = container.querySelectorAll('[role="img"]');
-    expect(barFills[0]).toHaveClass("dark:bg-signature");
+    expect(barFills[0].className).not.toMatch(/\bdark:/);
   });
 
   it("shows tooltip on hover with count and poste", () => {

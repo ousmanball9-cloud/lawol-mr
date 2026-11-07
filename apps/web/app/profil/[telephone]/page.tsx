@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { entetesSession, sessionValidePour } from "@/lib/session";
 import {
   MapPin,
@@ -70,7 +71,7 @@ type Onglet = (typeof ONGLETS)[number]["id"];
  * pas une info personnelle : elle ne révèle ni identité ni coordonnées). */
 function CarteScore({ dashboard, telephone }: { dashboard: Dashboard; telephone: string }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+    <div className="rounded-lg border border-border bg-card p-4 shadow-card">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
         <span className="font-medium text-foreground">
           Profil complété à{" "}
@@ -457,10 +458,7 @@ export default function ProfilPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4">
-        <div
-          aria-hidden="true"
-          className="h-10 w-10 animate-spin rounded-full border-2 border-signature border-t-transparent"
-        />
+        <Spinner className="h-10 w-10" />
         <p className="text-sm text-muted-foreground">Chargement de ton espace...</p>
       </div>
     );
@@ -469,7 +467,7 @@ export default function ProfilPage() {
   if (error || !profil) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-card">
           <p className="mb-4 font-medium text-destructive">{error || "Profil non trouvé"}</p>
           <Link href="/">
             <Button className="h-11 rounded-lg bg-signature px-6 text-white hover:bg-signature-deep">
@@ -491,7 +489,7 @@ export default function ProfilPage() {
       >
         {/* Sidebar desktop : navigation uniquement */}
         <aside className="hidden lg:sticky lg:top-6 lg:block lg:w-[280px] lg:shrink-0">
-          <div className="rounded-lg border border-border bg-card p-4 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+          <div className="rounded-lg border border-border bg-card p-4 shadow-card">
             <div className="mb-4 px-2">
               <span className="font-display text-lg font-bold tracking-[-0.02em] text-foreground">
                 LAWOL<span className="text-signature">.mr</span>
@@ -529,7 +527,7 @@ export default function ProfilPage() {
 
         {/* Navigation mobile : barre horizontale */}
         <nav
-          className="mb-4 flex gap-1 rounded-lg border border-border bg-card p-1 shadow-[0_1px_3px_rgba(10,10,10,0.04)] lg:hidden"
+          className="mb-4 flex gap-1 rounded-lg border border-border bg-card p-1 shadow-card lg:hidden"
           aria-label="Navigation de l'espace"
         >
           {ONGLETS.map((o) => (
@@ -591,8 +589,8 @@ export default function ProfilPage() {
                 <div
                   className={`mb-4 rounded-lg px-4 py-3 text-sm font-medium ${
                     message.ok
-                      ? "border border-green-200 bg-green-50 text-green-800"
-                      : "border border-red-200 bg-red-50 text-red-700"
+                      ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                      : "border border-destructive/30 bg-destructive/10 text-destructive"
                   }`}
                 >
                   {message.texte}
@@ -603,7 +601,7 @@ export default function ProfilPage() {
               {toastPasInteresse && (
                 <div
                   data-probe="toast-pas-interesse"
-                  className="mb-4 rounded-lg border border-surlignage/30 bg-surlignage/10 px-4 py-3 text-sm font-medium text-foreground flex items-center justify-between gap-3 animate-slide-in"
+                  className="mb-4 rounded-lg border border-surlignage/30 bg-surlignage/10 px-4 py-3 text-sm font-medium text-foreground flex items-center justify-between gap-3 "
                   role="status"
                   aria-live="polite"
                 >
@@ -632,7 +630,7 @@ export default function ProfilPage() {
                       <div
                         key={carte.cle}
                         data-probe="resume-carte"
-                        className="rounded-lg border border-border bg-card px-4 py-3 shadow-[0_1px_3px_rgba(10,10,10,0.04)]"
+                        className="rounded-lg border border-border bg-card px-4 py-3 shadow-card"
                       >
                         <span className="block text-xs text-muted-foreground">{carte.libelle}</span>
                         <span className="font-display text-2xl font-bold tracking-[-0.02em] text-foreground">
@@ -645,7 +643,7 @@ export default function ProfilPage() {
                   <CarteScore dashboard={dashboard} telephone={telephone} />
 
                   {dashboard.postes_annee.length > 0 && (
-                    <div className="rounded-lg border border-border bg-card p-4 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+                    <div className="rounded-lg border border-border bg-card p-4 shadow-card">
                       <h2 className="mb-2 text-sm font-semibold text-foreground">
                         Marché des postes — cette année
                       </h2>
@@ -691,7 +689,7 @@ export default function ProfilPage() {
                   <button
                     type="button"
                     onClick={basculerMasquees}
-                    className="text-sm font-medium text-surlignage hover:text-surlignage-deep transition-colors duration-150 flex items-center gap-1"
+                    className="text-sm font-medium text-signature hover:text-signature-deep transition-colors duration-150 flex items-center gap-1"
                     data-probe="lien-masquees"
                   >
                     <EyeOff className="h-4 w-4" />
@@ -701,7 +699,7 @@ export default function ProfilPage() {
               </div>
 
               {/* Offres matchées */}
-              <div className="rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+              <div className="rounded-lg border border-border bg-card p-6 shadow-card">
                 <h2 className="mb-4 flex items-center gap-2 font-display text-xl font-bold tracking-[-0.01em] text-foreground">
                   <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-signature">
                     <Briefcase className="h-4 w-4" />
@@ -782,7 +780,7 @@ export default function ProfilPage() {
                       {offresFiltrees.map((match) => (
                         <div
                           key={match.id}
-                          className="group relative rounded-lg border border-border bg-background p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-signature hover:shadow-[0_1px_3px_rgba(10,10,10,0.06)]"
+                          className="group relative rounded-lg border border-border bg-background p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-signature hover:shadow-lift"
                         >
                           {/* Clic n'importe où sur la carte (sauf ses boutons) → vue détail */}
                           <button
@@ -795,7 +793,7 @@ export default function ProfilPage() {
                             <h3 className="font-semibold leading-snug text-foreground group-hover:text-signature">
                               {match.offre.titre}
                             </h3>
-                            <span className="badge-offre inline-flex shrink-0 items-center rounded-full border border-border bg-muted px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                            <span className="badge-offre inline-flex shrink-0 items-center rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                               {labelTypeOffre(match.offre.type_offre)}
                             </span>
                           </div>

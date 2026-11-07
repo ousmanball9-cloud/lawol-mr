@@ -19,6 +19,9 @@
     --background: 0 0% 98%; --foreground: 217.2 32.6% 17.5%;
     --card: 0 0% 100%; --card-foreground: 217.2 32.6% 17.5%;
     --popover: 0 0% 100%; --popover-foreground: 217.2 32.6% 17.5%;
+    /* --primary est un ALIAS de --signature (même #2563EB), conservé uniquement pour les
+       primitives shadcn/Flowbite. Ce n'est PAS une seconde couleur : les écrans LAWOL
+       utilisent `signature`. Constat chasse 0 · C7. */
     --primary: 221.2 83.2% 53.3%; --primary-foreground: 0 0% 100%;
     --secondary: 240 4.8% 95.9%; --secondary-foreground: 217.2 32.6% 17.5%;
     --muted: 240 4.8% 95.9%; --muted-foreground: 240 5.2% 33.9%;
@@ -31,17 +34,6 @@
     --nuit: 242.9 47.1% 34.3%;     /* indigo #312E81 — surfaces sombres */
     --signature: 221.2 83.2% 53.3%; /* #2563EB */
     --surlignage: 37.7 92.2% 50.2%; /* #F59E0B */
-  }
-  .dark {
-    --background: 243 47% 20%; --foreground: 0 0% 98%;
-    --card: 243 40% 24%; --card-foreground: 0 0% 98%;
-    --popover: 243 40% 24%; --popover-foreground: 0 0% 98%;
-    --primary: 221.2 83.2% 53.3%; --primary-foreground: 0 0% 100%;
-    --secondary: 240 4.8% 12%; --secondary-foreground: 0 0% 98%;
-    --muted: 240 4.8% 12%; --muted-foreground: 240 5% 70%;
-    --accent: 240 4.8% 12%; --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 45%; --destructive-foreground: 0 0% 100%;
-    --border: 240 4.8% 16%; --input: 240 4.8% 16%; --ring: 221.2 83.2% 53.3%;
   }
 }
 @layer base {
@@ -116,7 +108,7 @@
   }
 }
 
-/* Respect prefers-reduced-motion pour toutes les animations discrètes */
+/* Respect prefers-reduced-motion : TOUTES les animations de la charte, pas seulement deux. */
 @media (prefers-reduced-motion: reduce) {
   .animate-kpi-enter,
   [style*="animation-name: kpi-enter"] {
@@ -125,6 +117,22 @@
     transform: none;
   }
   [style*="animation-name: circular-progress"] {
+    animation: none !important;
+  }
+  /* Charte Nuit d'Indigo : dégradé, lueur et entrée — figés, rendu statique conservé. */
+  .fond-nuit-anime,
+  .lueur-nuit,
+  .entree-douce {
+    animation: none !important;
+  }
+  .entree-douce {
+    opacity: 1;
+    transform: none;
+  }
+  /* Squelettes et rotations de chargement (V3-04) : le pouls s'arrête, la structure reste. */
+  .animate-pulse,
+  .animate-spin,
+  [data-probe^="skeleton-"] > div {
     animation: none !important;
   }
 }

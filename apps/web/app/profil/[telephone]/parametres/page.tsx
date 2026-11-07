@@ -4,11 +4,13 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { TYPES_OFFRES } from "@/components/offre-detail-modal";
+import { TYPES_OFFRES, VILLES } from "@/lib/referentiels";
 import { ArrowLeft, ArrowRight, Check, Copy, Download, Settings, UserMinus } from "lucide-react";
 
-/** Enum Ville du backend (ordre SQL), même liste que le schéma. */
-const VILLES = ["nouakchott", "nouadhibou", "kaedi", "rosso", "aleg", "autre"];
+/** Enum Ville du backend — SOURCE UNIQUE : `lib/referentiels.ts` (V3-05).
+ *  Valeurs brutes seulement : l'affichage de cet écran garde sa mise en forme
+ *  historique (snake_case → texte capitalisé, cf. `ville.replace(/_/g, " ")`). */
+const VILLES_VALEURS = VILLES.map((v) => v.valeur);
 
 type Prefs = {
   villes_exclues: string[];
@@ -50,8 +52,11 @@ export default function ParametresPage() {
         const p = await profilRes.json();
         const prefsData: PrefsAvanceesResponse = await prefsRes.json();
         if (!actif) return;
+        // Une reponse partielle ne doit jamais casser l'ecran (ni ecraser les
+        // prefs reelles a la sauvegarde) : on echoue proprement.
+        if (!prefsData || !prefsData.prefs_avancees) throw new Error();
         setProfil(p);
-        setPrefs(prefsData.prefs_avancees);
+        setPrefs({ ...PREFS_DEFAUT, ...prefsData.prefs_avancees });
       } catch {
         if (actif) setErreur("Erreur de chargement du profil");
       } finally {
@@ -175,7 +180,7 @@ export default function ParametresPage() {
   if (erreur || !profil) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-card">
           <p className="mb-4 font-medium text-destructive">{erreur || "Profil non trouvé"}</p>
           <Link href="/">
             <Button className="h-11 rounded-lg bg-signature px-6 text-white hover:bg-signature-deep">
@@ -212,7 +217,7 @@ export default function ParametresPage() {
         <div data-probe="params-sections" className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-4">
         <div className="min-w-0">
         {/* 1. Profil */}
-        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-card">
           <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
             Profil
           </h2>
@@ -227,7 +232,7 @@ export default function ParametresPage() {
         </section>
 
         {/* 2. Mes données (export RGPD) */}
-        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-card">
           <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
             Mes données
           </h2>
@@ -248,12 +253,12 @@ export default function ParametresPage() {
               {exportEtat === "pending" ? "Préparation..." : "Exporter mes données"}
             </Button>
             {exportEtat === "ok" && (
-              <span role="status" className="text-sm font-medium text-green-800">
+              <span role="status" className="text-sm font-medium text-emerald-700">
                 Export téléchargé ✅
               </span>
             )}
             {exportEtat === "erreur" && (
-              <span role="status" className="text-sm font-medium text-red-700">
+              <span role="status" className="text-sm font-medium text-destructive">
                 Export impossible — réessaie.
               </span>
             )}
@@ -261,7 +266,7 @@ export default function ParametresPage() {
         </section>
 
         {/* 3. Préférences avancées */}
-        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-card">
           <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
             Préférences avancées
           </h2>
@@ -274,7 +279,7 @@ export default function ParametresPage() {
             <fieldset>
               <legend className="mb-2 text-sm font-semibold text-foreground">Villes exclues</legend>
               <div className="flex flex-wrap gap-2">
-                {VILLES.map((ville) => (
+                {VILLES_VALEURS.map((ville) => (
                   <label
                     key={ville}
                     className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground transition-colors duration-150 hover:border-signature"
@@ -354,12 +359,12 @@ export default function ParametresPage() {
                 {sauvegarde === "pending" ? "Enregistrement..." : "Enregistrer mes préférences"}
               </Button>
               {sauvegarde === "ok" && (
-                <span role="status" className="text-sm font-medium text-green-800">
+                <span role="status" className="text-sm font-medium text-emerald-700">
                   Préférences enregistrées ✅
                 </span>
               )}
               {sauvegarde === "erreur" && (
-                <span role="status" className="text-sm font-medium text-red-700">
+                <span role="status" className="text-sm font-medium text-destructive">
                   Enregistrement impossible — réessaie.
                 </span>
               )}
@@ -370,7 +375,7 @@ export default function ParametresPage() {
 
         <div className="min-w-0">
         {/* 4. Parrainage */}
-        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-card">
           <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
             Parrainage
           </h2>
@@ -409,7 +414,7 @@ export default function ParametresPage() {
         </section>
 
         {/* 5. Liens utiles */}
-        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <section className="mb-4 rounded-lg border border-border bg-card p-6 shadow-card">
           <h2 className="mb-3 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
             À propos
           </h2>
@@ -438,7 +443,7 @@ export default function ParametresPage() {
         </section>
 
         {/* 6. Désinscription (discrète, bouton rouge) */}
-        <section className="rounded-lg border border-border bg-card p-6 shadow-[0_1px_3px_rgba(10,10,10,0.04)]">
+        <section className="rounded-lg border border-border bg-card p-6 shadow-card">
           <h2 className="mb-1 font-display text-lg font-bold tracking-[-0.01em] text-foreground">
             Désinscription
           </h2>
