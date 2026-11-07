@@ -137,3 +137,18 @@ Fait brut, assume : la fonctionnalite est visible mais rare.
 
 **Lecon integree** : un backfill n'est pas une correction si le point d'ecriture
 regulier reconstruit le document. La garde appartient a `save`, pas a un script.
+
+---
+
+## Note de reprise (07/11/2026) - point d'arret propre
+
+- **Livre et deploye** : V4-A (contrat metadata), V4-B (extraction montant), V4-C
+  (affichage carte + fiche). `main` = `15d2197`, Vercel READY, Railway SUCCESS.
+- **Preuve live** : `verify-montant.mjs` **10/10 VERT** ; non-regression
+  `verify-carte-compacte` VERT (201 px max), `verify-live-public` **11/11**.
+- **Etat mesure en base** : 515 lignes, 43 cles `montant` conformes, **33
+  publiques affichables (11,7 %)** ; **0 extractible non ecrit**.
+- **Ecran** : 1 montant sur les 12 premieres cartes (tri `recentes`), 0 en
+  `urgent` -- visible mais rare, c'est le fait brut.
+- **Prochain lot** : V5-A (dettes) ou V5-D ; V4-E/V4-F restent BLOQUES par la
+  source `mesrs` (0 ligne). Ne pas ouvrir un lot sans `-Snap` KPI.
