@@ -8,8 +8,6 @@ type Props = {
   pageHorsCatalogue: boolean;
   /** Catalogue réellement vide (aucun filtre) vs filtres trop étroits. */
   catalogueVide: boolean;
-  /** Le sous-ensemble serveur n'est pas vide (mode bassin). */
-  aDesOffres: boolean;
   /** Un filtre (ou une frappe) est actif. */
   filtreActif: boolean;
   onAllerPage: (page: number) => void;
@@ -33,7 +31,6 @@ export function EtatVideOffres({
   page,
   pageHorsCatalogue,
   catalogueVide,
-  aDesOffres,
   filtreActif,
   onAllerPage,
   onReinitialiser,
@@ -79,7 +76,7 @@ export function EtatVideOffres({
           </Button>
         </div>
       ) : (
-        (aDesOffres || filtreActif) && (
+        filtreActif && (
           <div role="status" className="mx-auto max-w-md pb-4 text-center">
             <Button
               variant="outline"
