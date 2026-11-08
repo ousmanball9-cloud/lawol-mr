@@ -41,3 +41,9 @@ ngrok*.log
 # Boilerplate HTML5 (projet seperate)
 new-site/
 logs/
+
+# Caches outils (non commits)
+.pytest_cache/
+.ruff_cache/
+# Prototype archivé volumineux (~46 Mo) : sur disque, jamais versionné
+archive/2026-11-08-new-site-prototype/

@@ -1,3 +1,5 @@
+> **[RÉORGANISATION 2026-11-08]** Des fichiers ont été rangés. **Lire `REORGANISATION-TRACE.md` (racine) avant de chercher un chemin** : logs→`logs/`, fix_prefs→`archive/one-off-2026-10-14-fix-prefs/`, migration sql→`archive/one-off-2026-10-14-sql/`, archives frontend→`archive/2026-10-15-*`, `new-site`→`archive/2026-11-08-new-site-prototype/`. Cœur (`apps/infra/scripts/.github/manifestes`) inchangé.
+
 # LAWOL.mr — spécificités locales
 
 Workspace : plateforme bourses/stages pour étudiants mauritaniens (refonte « Jobteaser 100 % bourses »).
