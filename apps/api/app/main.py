@@ -1,7 +1,7 @@
 import re
 import sys
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, timedelta
 from uuid import UUID
 
 from apps.api.app.core.config import settings
@@ -39,6 +39,7 @@ from apps.api.app.modules.shared.models import (
     StatsResponse,
     StatutUpdate,
     TriOffres,
+    TypeFinancement,
     TypeOffre,
 )
 from apps.api.app.modules.whatsapp.webhook import router as whatsapp_router
@@ -134,6 +135,12 @@ def _motif_recherche(q: str) -> str | None:
 # 322 Ko mesurés le 16/10/2026 (65 % du payload) pour du texte jamais lu.
 APERCU_DESCRIPTION_CAR = 240
 
+# Fenêtre « clôture dans moins de 30 jours » : `date_limite` entre aujourd'hui
+# (borne basse déjà posée pour toute la liste) et aujourd'hui + 29 jours, soit
+# 30 jours calendaires bornes incluses. Même sémantique que le filtre local
+# historique (`jours < 30`, jour même inclus).
+FENETRE_CLOTURE_JOURS = 29
+
 
 def _apercu_description(texte: str, taille: int = APERCU_DESCRIPTION_CAR) -> str:
     """Aperçu de description pour la liste — jamais de mot tronqué.
@@ -168,6 +175,8 @@ async def list_offres(
     pays: PaysEtudes | None = None,
     type_offre: TypeOffre | None = None,
     categorie: CategorieBourse | None = None,
+    financement: TypeFinancement | None = None,
+    cloture30: bool = False,
     q: str | None = None,
     tri: TriOffres = TriOffres.RECENTES,
     limit: int = 50,
@@ -183,7 +192,12 @@ async def list_offres(
     · `categorie`    → axe FINANCEUR (`gouvernementale`, `institutionnelle`,
       `fondation`, `entreprise`, `inconnu`). Filtre serveur par `source_name`
       (liste dérivée de `scraper.engine`), une valeur inconnue → 422. La
-      catégorie `inconnu` = tout SAUF les sources de financeur connu.
+      catégorie `inconnu` = tout SAUF les sources de financeur connu ;
+    · `financement`  → enum `type_financement` (`fully_funded`, `partiel`,
+      `auto_finance`, `inconnu`), égalité exacte, valeur inconnue → 422 ;
+    · `cloture30`    → fenêtre « clôture dans moins de 30 jours » :
+      `date_limite ≤ today + 29` (les offres closes et les dates illisibles
+      sont déjà exclues par la borne `date_limite ≥ today` de toute la liste).
     """
     query = (
         supabase.table("offres")
@@ -197,6 +211,13 @@ async def list_offres(
         query = query.eq("pays_etudes", pays.value)
     if type_offre:
         query = query.eq("type_offre", type_offre.value)
+    if financement:
+        query = query.eq("type_financement", financement.value)
+    if cloture30:
+        query = query.lte(
+            "date_limite",
+            (date.today() + timedelta(days=FENETRE_CLOTURE_JOURS)).isoformat(),
+        )
     if categorie:
         # Source de vérité UNIQUE : `metadata['categorie_bourse']`, écrit à
         # l'ingestion et repris par `scripts/backfill-categorie.py`.

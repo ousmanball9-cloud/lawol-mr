@@ -1,29 +1,23 @@
 /**
  * Filtrage local du catalogue `/offres` — pur, hors React (05/11/2026).
  *
- * Déplacé de `app/offres/page.tsx` sans réécriture : mêmes seuils, mêmes
- * exclusions, même tri stable. La page ne garde que l'état et le rendu ;
- * échéances, raffinement et tri se lisent ici, en un seul endroit.
+ * Déplacé de `app/offres/page.tsx` sans réécriture : mêmes exclusions, même tri
+ * stable. La page ne garde que l'état et le rendu ; échéances, raffinement et
+ * tri se lisent ici, en un seul endroit.
  *
- * Deux filtres n'existent PAS côté API (`financement`, fenêtre « clôture
- * < 30 j ») : c'est la raison d'être du mode « bassin »
- * (cf. `lib/offres-chargement.ts`).
+ * `financement` et la fenêtre « clôture < 30 j » sont désormais servis par
+ * l'API : le serveur en est l'autorité, aucun raffinement local ne les rejoue.
  */
 import { joursRestants, parserDateLimite } from "@/components/offres/date-limite";
 import type { Offre, TriOffres } from "@/components/offres/types";
 
-/** Seuil du filtre « Clôture dans moins de 30 jours ». */
-export const SEUIL_30_JOURS = 30;
-
 /** Offre enrichie de son échéance : jours restants (null = date illisible). */
 export type Echeance = { offre: Offre; jours: number | null };
 
-/** Facettes qui n'existent pas côté API : elles filtrent la liste en mémoire. */
+/** Facettes raffinées en mémoire sur les cartes de la page. */
 export type FiltresLocaux = {
   filiere: string;
   pays: string;
-  financement: string;
-  cloture30: boolean;
   expirees: boolean;
   tri: TriOffres;
 };
@@ -48,8 +42,8 @@ export function normaliserRecherche(q: string): string {
 }
 
 /** Échéance recalculée une seule fois par offre (parse + jours restants). */
-export function calculerEcheances(bassin: Offre[]): Echeance[] {
-  return bassin.map((offre) => ({
+export function calculerEcheances(offres: Offre[]): Echeance[] {
+  return offres.map((offre) => ({
     offre,
     jours: joursRestants(parserDateLimite(offre.date_limite)),
   }));
@@ -69,8 +63,6 @@ export function filtrerEtTrier(
     if (facettes.filiere !== "tous" && !(offre.filieres_cibles ?? []).includes(facettes.filiere))
       return false;
     if (facettes.pays !== "tous" && offre.pays_etudes !== facettes.pays) return false;
-    if (facettes.financement !== "tous" && offre.type_financement !== facettes.financement)
-      return false;
     // q : le SERVEUR est l'autorité (il cherche dans titre, entreprise ET
     // description intégrale). Le raffinement local ne regarde donc PAS la
     // description : la liste ne porte qu'un aperçu (`description_apercu`),
@@ -92,13 +84,7 @@ export function filtrerEtTrier(
     const expiree = e.jours !== null && e.jours < 0;
     // Comptées même masquées : l'état « Afficher les expirées » les révèle.
     if (expiree) expirees += 1;
-    if (facettes.cloture30) {
-      // « Clôture dans moins de 30 jours » = fenêtre À VENIR : ni offre déjà
-      // close, ni date illisible, ni échéance ≥ 30 j. Le motif est rappelé par
-      // le compteur de la barre de filtres (« fenêtre 30 j : offres closes
-      // exclues »).
-      if (expiree || e.jours === null || e.jours >= SEUIL_30_JOURS) continue;
-    } else if (expiree && !facettes.expirees) {
+    if (expiree && !facettes.expirees) {
       continue; // masquées par défaut, jamais supprimées : bascule explicite
     }
     retenues.push(e);
@@ -109,7 +95,7 @@ export function filtrerEtTrier(
     // est un garde-fou (dates illisibles en dernier rang, expirées en fin de
     // liste). Échéance proche d'abord ; sans date lisible au dernier rang ;
     // expirées (si affichées) en toute fin, la plus récemment close en tête.
-    // Sort stable : à rang égal, l'ordre du bassin (API) est conservé.
+    // Sort stable : à rang égal, l'ordre renvoyé par l'API est conservé.
     retenues.sort((a, b) => {
       const rang = rangEcheance(a.jours) - rangEcheance(b.jours);
       if (rang !== 0) return rang;

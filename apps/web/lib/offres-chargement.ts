@@ -6,9 +6,10 @@
  *     vérité des facettes, cf. `lib/offres-url.ts`) ;
  *   · la stratégie de pagination se lit ici, en un endroit.
  *
- * DEUX MODES, une seule règle : on ne pagine côté serveur que sur les filtres
- * que l'API sait exprimer. `GET /api/v1/offres` accepte `tri`, `q`, `categorie`,
- * `filiere`, `pays`, `limit`, `offset` — et répond une LISTE NUE, sans total.
+ * UN SEUL MODE : toutes les facettes sont exprimables par l'API, donc on ne
+ * demande qu'UNE page (13 lignes) par affichage. `GET /api/v1/offres` accepte
+ * `tri`, `q`, `categorie`, `filiere`, `pays`, `financement`, `cloture30`,
+ * `limit`, `offset` — et répond une LISTE NUE, sans total.
  */
 import type { Offre, TriOffres } from "@/components/offres/types";
 import {
@@ -19,10 +20,6 @@ import {
   offsetDepuisPage,
 } from "@/lib/offres-url";
 import { jalonFetchDebut, jalonFetchFin } from "@/lib/perf-offres";
-
-/** Supabase plafonne une requête à 1 000 lignes : le mode « bassin » charge par lots de 500. */
-const BATCH = 500;
-const MAX_OFFSET = 5000;
 
 /** Filtres réellement exprimables par `GET /api/v1/offres` (enums identiques). */
 export type RequeteCatalogue = {
@@ -35,17 +32,21 @@ export type RequeteCatalogue = {
   filiere: string;
   /** `tous` ou un pays d'études. */
   pays: string;
+  /** `tous` ou une valeur de `TYPES_FINANCEMENT` (enum API, égalité exacte). */
+  financement: string;
+  /** Fenêtre « clôture dans moins de 30 jours » (`date_limite ≤ today+29`). */
+  cloture30: boolean;
 };
 
 /** Une page servie par l'API : les cartes + la réponse de la sonde. */
 export type PageApi = { cartes: Offre[]; aSuivante: boolean };
 
 /**
- * Paramètres serveur communs aux deux modes de chargement.
- * `filiere` et `pays` sont poussés au serveur : les enums de
- * `lib/referentiels.ts` sont ceux de l'API, donc le sous-ensemble filtré est
- * identique — mais la pagination porte alors sur CE sous-ensemble, pas sur le
- * catalogue entier.
+ * Paramètres serveur de la requête.
+ * `filiere`, `pays`, `financement` et `cloture30` sont poussés au serveur : les
+ * enums de `lib/referentiels.ts` sont ceux de l'API, donc le sous-ensemble
+ * filtré est identique — et la pagination porte sur CE sous-ensemble, pas sur
+ * le catalogue entier.
  * `type_offre=bourse` : le catalogue public ne sert QUE des bourses — les
  * offres d'emploi/stage collectées restent en base (matching, admin) mais ne
  * sont jamais publiées ici (décision produit du 16/10).
@@ -56,6 +57,8 @@ export function parametresRequete(requete: RequeteCatalogue): URLSearchParams {
   if (requete.categorie !== TOUTES_CATEGORIES) parametres.set("categorie", requete.categorie);
   if (requete.filiere !== AUCUN_FILTRE) parametres.set("filiere", requete.filiere);
   if (requete.pays !== AUCUN_FILTRE) parametres.set("pays", requete.pays);
+  if (requete.financement !== AUCUN_FILTRE) parametres.set("financement", requete.financement);
+  if (requete.cloture30) parametres.set("cloture30", "1");
   return parametres;
 }
 
@@ -84,35 +87,6 @@ export async function chargerPageApi(requete: RequeteCatalogue, page: number): P
       cartes: lignes.slice(0, OFFRES_PAR_PAGE),
       aSuivante: lignes.length > OFFRES_PAR_PAGE,
     };
-  } finally {
-    jalonFetchFin();
-  }
-}
-
-/**
- * Charge TOUT le sous-ensemble serveur, par lots de 500 (plafond Supabase).
- *
- * Réservé aux filtres que l'API ne sait pas exprimer (`financement`, fenêtre
- * « clôture < 30 j ») : sans eux, impossible de savoir si la page 2 est bien la
- * suite de la page 1. Dans ce cas seulement on retombe sur le coût d'avant —
- * jamais de page trouée ni de compteur faux.
- */
-export async function chargerBassin(requete: RequeteCatalogue): Promise<Offre[]> {
-  const toutes: Offre[] = [];
-  const parametres = parametresRequete(requete);
-  jalonFetchDebut();
-  try {
-    for (let offset = 0; offset < MAX_OFFSET; offset += BATCH) {
-      parametres.set("limit", String(BATCH));
-      parametres.set("offset", String(offset));
-      const res = await fetch(`/api/v1/offres?${parametres.toString()}`);
-      if (!res.ok) throw new Error();
-      const data: unknown = await res.json();
-      if (!Array.isArray(data)) throw new Error();
-      toutes.push(...(data as Offre[]));
-      if (data.length < BATCH) break;
-    }
-    return toutes;
   } finally {
     jalonFetchFin();
   }

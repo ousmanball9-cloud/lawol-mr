@@ -16,7 +16,6 @@ import type { Offre } from "@/components/offres/types";
 import {
   AUCUN_FILTRE,
   FACETTES_PAR_DEFAUT,
-  OFFRES_PAR_PAGE,
   TOUTES_CATEGORIES,
   ecrireFacettes,
   lireFacettes,
@@ -24,22 +23,18 @@ import {
   urlOffres,
 } from "@/lib/offres-url";
 import type { FacettesOffres } from "@/lib/offres-url";
-import { chargerBassin, chargerPageApi } from "@/lib/offres-chargement";
-import type { RequeteCatalogue } from "@/lib/offres-chargement";
+import { chargerPageApi } from "@/lib/offres-chargement";
+import type { PageApi, RequeteCatalogue } from "@/lib/offres-chargement";
 import { calculerEcheances, filtrerEtTrier, normaliserRecherche } from "@/lib/offres-filtrage";
 import { jalonPremierRenduCartes, observerLcp } from "@/lib/perf-offres";
 
 /** Laisse la frappe se poser avant d'interroger l'API (recherche côté serveur). */
 const DELAI_RECHERCHE_MS = 300;
-/** Bassin vide d'identité stable : les mémoïsations ne se recalculent pas pour rien. */
-const BASSIN_VIDE: Offre[] = [];
+/** Liste vide d'identité stable : les mémoïsations ne se recalculent pas pour rien. */
+const CARTES_VIDES: Offre[] = [];
 
-/** Ce que la page a réellement en main, et donc ce qu'elle peut afficher. */
-type Resultat =
-  /** Pagination par l'API : total INCONNU, une page à la fois. */
-  | { mode: "api"; page: number; cartes: Offre[]; aSuivante: boolean }
-  /** Tout le sous-ensemble serveur : total connu, découpage local. */
-  | { mode: "bassin"; bassin: Offre[] };
+/** Une page de l'API, avec le numéro de page qu'elle représente. */
+type PageChargee = PageApi & { page: number };
 
 /**
  * Page publique /offres — recherche + filtres + grille paginée (12/page).
@@ -56,11 +51,10 @@ type Resultat =
  * « une page suivante existe », d'où la pagination « Précédent · Page N ·
  * Suivant ». Aucun total n'est inventé — décision assumée, pas un oubli.
  *
- * DEUX MODES, une seule règle : on pagine côté serveur sur les filtres que
- * l'API sait exprimer (recherche, catégorie, filière, pays, tri). `financement`
- * et « clôture < 30 j » n'existent pas côté API : dans ce cas SEULEMENT, le
- * sous-ensemble serveur est chargé en entier (comportement d'avant) pour que la
- * page 2 reste la suite exacte de la page 1. (`expirees` ne change rien au
+ * UN SEUL MODE : toutes les facettes (recherche, catégorie, filière, pays,
+ * financement, « clôture < 30 j », tri) sont exprimées par l'API, qui renvoie
+ * déjà le sous-ensemble filtré. La page 2 est donc toujours la suite exacte de
+ * la page 1, sans charger le catalogue entier. (`expirees` ne change rien au
  * chargement : l'API ne sert déjà que des offres non closes.)
  *
  * Seule la frappe reste locale (`motsCles`) : l'input doit être instantané,
@@ -88,7 +82,7 @@ function OffresContenu() {
   // Source de vérité unique : aucune facette n'est recopiée dans un useState.
   const facettes = useMemo(() => lireFacettes(searchParams), [searchParams]);
 
-  const [resultat, setResultat] = useState<Resultat | null>(null);
+  const [resultat, setResultat] = useState<PageChargee | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   // Seule exception locale : la frappe. L'input reste instantané, l'URL suit
@@ -147,13 +141,6 @@ function OffresContenu() {
     return () => clearTimeout(id);
   }, [motsCles, facettes.recherche, ecrire]);
 
-  /**
-   * Filtres que l'API ne sait PAS exprimer → il faut tout le sous-ensemble
-   * serveur pour paginer sur le résultat filtré. Sinon on reste en pagination
-   * serveur (une requête de 13 lignes par page).
-   */
-  const modeBassin = facettes.financement !== AUCUN_FILTRE || facettes.cloture30;
-
   const requete = useMemo<RequeteCatalogue>(
     () => ({
       tri: facettes.tri,
@@ -161,27 +148,27 @@ function OffresContenu() {
       categorie: facettes.categorie,
       filiere: facettes.filiere,
       pays: facettes.pays,
+      financement: facettes.financement,
+      cloture30: facettes.cloture30,
     }),
-    [facettes.tri, facettes.recherche, facettes.categorie, facettes.filiere, facettes.pays]
+    [
+      facettes.tri,
+      facettes.recherche,
+      facettes.categorie,
+      facettes.filiere,
+      facettes.pays,
+      facettes.financement,
+      facettes.cloture30,
+    ]
   );
-
-  // En mode bassin, tout arrive d'un coup : changer de page ne requête rien.
-  const pageDemandee = modeBassin ? 1 : facettes.page;
 
   const charger = useCallback(async () => {
     const numero = ++numeroRequete.current;
     setLoading(true);
     setError("");
     try {
-      if (modeBassin) {
-        const bassin = await chargerBassin(requete);
-        if (numero === numeroRequete.current) setResultat({ mode: "bassin", bassin });
-      } else {
-        const page = await chargerPageApi(requete, pageDemandee);
-        if (numero === numeroRequete.current) {
-          setResultat({ mode: "api", page: pageDemandee, ...page });
-        }
-      }
+      const page = await chargerPageApi(requete, facettes.page);
+      if (numero === numeroRequete.current) setResultat({ ...page, page: facettes.page });
     } catch {
       if (numero === numeroRequete.current) {
         setError("Impossible de charger les offres. Réessaie dans un instant.");
@@ -189,7 +176,7 @@ function OffresContenu() {
     } finally {
       if (numero === numeroRequete.current) setLoading(false);
     }
-  }, [modeBassin, pageDemandee, requete]);
+  }, [facettes.page, requete]);
 
   // Tri, recherche, catégorie, filière, pays, page : tout changement de la
   // requête serveur rechargé. Le nettoyage invalide la requête en vol (montage
@@ -201,42 +188,21 @@ function OffresContenu() {
     };
   }, [charger]);
 
-  const bassin = resultat?.mode === "bassin" ? resultat.bassin : BASSIN_VIDE;
+  const cartesServeur = resultat?.cartes ?? CARTES_VIDES;
 
   /** Échéance recalculée une seule fois par offre (parse + jours restants). */
-  const echeances = useMemo(() => calculerEcheances(bassin), [bassin]);
+  const echeances = useMemo(() => calculerEcheances(cartesServeur), [cartesServeur]);
 
-  const { liste: filtrees, nbExpirees } = useMemo(
+  const { nbExpirees } = useMemo(
     () =>
       filtrerEtTrier(echeances, motsCles, {
         filiere: facettes.filiere,
         pays: facettes.pays,
-        financement: facettes.financement,
-        cloture30: facettes.cloture30,
         expirees: facettes.expirees,
         tri: facettes.tri,
       }),
-    [
-      echeances,
-      motsCles,
-      facettes.filiere,
-      facettes.pays,
-      facettes.financement,
-      facettes.cloture30,
-      facettes.expirees,
-      facettes.tri,
-    ]
+    [echeances, motsCles, facettes.filiere, facettes.pays, facettes.expirees, facettes.tri]
   );
-
-  /** Résultat paginé par l'API (null en mode bassin). */
-  const pageApi = resultat?.mode === "api" ? resultat : null;
-
-  // Mode bassin : total connu, découpage local (comportement historique).
-  const totalPages = Math.max(1, Math.ceil(filtrees.length / OFFRES_PAR_PAGE));
-  const pageLocale = Math.min(facettes.page, totalPages);
-  const cartesLocales = filtrees
-    .slice((pageLocale - 1) * OFFRES_PAR_PAGE, pageLocale * OFFRES_PAR_PAGE)
-    .map((e) => e.offre);
 
   /**
    * Recherche en cours de frappe (l'URL n'a pas encore suivi, 300 ms) : on
@@ -250,29 +216,24 @@ function OffresContenu() {
     return normaliserRecherche(motsCles).toLowerCase();
   }, [motsCles, facettes.recherche]);
 
-  const cartesApi = useMemo(() => {
-    if (!pageApi) return [];
-    if (!qFrappe) return pageApi.cartes;
-    return pageApi.cartes.filter((offre) =>
+  const cartes = useMemo(() => {
+    if (!resultat) return CARTES_VIDES;
+    if (!qFrappe) return resultat.cartes;
+    return resultat.cartes.filter((offre) =>
       `${offre.titre} ${offre.entreprise} ${offre.pays_etudes ?? ""}`
         .toLowerCase()
         .includes(qFrappe)
     );
-  }, [pageApi, qFrappe]);
+  }, [resultat, qFrappe]);
 
-  // Vue unique : mêmes noms pour les deux modes, le rendu ne sait pas d'où ça vient.
-  const cartes = pageApi ? cartesApi : cartesLocales;
-  const pageAffichee = pageApi ? facettes.page : pageLocale;
-  const aSuivante = pageApi ? pageApi.aSuivante : pageLocale < totalPages;
-  /** `null` = total inconnu (l'API ne le fournit pas) — jamais reconstitué. */
-  const totalConnu = pageApi ? null : filtrees.length;
+  const pageAffichee = facettes.page;
+  const aSuivante = resultat?.aSuivante ?? false;
 
   // Les données en main sont-elles celles de la page demandée ? Un changement de
   // PAGE montre le squelette (pas de cartes d'une autre page sous une URL qui
   // dit « page 2 ») ; un changement de FILTRE garde la liste en place — même
   // page, pas de clignotement pendant la frappe.
-  const pretPourLaPage =
-    resultat !== null && (resultat.mode === "bassin" || resultat.page === facettes.page);
+  const pretPourLaPage = resultat !== null && resultat.page === facettes.page;
 
   // V2-06 : jalon « première carte à l'écran ». L'effet tourne après le commit
   // (donc après la peinture des cartes) ; le `ref` garantit une marque unique.
@@ -282,15 +243,18 @@ function OffresContenu() {
     jalonPremierRenduCartes();
   }, [cartes.length]);
 
-  // Un filtre actif (catégorie, recherche, filière, pays — tous côté serveur —
-  // ou une recherche en cours de frappe) qui ne renvoie rien : le message
-  // « aucune offre publiée » serait faux — on propose d'élargir. La frappe
-  // compte : pendant les 300 ms de debounce, elle raffine déjà la page.
+  // Un filtre actif (catégorie, recherche, filière, pays, financement, fenêtre
+  // 30 j — tous côté serveur — ou une recherche en cours de frappe) qui ne
+  // renvoie rien : le message « aucune offre publiée » serait faux — on propose
+  // d'élargir. La frappe compte : pendant les 300 ms de debounce, elle raffine
+  // déjà la page.
   const filtreActif =
     facettes.categorie !== TOUTES_CATEGORIES ||
     facettes.recherche !== "" ||
     facettes.filiere !== AUCUN_FILTRE ||
     facettes.pays !== AUCUN_FILTRE ||
+    facettes.financement !== AUCUN_FILTRE ||
+    facettes.cloture30 ||
     qFrappe !== "";
 
   const reinitialiserFiltres = useCallback(() => {
@@ -322,13 +286,14 @@ function OffresContenu() {
   // Page demandée au-delà de la fin du catalogue (`?page=99` fabriqué) : l'API
   // renvoie une liste vide et la sonde est muette — la page n'existe pas. On le
   // dit et on propose de reculer, sans réécrire l'URL dans le dos de l'élève.
-  // On teste la page SERVEUR (`pageApi.cartes`), pas les cartes raffinées par la
-  // frappe : une recherche en cours peut vider l'affichage sans que la page
+  // On teste la page SERVEUR (`resultat.cartes`), pas les cartes raffinées par
+  // la frappe : une recherche en cours peut vider l'affichage sans que la page
   // n'existe pas.
-  const pageHorsCatalogue = pageApi !== null && pageApi.cartes.length === 0 && facettes.page > 1;
+  const pageHorsCatalogue =
+    resultat !== null && resultat.cartes.length === 0 && facettes.page > 1;
 
   // Catalogue réellement vide (aucun filtre) vs filtres trop étroits.
-  const catalogueVide = !filtreActif && (pageApi !== null || bassin.length === 0);
+  const catalogueVide = !filtreActif && resultat !== null;
 
   return (
     <Chrome>
@@ -369,7 +334,7 @@ function OffresContenu() {
 
         <BandeauResultats
           nbAffichees={cartes.length}
-          total={totalConnu}
+          total={null}
           page={pageAffichee}
           aSuivante={aSuivante}
           nbExpirees={nbExpirees}
@@ -383,7 +348,6 @@ function OffresContenu() {
             page={facettes.page}
             pageHorsCatalogue={pageHorsCatalogue}
             catalogueVide={catalogueVide}
-            aDesOffres={bassin.length > 0}
             filtreActif={filtreActif}
             onAllerPage={(p) => ecrire({ page: p }, "frappe")}
             onReinitialiser={reinitialiserFiltres}
@@ -401,11 +365,10 @@ function OffresContenu() {
             </div>
             {/* Pagination = réécriture silencieuse : pas d'entrée d'historique
                 par page (même contrat que la frappe, cf. cleFiltres).
-                `totalPages` n'est fourni QUE si le total est connu : sinon le
-                composant affiche « Précédent · Page N · Suivant ». */}
+                Aucun `totalPages` : l'API ne fournit pas de total, le composant
+                affiche « Précédent · Page N · Suivant ». */}
             <PaginationOffres
               page={pageAffichee}
-              totalPages={pageApi ? undefined : totalPages}
               aSuivante={aSuivante}
               onPage={(p) => ecrire({ page: p }, "frappe")}
             />
