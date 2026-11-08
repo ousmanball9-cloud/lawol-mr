@@ -152,3 +152,31 @@ regulier reconstruit le document. La garde appartient a `save`, pas a un script.
   `urgent` -- visible mais rare, c'est le fait brut.
 - **Prochain lot** : V5-A (dettes) ou V5-D ; V4-E/V4-F restent BLOQUES par la
   source `mesrs` (0 ligne). Ne pas ouvrir un lot sans `-Snap` KPI.
+
+---
+
+## V5-A livre (09/11/2026) — commit `c87fed3`, branche `dettes/v5a-filtres-serveur`
+
+| Livrable | Preuve |
+|---|---|
+| `GET /api/v1/offres` accepte `financement` (enum) + `cloture30` (`date_limite ≤ today+29`) | `py_compile` OK · `ruff` 0 |
+| `chargerBassin` / `BATCH` / `MAX_OFFSET` / `modeBassin` **supprimes** : 1 requete de 13 lignes par page | `tsc` 0 · `eslint` 0 · `vitest` **238/238** |
+| Test `__tests__/offres/parametres-requete.test.ts` (4 cas) | 4/4 |
+| Code mort orphelin retire : pagination « numeros de pages » (mode bassin seul) + prop `aDesOffres` | `tsc`/`eslint` verts |
+
+**Gain structurel, pas encore prouve en live** : avant, `financement` ou « cloture < 30 j »
+chargeait le catalogue par lots de 500 (`MAX_OFFSET` 5 000) ; maintenant 1 requete de 13
+lignes. Aucune mesure live tant que `main` n'est pas deploye (`main` = `6fa511c`).
+
+---
+
+## Note de reprise (09/11/2026) - arret propre
+
+- **Livre, commite, NON deploye** : V5-A (`c87fed3`, branche `dettes/v5a-filtres-serveur`).
+- **Rangement utilisateur** : commite a part (`chore/rangement-2026-11-08`, 34 fichiers) ;
+  `archive/2026-11-08-new-site-prototype/` (~46 Mo) volontairement **hors versionnement**.
+- **Preuve a faire apres merge** : `node apps/web/scripts/verify-etats-offres.mjs
+  https://lawol-mr.vercel.app` + un filtre `financement` dans le reseau (1 requete, 13 lignes).
+- **Prochain lot** : V5-D (matching, 1 h) ou V5-B (TTFB froid). V4-E/V4-F toujours bloques (`mesrs` = 0 ligne).
+- **Piege** : un index git deja rempli par une autre mission a produit un commit mixte — verifier
+  `git status` avant `git add`, ou committer par pathspec explicite.
