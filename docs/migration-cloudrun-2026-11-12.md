@@ -1,5 +1,11 @@
 # Migration de l'API Railway → Cloud Run (préparée le 12/11/2026)
 
+## Route retenue (12/11/2026) : Render
+
+Cloud Run est **impossible** : la Mauritanie ne figure pas dans les pays de facturation Google Cloud.
+Décision : **Render, plan gratuit** (blueprint `render.yaml`, script `scripts/deploy-render.ps1`) ; ce runbook Cloud Run reste comme trace.
+Prérequis utilisateur : 1) compte Render créé avec GitHub et dépôt `lawol-mr` autorisé ; 2) clé API Render (`Account Settings → API Keys`) ; 3) `setx RENDER_API_KEY "rnd_..."` puis **nouveau terminal**.
+
 > État : **tout est prêt, rien n'est déployé**. L'API de production est hors service
 > depuis que l'essai Railway est terminé (`Application not found` sur tous les chemins).
 > Le contenu de la base n'est pas concerné : Supabase répond, les données sont intactes.
