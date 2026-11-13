@@ -61,7 +61,7 @@ Charte : « Nuit d'Indigo » (voir skill `design-system`) — zéro noir, tokens
 - Frontend : Chrome (header/footer) = `components/chrome/` ; menu mobile
   (`mobile-menu.tsx`) + cloche notifications (`notifications-cloche.tsx`) rendent
   `null` sans session (cookie `lawol_token`, helper `lib/session.ts`).
-- Prod : Vercel (front) + Railway (API) — vars `SESSION_SECRET`, `SMTP_*`,
+- Prod : Vercel (front) + Render (API, service `lawol-api`) — vars `SESSION_SECRET`, `SMTP_*`,
   `APP_ENV` à définir dans les dashboards (jamais committées).
 
 ## Identité (immuable — ne jamais inventer d'URL)
@@ -69,4 +69,6 @@ Charte : « Nuit d'Indigo » (voir skill `design-system`) — zéro noir, tokens
 - Site public : `https://lawol-mr.vercel.app` (projet Vercel `lawol-mr`).
 - **PAS de nom de domaine actif** : ne JAMAIS présenter `lawol.mr` comme URL
   fonctionnelle (DNS public = NXDOMAIN ; ne résout qu'en IP privée locale).
-- API : `https://lawol-mr-production.up.railway.app`.
+- API : `https://lawol-api.onrender.com` (Render, service `srv-dbr2mglbedkc738p2nb0`,
+  plan free — cold start possible après 15 min d'inactivité ; runbook
+  `docs/migration-render-2026-11-12.md`). L'URL Railway est **morte**.

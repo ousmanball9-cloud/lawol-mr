@@ -1,3 +1,7 @@
+> **ARCHIVÉ — voir `docs/migration-render-2026-11-12.md`.** Cloud Run a été écarté
+> (Mauritanie hors pays de facturation Google Cloud) : l'API tourne sur Render,
+> `https://lawol-api.onrender.com`. Ce document reste comme trace de la préparation.
+
 # Migration de l'API Railway → Cloud Run (préparée le 12/11/2026)
 
 ## Route retenue (12/11/2026) : Render
