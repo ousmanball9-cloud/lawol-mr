@@ -200,7 +200,8 @@ try {
           topDescription: top('[data-probe="detail-description"]'),
           criteresAvantFaits: !!(criteres && faits &&
             (criteres.compareDocumentPosition(faits) & Node.DOCUMENT_POSITION_FOLLOWING)),
-          nbFaits: lignes.length,
+          nbEliminants: criteres ? criteres.querySelectorAll("dd").length : 0,
+          nbFaits: faits ? faits.querySelectorAll("dd").length : 0,
           vides: lignes.filter((d) => d.textContent.trim() === "").length,
           nonCommunique: lignes.filter((d) => /non communiqué/i.test(d.textContent)).length,
           noir: lignes.some((d) => getComputedStyle(d).color === "rgb(0, 0, 0)"),
@@ -229,7 +230,16 @@ try {
         fiche.topDossier < fiche.topDescription,
       { dossier: fiche?.topDossier, description: fiche?.topDescription }
     );
-    noter("fiche — 5 faits affichés (plafond 6)", fiche?.nbFaits === 5, fiche?.nbFaits);
+    // Mesure séparée depuis le 13/11 : `nbFaits` comptait TOUS les <dd> du bloc,
+    // d'où une assertion figée à 5 qui est tombée à 6 quand V4-C a ajouté
+    // « Montant annoncé » (3 éliminants + 2 faits -> 3 + 3). La règle de design
+    // est structurelle : 3 critères éliminants, puis au plus 3 faits.
+    noter("fiche — 3 critères éliminants", fiche?.nbEliminants === 3, fiche?.nbEliminants);
+    noter(
+      "fiche — faits d'information bornés (1 à 3)",
+      fiche?.nbFaits >= 1 && fiche?.nbFaits <= 3,
+      fiche?.nbFaits
+    );
     noter("fiche — aucun fait vide", fiche?.vides === 0, fiche?.vides);
     noter(
       "fiche — un champ absent s'écrit « non communiqué » (regex réellement testée)",

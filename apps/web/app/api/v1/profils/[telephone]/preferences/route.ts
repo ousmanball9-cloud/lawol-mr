@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://lawol-mr-production.up.railway.app";
+import { API_URL } from "@/lib/api-url";
 
 // Proxy GET /api/v1/profils/[telephone]/preferences → API Railway
 // (endpoint GARDÉ : le Bearer injecté par middleware.ts part vers l'API)

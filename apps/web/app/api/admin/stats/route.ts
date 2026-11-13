@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://lawol-mr-production.up.railway.app";
+import { API_URL } from "@/lib/api-url";
 
 // Proxy GET /api/admin/stats → API `/api/v1/admin/stats` (endpoint ADMIN).
 //

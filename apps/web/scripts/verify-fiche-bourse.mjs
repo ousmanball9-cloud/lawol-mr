@@ -17,10 +17,11 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { API_URL } from "../lib/api-url.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BASE = (process.argv[2] || "http://127.0.0.1:3011").replace(/\/$/, "");
-const API = process.env.NEXT_PUBLIC_API_URL || "https://lawol-mr-production.up.railway.app";
+const API = API_URL;
 const OUT_DIR = path.join(__dirname, "..", ".verify-fiche");
 const CDP_PORT = 9331;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

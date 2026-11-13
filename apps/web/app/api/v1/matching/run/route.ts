@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://lawol-mr-production.up.railway.app";
+import { API_URL } from "@/lib/api-url";
 
 // Proxy POST /api/v1/matching/run → API Railway (relance le matching).
 // L'endpoint est GARDÉ côté API (401/403) : le proxy doit donc RELAYER l'identité
