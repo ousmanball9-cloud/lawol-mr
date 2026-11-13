@@ -1,19 +1,36 @@
 ﻿# Preuve des filtres V5-A (financement + cloture30) contre N'IMPORTE QUELLE API.
-# -Base http://127.0.0.1:8011 (local)  |  -Base https://<url-cloudrun> (prod)
+# -Base http://127.0.0.1:8011 (local)  |  -Base https://lawol-api.onrender.com (prod)
+# -Local : demarre l'API locale sur le port 8011 et l'arrete a la fin (mode explicite).
 # Lecture seule : aucune ecriture, aucune suppression.
-# Si 0 moteur fourni, le script demarre l'API locale sur le port 8011 et l'arrete a la fin.
+#
+# Une cible vide n'est JAMAIS remplacee par l'API locale : le 12/11, un
+# `-Base ""` (URL de deploiement vide) a produit un VERT sur l'API de la machine
+# au lieu de la production. Le script echoue donc avant tout appel reseau.
 
 param(
     [string]$Base = "",
     [string]$Port = "8011",
-    [string]$Repo = "D:\opencode\lawol-mr"
+    [string]$Repo = "D:\opencode\lawol-mr",
+    [switch]$Local
 )
 
 $ErrorActionPreference = "Stop"
 $proc = $null
 
+if ($Local -and -not [string]::IsNullOrWhiteSpace($Base)) {
+    "KO - -Local et -Base sont exclusifs : choisir une seule cible."
+    exit 2
+}
+if (-not $Local -and [string]::IsNullOrWhiteSpace($Base)) {
+    "KO - -Base vide : la preuve exige une cible explicite."
+    "     prod  : -Base https://lawol-api.onrender.com"
+    "     local : -Local (demarre uvicorn sur le port $Port) ou -Base http://127.0.0.1:$Port"
+    "Aucune cible implicite : une URL vide ne doit jamais valider une autre API que celle demandee."
+    exit 2
+}
+
 try {
-    if (-not $Base) {
+    if ($Local) {
         $Base = "http://127.0.0.1:$Port"
         $proc = Start-Process -FilePath "python" `
             -ArgumentList "-m","uvicorn","apps.api.app.main:app","--host","127.0.0.1","--port","$Port","--log-level","warning" `
@@ -25,6 +42,7 @@ try {
         }
         if (-not $pret) { "KO - l'API locale ne demarre pas"; exit 1 }
     }
+    $Base = $Base.Trim()
     $Base = $Base.TrimEnd("/")
     "Cible : $Base"
 
@@ -61,6 +79,11 @@ try {
         ($deux.Count -le [Math]::Min($fin.Count, $clot.Count))
     "6) VERDICT : " + $(if ($ok) { "VERT" } else { "ROUGE" })
     exit $(if ($ok) { 0 } else { 1 })
+}
+catch {
+    # Toute erreur reseau/parsing est un KO : jamais un exit 0 silencieux.
+    "KO - preuve interrompue : $($_.Exception.Message)"
+    exit 1
 }
 finally {
     if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
