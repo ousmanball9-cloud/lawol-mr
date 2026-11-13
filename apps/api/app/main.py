@@ -45,6 +45,7 @@ from apps.api.app.modules.shared.models import (
 from apps.api.app.modules.whatsapp.webhook import router as whatsapp_router
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 
 @asynccontextmanager
@@ -115,6 +116,27 @@ async def health():
         "database": "ok" if db_ok else "error",
         "env": settings.APP_ENV,
     }
+
+
+@app.get("/health/ready")
+async def health_ready():
+    """Readiness RÉEL — 200 seulement si la base répond, 503 sinon.
+
+    Pourquoi à côté de `/health` (mesure du 13/11/2026) : `/health` répond **200
+    même quand Supabase est en erreur** (le corps dit `database: "error"`, le
+    statut reste 200), donc un health-check branché dessus est un faux vert.
+    `/health` est laissé INCHANGÉ au caractère près (Render pointe dessus) ; la
+    vérité est exposée ici, en additif : 200 = la base répond, 503 = elle ne
+    répond pas. Un probe ne doit jamais lever : toute panne devient un 503.
+    """
+    try:
+        supabase.table("offres").select("id").limit(1).execute()
+    except Exception as e:  # noqa: BLE001 — un probe ne doit jamais lever
+        print(f"⚠️ Readiness : Supabase inaccessible: {e}")
+        return JSONResponse(
+            status_code=503, content={"status": "not_ready", "database": "error"}
+        )
+    return {"status": "ready", "database": "ok"}
 
 
 # PostgREST lit `,` `(` `)` `*` comme la syntaxe de son filtre `or` : un `q` brut
