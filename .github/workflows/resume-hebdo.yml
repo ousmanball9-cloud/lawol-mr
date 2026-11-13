@@ -30,7 +30,7 @@ jobs:
           JETON: ${{ secrets.SCRAPER_TOKEN }}
         run: |
           code=$(curl -s -o /tmp/reponse.txt -w "%{http_code}" \
-            -X POST "https://lawol-mr-production.up.railway.app/api/v1/notifications/resume-hebdo?appliquer=true" \
+            -X POST "https://lawol-api.onrender.com/api/v1/notifications/resume-hebdo?appliquer=true" \
             -H "x-admin-token: $JETON" \
             --max-time 300)
           echo "HTTP $code"
