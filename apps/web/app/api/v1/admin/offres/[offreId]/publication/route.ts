@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://lawol-mr-production.up.railway.app";
+import { API_URL } from "@/lib/api-url";
 
 // Proxy PATCH /api/v1/admin/offres/[offreId]/publication → API Railway
 // (endpoint ADMIN : le cookie lawol_admin ou token est transmis)

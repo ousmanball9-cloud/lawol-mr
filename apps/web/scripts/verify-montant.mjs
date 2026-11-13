@@ -35,9 +35,10 @@ import { existsSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { API_URL } from "../lib/api-url.ts";
 
 const BASE = (process.argv[2] ?? "https://lawol-mr.vercel.app").replace(/\/$/, "");
-const API = (process.argv[3] ?? process.env.NEXT_PUBLIC_API_URL ?? "https://lawol-mr-production.up.railway.app").replace(/\/$/, "");
+const API = (process.argv[3] ?? API_URL).replace(/\/$/, "");
 const LARGEUR = 390;
 const HAUTEUR = 844;
 const HAUTEUR_MAX_CARTE = 210;

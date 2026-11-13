@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://lawol-mr-production.up.railway.app";
+import { API_URL } from "@/lib/api-url";
 
 // Proxy POST /api/v1/visites → API Railway
 // (endpoint PUBLIC best effort : {chemin} → 201 {ok: true}, jamais 500 côté API).

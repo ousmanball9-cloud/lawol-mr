@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://lawol-mr-production.up.railway.app";
+import { API_URL } from "@/lib/api-url";
 
 // Proxy PUT /api/v1/admin/parametres → API Railway
 // (endpoint ADMIN : l'authentification admin est RELAYÉE telle quelle —

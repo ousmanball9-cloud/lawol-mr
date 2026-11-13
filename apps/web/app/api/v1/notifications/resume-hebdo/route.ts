@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://lawol-mr-production.up.railway.app";
+import { API_URL } from "@/lib/api-url";
 
 // Proxy POST /api/v1/notifications/resume-hebdo → API Railway.
 // Règle locale (LAWOL.mr) : tout endpoint `/api/v1/*` du backend a sa route

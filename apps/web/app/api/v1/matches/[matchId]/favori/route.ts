@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://lawol-mr-production.up.railway.app";
+import { API_URL } from "@/lib/api-url";
 
 // Proxy PATCH /api/v1/matches/[matchId]/favori → API Railway
 export async function PATCH(request: Request, { params }: { params: Promise<{ matchId: string }> }) {

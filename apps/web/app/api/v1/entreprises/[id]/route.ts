@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://lawol-mr-production.up.railway.app";
+import { API_URL } from "@/lib/api-url";
 
 // Proxy GET /api/v1/entreprises/[id] → API publique (fiche complète + offres actives)
 export const dynamic = "force-dynamic";
