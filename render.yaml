@@ -1,0 +1,50 @@
+# Render Blueprint — API LAWOL.mr (plan gratuit, sans carte bancaire).
+# Reference declarative : le deploiement automatise passe par scripts/deploy-render.ps1,
+# qui cree le service, pousse les variables depuis .env et lance le build.
+# Les valeurs `sync: false` ne sont JAMAIS dans le depot : elles sont saisies
+# dans le dashboard Render (ou poussees par le script).
+
+services:
+  - type: web
+    name: lawol-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: main
+    healthCheckPath: /health
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: PYTHONPATH
+        value: /app
+      - key: PYTHONUTF8
+        value: "1"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: ADMIN_PASSWORD_HASH
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: EMAIL_FROM_NAME
+        sync: false
