@@ -1,4 +1,33 @@
-# Render Blueprint — API LAWOL.mr (plan gratuit, sans carte bancaire).
+# =============================================================================
+# NE PAS APPLIQUER CE BLUEPRINT — RISQUE DE DOUBLON DE SERVICE RENDER.
+# =============================================================================
+#
+# Le service de production `lawol-api` EXISTE DEJA. Il a ete cree par
+# scripts/deploy-render.ps1 (API Render), pas par ce fichier :
+#
+#   id        : srv-dbr2mglbedkc738p2nb0
+#   nom       : lawol-api
+#   workspace : Lawol
+#   plan      : free
+#   region    : frankfurt
+#   URL       : https://lawol-api.onrender.com
+#
+# Appliquer ce blueprint depuis le dashboard (New > Blueprint) creerait un
+# SECOND service portant le meme nom `lawol-api`, avec deux consequences :
+#
+#   1. Deux services sur les 750 h/mois partagees du plan free, soit ~375 h
+#      chacun : mises en veille et coupures de service accrues sur la prod.
+#   2. Le `healthCheckPath: /health` declare ici pointerait sur le nouveau
+#      venu, pas sur l'instance qui sert reellement le front Vercel.
+#
+# Ce fichier est conserve UNIQUEMENT comme reference declarative de la
+# configuration attendue (runtime Docker, region, health check, variables).
+# La source de verite est scripts/deploy-render.ps1 + le dashboard Render.
+#
+# Blueprint applique par erreur ? Ne pas improviser :
+# docs/migration-render-2026-11-12.md, section 8.
+#
+# -----------------------------------------------------------------------------
 # Reference declarative : le deploiement automatise passe par scripts/deploy-render.ps1,
 # qui cree le service, pousse les variables depuis .env et lance le build.
 # Les valeurs `sync: false` ne sont JAMAIS dans le depot : elles sont saisies

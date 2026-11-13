@@ -115,3 +115,48 @@ Select-String -Path .github\workflows\*.yml,AGENTS.md,docs\prd.md -Pattern "up\.
 # les 2 workflows doivent parser
 python -c "import yaml,glob;[yaml.safe_load(open(f,encoding='utf-8')) for f in glob.glob('.github/workflows/*.yml')];print('YAML OK')"
 ```
+
+## 8. `render.yaml` n'est pas un blueprint à appliquer
+
+Le service de production a été créé par `scripts/deploy-render.ps1` (API Render),
+**pas** par `render.yaml`. Le fichier reste au dépôt comme **référence déclarative**
+de la configuration attendue (runtime Docker, contexte `.`, région `frankfurt`,
+`healthCheckPath: /health`, liste des variables dont les `sync: false`), mais il ne
+doit **jamais** être appliqué depuis le dashboard (*New → Blueprint*).
+
+Raison chiffrée : le plan free accorde **750 h/mois partagées** sur le workspace
+Lawol. Un second service `lawol-api` les couperait en deux (~375 h chacun), donc
+plus de mises en veille et de coupures sur la prod ; et le `healthCheckPath` du
+blueprint désignerait le nouveau venu, pas l'instance qui sert réellement le front.
+L'en-tête de `render.yaml` porte cet avertissement : ne pas le supprimer.
+
+### Si le blueprint a été appliqué par erreur
+
+1. **Identifier le doublon par son id, jamais par son nom** — les deux services
+   s'appellent `lawol-api`. Le service à **conserver** est
+   `srv-dbr2mglbedkc738p2nb0` (workspace Lawol, plan free, `frankfurt`, branche
+   `main`, `autoDeploy: true`). Tout autre service portant ce nom est le doublon
+   créé par le blueprint.
+2. **Supprimer le doublon** : dashboard Render → ce service → *Settings* → bas de
+   page → *Delete Web Service*. Vérifier après suppression qu'il ne reste **qu'un
+   seul** service `lawol-api`, et que son id est bien `srv-dbr2mglbedkc738p2nb0`.
+   (Le doublon reçoit une URL suffixée — `lawol-api-xxxx.onrender.com` — puisque
+   `lawol-api.onrender.com` est déjà pris : le front n'a donc pas basculé, c'est
+   le budget d'heures et le health check qui étaient en jeu.)
+3. **Vérifier que Vercel pointe toujours la bonne API** : projet Vercel `lawol-mr`
+   → *Settings → Environment Variables* → `NEXT_PUBLIC_API_URL` doit valoir
+   `https://lawol-api.onrender.com` (aucun suffixe, aucun autre hôte). Un
+   redéploiement Vercel est nécessaire si la valeur a été changée.
+4. **Prouver que la prod est saine** :
+
+   ```powershell
+   powershell -File scripts\preuve-api.ps1 -Base https://lawol-api.onrender.com
+   node apps/web/scripts/verify-live-public.mjs https://lawol-mr.vercel.app
+   ```
+
+   Le premier doit être **VERT** (penser au cold start : 30 à 90 s de réveil, donc
+   relancer une fois avant de conclure à une panne — §4) ; le second doit rendre
+   12 cartes, 0 emploi, 12 aperçus et 0 erreur console.
+5. **Tracer** l'incident (date, comment le blueprint a été appliqué, id du doublon
+   supprimé) dans `decision-log.md` : sans trace, l'avertissement en tête de
+   `render.yaml` finira par être ignoré à nouveau.
