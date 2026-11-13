@@ -40,9 +40,10 @@ jobs:
           echo "Secret présent (longueur ${#JETON})"
 
       # 3 tentatives sur erreur TRANSITOIRE (5xx / reseau) : un redemarrage
-      # Railway renvoie 502 quelques dizaines de secondes (mesure du
-      # 27/10/2026 : run manuel tombe en 502 pendant le redeploiement) — une
-      # panne de 30 s ne doit pas faire perdre une collecte complete.
+      # renvoie 502 quelques dizaines de secondes (mesure du 27/10/2026 sur
+      # Railway : run manuel tombe en 502 pendant le redeploiement) et le plan
+      # free Render met le service en veille — le reveil peut depasser 60 s.
+      # Une panne de 30 s ne doit pas faire perdre une collecte complete.
       # 401/403 = probleme de secret : aucune tentative supplementaire.
       - name: Déclencher scraper + matching
         env:
@@ -51,7 +52,7 @@ jobs:
           tentative=1
           while [ "$tentative" -le 3 ]; do
             code=$(curl -s -o /tmp/reponse.json -w "%{http_code}" \
-              -X POST "https://lawol-mr-production.up.railway.app/api/v1/scraper/run" \
+              -X POST "https://lawol-api.onrender.com/api/v1/scraper/run" \
               -H "Content-Type: application/json" \
               -H "x-admin-token: $JETON" \
               -d '{"run_matching": true}' \
@@ -138,4 +139,4 @@ jobs:
       - name: Rappel en cas d'échec
         if: failure()
         run: |
-          echo "::error::Collecte EN ECHEC — les nouvelles bourses ne seront pas publiees. Verifier : 1) le secret SCRAPER_TOKEN (onglet SECRETS), 2) l'API Railway (log du deploiement), 3) les logs de ce run."
+          echo "::error::Collecte EN ECHEC — les nouvelles bourses ne seront pas publiees. Verifier : 1) le secret SCRAPER_TOKEN (onglet SECRETS), 2) l'API Render (log du deploiement, service `lawol-api`), 3) les logs de ce run."
