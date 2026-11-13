@@ -15,7 +15,7 @@ LAWOL se positionne comme une plateforme bourses/stages 100 % dédiée aux étud
 
 - **Stack** : FastAPI + Supabase (Postgres + Storage) · Next 15 App Router + React 19
 - **URL publique** : `https://lawol-mr.vercel.app` (Vercel)
-- **API** : `https://lawol-mr-production.up.railway.app` (Railway)
+- **API** : `https://lawol-api.onrender.com` (Render, plan free)
 - **Charte** : « Nuit d'Indigo » — zéro noir, tokens existants uniquement
 - **Règle métier clé** : catalogue 100 % bourses. Une source d'emploi ne produit jamais `bourse` → `emploi_junior` ou `stage_pfe`.
 - **Canal email** : opérationnel depuis plusieurs jours (P2 validé dans les faits)

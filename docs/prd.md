@@ -69,7 +69,7 @@ Un match existe si :
 | Composant | Technologie | URL | État |
 |---|---|---|---|
 | Frontend | Next.js 15 + Tailwind | https://lawol-mr.vercel.app | ✅ |
-| API | FastAPI + Pydantic | https://lawol-mr-production.up.railway.app | ✅ |
+| API | FastAPI + Pydantic | https://lawol-api.onrender.com | ✅ |
 | Base de données | Supabase (PostgreSQL) | — | ✅ |
 | Bot WhatsApp | Meta Cloud API | — | ⏸️ bloqué (vérification) |
 | Scraper | beta.mr | — | ✅ |
