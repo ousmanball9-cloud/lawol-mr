@@ -40,6 +40,16 @@ RACINE = Path(__file__).resolve().parents[1]  # lawol-mr
 sys.path.insert(0, str(RACINE))
 os.environ.setdefault("SESSION_SECRET", "session-de-test-bidon-" + "x" * 32)
 
+# Console Windows (cp1252) : sans cela, le harnais plante en UnicodeEncodeError
+# au moment MEME ou il affiche un echec (les libelles contiennent « → ») — donc
+# il ne peut jamais rendre son verdict quand il en a le plus besoin (mesure du
+# 13/11/2026, meme defaut que scripts/test-health-ready.py).
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:  # noqa: BLE001 — un harnais ne doit jamais echouer sur son affichage
+    pass
+
 # ----------------------- Faux Supabase (zéro réseau) --------------------------
 # Aucune requête ne doit être émise : sur refus la logique n'est jamais atteinte,
 # et sur acceptation les jobs sont remplacés par des compteurs.
@@ -378,6 +388,26 @@ for nom, _ in ROUTES:
         "pas de paramètre Request",
     )
 
+# `GET /api/v1/scraper/sources` (ajouté le 13/11/2026 pour que le cron collecte
+# source par source) : même invariant que les routes de maintenance — la garde
+# est la PREMIÈRE instruction. Lecture seule, mais la liste des sources n'est
+# pas une donnée publique : sans garde, n'importe qui lirait le catalogue.
+_fonction_sources = fonctions.get("liste_sources_scraper")
+_corps_sources = [
+    n
+    for n in (getattr(_fonction_sources, "body", []) or [])
+    if not (isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant))
+]
+_premiere_sources = _corps_sources[0] if _corps_sources else None
+check(
+    "liste_sources_scraper() appelle _admin_autorise(request) en PREMIÈRE instruction",
+    isinstance(_premiere_sources, ast.Expr)
+    and isinstance(_premiere_sources.value, ast.Call)
+    and isinstance(_premiere_sources.value.func, ast.Name)
+    and _premiere_sources.value.func.id == "_admin_autorise",
+    ast.dump(_premiere_sources) if _premiere_sources else "fonction absente",
+)
+
 source_login = (
     RACINE / "apps" / "web" / "app" / "api" / "admin" / "login" / "route.ts"
 ).read_text(encoding="utf-8")
@@ -402,13 +432,29 @@ workflow = (RACINE / ".github" / "workflows" / "scraper-cron.yml").read_text(
 # devenu rouge quand le workflow a été durci (jeton passé par `env: JETON`,
 # contrôle de présence + discrimination 401/403 — un vrai progrès, pas une
 # régression). Un harnais qui fige la forme casse à chaque amélioration.
-_envoi = re.search(r"x-admin-token:\s*\$([A-Za-z_][A-Za-z0-9_]*)", workflow)
-_variable = _envoi.group(1) if _envoi else ""
+#
+# 13/11/2026, même piège : la collecte est passée en Python (une requête par
+# source, l'appel unique dépassait le délai du proxy Render → 502), donc le
+# header s'écrit `"x-admin-token": JETON` et non `x-admin-token: $JETON`.
+# On vérifie donc la CHAÎNE, indépendamment du langage :
+#   1. une variable d'env reçoit `secrets.SCRAPER_TOKEN` ;
+#   2. cette même variable alimente un header `x-admin-token` (forme shell ou
+#      Python) ;
+#   3. aucun jeton en clair dans le fichier.
+_variable_secret = re.search(
+    r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*\$\{\{\s*secrets\.SCRAPER_TOKEN\s*\}\}",
+    workflow,
+    re.MULTILINE,
+)
+_variable = _variable_secret.group(1) if _variable_secret else ""
+_envoi = re.search(
+    r"x-admin-token[\"']?\s*:\s*(?:\$|\" \+ |f?\"?)" + re.escape(_variable) + r"\b",
+    workflow,
+) if _variable else None
 check(
     "workflow envoie x-admin-token avec un jeton venant de secrets.SCRAPER_TOKEN",
-    bool(_variable)
-    and f"{_variable}: ${{{{ secrets.SCRAPER_TOKEN }}}}" in workflow,
-    f"variable utilisée={_variable!r}",
+    bool(_variable) and bool(_envoi),
+    f"variable liée au secret={_variable!r}, utilisée dans le header={bool(_envoi)}",
 )
 check(
     "workflow ne contient aucun secret en clair",

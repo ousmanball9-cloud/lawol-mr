@@ -3,7 +3,7 @@ name: Scraper Bourses (2x/jour)
 # DEUX passages par jour : 06:17 et 18:17 UTC (= heure de Mauritanie, UTC+0).
 # Pourquoi la minute 17 et pas 00 : GitHub retarde les crons planifies a
 # l'heure pile (mesure du 27/10/2026 : cron 06:00 -> depart reel 11:12, ~5 h).
-# Chaque passage = scraping de TOUTES les sources + matching + notifications.
+# Chaque passage = scraping de TOUTES les sources + matching.
 #
 # DECLENCHEUR PRINCIPAL en production : ce fichier. `scripts/collecte-auto.cmd`
 # et un eventuel `collecte.yml` restent locaux (`.github/` est dans
@@ -17,6 +17,15 @@ name: Scraper Bourses (2x/jour)
 # Ce cron reste utile : il est le chemin NOMINAL, le rattrapage ne doit servir
 # qu'en secours (il ne tourne qu'apres un vrai trou).
 #
+# POURQUOI SOURCE PAR SOURCE (mesure du 13/11/2026) : l'appel unique
+# `POST /api/v1/scraper/run` (16 sources d'affilee) depassait le delai du proxy
+# Render (~110 s) et repondait **502** au bout de 3 tentatives (run 43416879208)
+# alors que la collecte s'executait quand meme cote serveur — le client croyait
+# a un echec, `sante-collecte` voyait 6 sources traitees. Chaque source dure
+# ~30 s : decoupee, chaque appel passe largement sous la limite. La liste des
+# sources vient de `GET /api/v1/scraper/sources` (donc de `catalogue.py`) : une
+# source ajoutee au catalogue est collectee sans toucher a ce fichier.
+#
 # Necessite le secret GitHub SCRAPER_TOKEN (= ADMIN_PASSWORD_HASH).
 # L'echec du job envoie un e-mail GitHub (Settings > Notifications > Actions).
 on:
@@ -27,7 +36,9 @@ on:
 jobs:
   run-scraper:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # 16 sources x (jusqu'a 2 tentatives de 240 s + 60 s d'attente) + matching.
+    # Large expres : un timeout trop court couperait une collecte en cours.
+    timeout-minutes: 40
     steps:
       - name: Vérifier que le secret existe
         env:
@@ -39,38 +50,109 @@ jobs:
           fi
           echo "Secret présent (longueur ${#JETON})"
 
-      # 3 tentatives sur erreur TRANSITOIRE (5xx / reseau) : un redemarrage
-      # renvoie 502 quelques dizaines de secondes (mesure du 27/10/2026 sur
-      # Railway : run manuel tombe en 502 pendant le redeploiement) et le plan
-      # free Render met le service en veille — le reveil peut depasser 60 s.
-      # Une panne de 30 s ne doit pas faire perdre une collecte complete.
-      # 401/403 = probleme de secret : aucune tentative supplementaire.
-      - name: Déclencher scraper + matching
+      # Collecte source par source + matching, puis agrégation dans
+      # /tmp/reponse.json (même forme que l'ancien appel unique, pour que le
+      # contrôle de santé en aval reste inchangé).
+      #
+      # 3 tentatives par appel sur erreur TRANSITOIRE (5xx / réseau) : le plan
+      # free Render met le service en veille, le réveil peut dépasser 60 s et un
+      # redéploiement renvoie 502 quelques dizaines de secondes (mesure 27/10).
+      # 401/403 = problème de secret : aucune tentative supplémentaire.
+      - name: Déclencher scraper (source par source) + matching
         env:
           JETON: ${{ secrets.SCRAPER_TOKEN }}
         run: |
-          tentative=1
-          while [ "$tentative" -le 3 ]; do
-            code=$(curl -s -o /tmp/reponse.json -w "%{http_code}" \
-              -X POST "https://lawol-api.onrender.com/api/v1/scraper/run" \
-              -H "Content-Type: application/json" \
-              -H "x-admin-token: $JETON" \
-              -d '{"run_matching": true}' \
-              --max-time 900) || true
-            echo "Tentative $tentative -> HTTP $code"
-            case "$code" in
-              200) echo "::notice::Collecte + matching déclenchés"; break ;;
-              401) echo "::error::401 = AUCUN jeton reçu (secret vide ou nom différent)"; exit 1 ;;
-              403) echo "::error::403 = jeton reçu mais FAUX (valeur différente de ADMIN_PASSWORD_HASH)"; exit 1 ;;
-              5*|000)
-                if [ "$tentative" -ge 3 ]; then
-                  echo "::error::Échec HTTP $code après 3 tentatives"; head -c 400 /tmp/reponse.json || true; exit 1
-                fi
-                echo "::warning::HTTP $code (transitoire) — nouvelle tentative dans 60 s"
-                tentative=$((tentative + 1)); sleep 60 ;;
-              *) echo "::error::Échec HTTP $code"; head -c 400 /tmp/reponse.json || true; exit 1 ;;
-            esac
-          done
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          BASE = os.environ.get("API_BASE", "https://lawol-api.onrender.com")
+          JETON = os.environ["JETON"]
+          ATTENTE = 60
+
+
+          def appel(chemin, methode="POST", essais=3, timeout=240):
+              """Appelle l'API ; reessaie sur erreur transitoire, jamais sur 401/403."""
+              dernier = None
+              for essai in range(1, essais + 1):
+                  requete = urllib.request.Request(
+                      BASE + chemin,
+                      method=methode,
+                      data=b"" if methode == "POST" else None,
+                      headers={"x-admin-token": JETON,
+                               "Content-Type": "application/json"},
+                  )
+                  try:
+                      with urllib.request.urlopen(requete, timeout=timeout) as rep:
+                          return json.loads(rep.read().decode("utf-8"))
+                  except urllib.error.HTTPError as exc:
+                      corps = exc.read()[:400].decode("utf-8", "replace")
+                      if exc.code in (401, 403):
+                          print(f"::error::{exc.code} = jeton refuse par l'API — {corps}")
+                          sys.exit(1)
+                      dernier = f"HTTP {exc.code} {corps}"
+                  except Exception as exc:  # noqa: BLE001 — reseau, timeout, JSON
+                      dernier = f"{type(exc).__name__}: {exc}"
+                  if essai < essais:
+                      print(f"::warning::{chemin} -> {dernier} (essai {essai}/{essais}), "
+                            f"nouvelle tentative dans {ATTENTE} s")
+                      time.sleep(ATTENTE)
+              raise RuntimeError(f"{chemin} : echec apres {essais} tentatives ({dernier})")
+
+
+          debut = time.time()
+
+          # La liste vient du catalogue serveur : pas de 16 noms recopies ici.
+          sources = appel("/api/v1/scraper/sources", methode="GET",
+                          essais=4, timeout=240)["sources"]
+          print(f"{len(sources)} sources au catalogue")
+
+          details, echecs = [], []
+          for i, source in enumerate(sources, 1):
+              query = urllib.parse.urlencode({"source": source})
+              try:
+                  reponse = appel(f"/api/v1/scraper/run?{query}", essais=2, timeout=240)
+                  details.extend(reponse.get("details") or [])
+                  print(f"[{i:2}/{len(sources)}] {source:<28} ok — "
+                        f"{reponse.get('offres_inserrees', 0)} inseree(s)")
+              except Exception as exc:  # noqa: BLE001 — une source morte ne tue pas le passage
+                  echecs.append(source)
+                  details.append({"source": source, "statut": "erreur",
+                                  "collectees": 0, "inserrees": 0, "erreurs": 1})
+                  print(f"::warning::[{i:2}/{len(sources)}] {source} EN ECHEC — {exc}")
+
+          matching, matching_erreur = None, None
+          try:
+              matching = appel("/api/v1/matching/run", essais=2, timeout=300)
+              print(f"matching : {matching}")
+          except Exception as exc:  # noqa: BLE001 — remonte au controle de sante
+              matching_erreur = str(exc)
+              print(f"::warning::matching en echec — {matching_erreur}")
+
+          payload = {
+              "sources_traitees": len(details),
+              "sources_catalogue": len(sources),
+              "sources_en_echec": echecs,
+              "offres_inserrees": sum(d.get("inserrees") or 0 for d in details),
+              "details": details,
+          }
+          if matching:
+              payload["matching"] = matching
+          if matching_erreur:
+              payload["matching_erreur"] = matching_erreur
+
+          with open("/tmp/reponse.json", "w", encoding="utf-8") as fh:
+              json.dump(payload, fh, ensure_ascii=False, indent=1)
+
+          print(f"total : {payload['sources_traitees']}/{len(sources)} sources, "
+                f"{payload['offres_inserrees']} offres, {len(echecs)} echec(s) "
+                f"en {time.time() - debut:.0f} s")
+          PY
 
       # Sans ce controle, une collecte qui ne ramene RIEN (toutes les sources
       # mortes, parseurs casses) rendait le workflow VERT : panne silencieuse
@@ -88,14 +170,15 @@ jobs:
 
           details = data.get("details") or []
           total = data.get("sources_traitees") or 0
+          attendues = data.get("sources_catalogue") or total
           inserees = data.get("offres_inserrees") or 0
           mortes = [d for d in details if d.get("statut") != "success"]
 
-          lignes = [f"sources traitees : {total}",
+          lignes = [f"sources traitees : {total} / {attendues}",
                     f"offres inserees   : {inserees}",
                     f"sources en erreur : {len(mortes)}"]
           for d in details:
-              lignes.append("  {source:<24} {statut:<8} collectees={collectees} "
+              lignes.append("  {source:<28} {statut:<8} collectees={collectees} "
                             "inserrees={inserrees} erreurs={erreurs}".format(
                                 source=d.get("source", "?"),
                                 statut=d.get("statut", "?"),
@@ -105,6 +188,8 @@ jobs:
           matching = data.get("matching")
           if matching:
               lignes.append(f"matching          : {matching}")
+          if data.get("matching_erreur"):
+              lignes.append(f"matching EN ECHEC : {data['matching_erreur'][:200]}")
           resume = "\n".join(lignes)
           print(resume)
 
@@ -113,6 +198,13 @@ jobs:
 
           if total == 0:
               print("::error::Aucune source traitee — le scraper n'a rien execute")
+              sys.exit(1)
+          if total < attendues:
+              print(f"::error::{attendues - total} source(s) du catalogue non traitee(s) "
+                    f"({total}/{attendues})")
+              sys.exit(1)
+          if data.get("matching_erreur"):
+              print("::error::Le matching n'a pas tourne — les nouveaux matchs ne sont pas crees")
               sys.exit(1)
           ratio = len(mortes) / total
           if ratio >= 0.6:

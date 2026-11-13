@@ -368,6 +368,25 @@ async def create_offre(offre: OffreStageCreate, request: Request):
 
 
 # ---------- Scraper ----------
+@app.get("/api/v1/scraper/sources")
+async def liste_sources_scraper(request: Request):
+    """Noms EXACTS des sources du catalogue (ceux qu'accepte `?source=`).
+
+    Pourquoi (mesure du 13/11/2026) : le cron GitHub appelait la collecte
+    TOUTES sources confondues ; l'appel depassait le delai du proxy Render
+    (~110 s) et repondait **502** alors que la collecte s'executait cote
+    serveur. Le cron collecte desormais source par source ; cette liste evite
+    de recopier 16 noms dans le workflow, ou une source ajoutee au catalogue
+    serait silencieusement oubliee.
+
+    GARDE : tache de maintenance - 401 sans identite, 403 si l'identite est
+    fausse. Pas de proxy Next (comme `/api/v1/scraper/run`) : endpoint appele
+    serveur a serveur par le cron, jamais par un navigateur.
+    """
+    _admin_autorise(request)
+    return {"sources": [s.source_name for s in get_scrapers()]}
+
+
 @app.post("/api/v1/scraper/run")
 async def trigger_scraper(
     request: Request, source: str | None = None, run_matching: bool = False
