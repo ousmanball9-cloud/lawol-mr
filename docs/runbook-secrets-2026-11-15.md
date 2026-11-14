@@ -21,7 +21,7 @@ Dashboard Render -> service `lawol-api` -> *Environment* -> *Add Environment Var
 | `SMTP_USER` | `ousmanball9@gmail.com` | adresse Gmail qui a cree le mot de passe |
 | `SMTP_PASSWORD` | *(16 car., jamais ici)* | secret : saisie clavier uniquement |
 | `EMAIL_FROM` | `ousmanball9@gmail.com` | email valide obligatoire ; = `SMTP_USER` chez Gmail |
-| `EMAIL_FROM_NAME` | `LAWOL.mr` | valeur par defaut si absent |
+| `EMAIL_FROM_NAME` | `LAWOL` | libelle affiche ; PAS `LAWOL.mr` (domaine non achete, NXDOMAIN). Passage a `LAWOL.mr` seulement le jour ou le domaine existe |
 
 Voie API (cle `RENDER_API_KEY` requise) - une cle a la fois :
 ```powershell
@@ -32,7 +32,7 @@ Set-RenderVar "SMTP_HOST" "smtp.gmail.com"
 Set-RenderVar "SMTP_PORT" "587"
 Set-RenderVar "SMTP_USER" "ousmanball9@gmail.com"
 Set-RenderVar "EMAIL_FROM" "ousmanball9@gmail.com"
-Set-RenderVar "EMAIL_FROM_NAME" "LAWOL.mr"
+Set-RenderVar "EMAIL_FROM_NAME" "LAWOL"
 $mdp = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR((Read-Host -AsSecureString "Mot de passe application Gmail")))
 Set-RenderVar "SMTP_PASSWORD" $mdp
 Remove-Variable mdp
