@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   CalendarDays,
   Coins,
+  Globe,
   GraduationCap,
   MapPin,
   ShieldCheck,
@@ -11,6 +12,7 @@ import { FINANCEMENTS_CONNUS } from "./financement";
 import { labelFinancement, labelPays, type Offre } from "./types";
 import { parserDateLimite } from "./date-limite";
 import { formaterMontant } from "@/lib/montant";
+import { libelleOrigine } from "@/lib/origine";
 
 /**
  * Bloc « L'essentiel » de la fiche bourse — 5 faits de décision, avant toute prose.
@@ -90,6 +92,9 @@ export function FicheEssentiel({ offre }: { offre: Offre }) {
   // Montant annoncé (contrat §2.1) : `null` si l'annonce ne chiffre rien.
   const montantTexte = formaterMontant(offre.montant);
 
+  // Éligibilité par origine (contrat §2.2) : `null` = silence, cas majoritaire.
+  const origineTexte = libelleOrigine(offre.origine_eligible);
+
   // Ordre volontaire : ce qui peut éliminer la candidature d'abord.
   const eliminants: Fait[] = [
     {
@@ -144,7 +149,21 @@ export function FicheEssentiel({ offre }: { offre: Offre }) {
       icone: MapPin,
       absent: paysTexte === NON_COMMUNIQUE,
     },
+    {
+      cle: "origine",
+      probe: "essentiel-origine",
+      libelle: "Éligibilité par origine",
+      valeur: origineTexte ?? "",
+      icone: Globe,
+      absent: false,
+    },
   ];
+
+  // Silence = aucune ligne du tout : on ne remplace pas un indice absent par
+  // « Non communiqué » (contrat §2.2 : `inconnu` vaut silence, pas un badge).
+  const faitsAffiches = faits.filter(
+    (fait) => fait.probe !== "essentiel-origine" || Boolean(origineTexte),
+  );
 
   return (
     <section
@@ -165,7 +184,7 @@ export function FicheEssentiel({ offre }: { offre: Offre }) {
       </dl>
 
       <dl data-probe="fiche-essentiel-faits" className="mt-3 grid gap-2 border-t border-border pt-3 sm:grid-cols-3">
-        {faits.map((fait) => (
+        {faitsAffiches.map((fait) => (
           <LigneFait key={fait.cle} fait={fait} />
         ))}
       </dl>

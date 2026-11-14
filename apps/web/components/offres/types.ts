@@ -1,4 +1,5 @@
 import type { Montant } from "@/lib/montant";
+import type { OrigineEligible } from "@/lib/origine";
 
 /** Offre publique — forme renvoyée par GET /api/v1/offres et /api/v1/offres/{id}. */
 export type Offre = {
@@ -26,6 +27,9 @@ export type Offre = {
   /** Montant annoncé (`docs/contrat-metadata-offres.md` §2.1). `null` = silence :
    *  l'API ne sert que la valeur stockée et conforme, jamais une estimation. */
   montant?: Montant | null;
+  /** Indice d'eligibilite par origine (contrat §2.2). `null` = silence : `pays_etudes`
+   *  dit ou l'on etudie, pas qui peut candidater — l'ecran n'en deduit rien. */
+  origine_eligible?: OrigineEligible | null;
   active: boolean;
 };
 
@@ -68,3 +72,4 @@ export {
   estCategorieBourse,
 } from "@/lib/referentiels";
 export type { CategorieBourse, Option } from "@/lib/referentiels";
+export type { IndiceOrigine, PreuveOrigine, OrigineEligible } from "@/lib/origine";

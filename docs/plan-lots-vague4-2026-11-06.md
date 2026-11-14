@@ -190,3 +190,9 @@ lignes. Aucune mesure live tant que `main` n'est pas deploye (`main` = `6fa511c`
 - **Reste** : affichage web (carte -> probe `offre-origine` sans hauteur ajoutee ; fiche -> `essentiel-origine`) ; `--mesure` (couverture reelle) **impossible ce jour** : resolution DNS indisponible, Supabase injoignable.
 - **Piege** : un script de mise en forme ruff a mange 20 guillemets de fin de ligne et l'import `datetime` du harnais ; reparation mecanique (20 lignes) puis ruff 0. Ne jamais lancer de formateur automatique sur un fichier untracked : aucune version saine pour revenir.
 - **Decision** : l'indice est ecrit a la collecte (pas par un backfill seul), et jamais deduit de `pays_etudes` (decision produit 05/11/2026).
+
+### V4-D web (14/11/2026) - meme branche
+
+- **Fait** : `lib/origine.ts` (silence si indice hors contrat ou preuve absente), suffixe compact `offre-origine` dans la ligne pays/categorie de la carte (aucune hauteur ajoutee : meme `<p>`), fait `essentiel-origine` sur la fiche rendu SEULEMENT si l'indice existe, `types.ts` etendu.
+- **Preuve** : `vitest` **253/253** (dont 15 tests dedies : 7 lib + 8 affichage) ; `tsc --noEmit` 0 ; `eslint` 0 sur les 6 fichiers.
+- **Reste** : `--mesure` de couverture (reseau indisponible le 14/11) ; merge vers `main` + deploiement attendus sur accord explicite (autoDeploy Render/Vercel).

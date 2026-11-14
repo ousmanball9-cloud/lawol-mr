@@ -5,6 +5,7 @@ import { FINANCEMENTS_CONNUS, labelFinancementHonteux } from "./financement";
 import { labelCategorieBourse, labelPays } from "./types";
 import { joursRestants, parserDateLimite } from "./date-limite";
 import { formaterMontant } from "@/lib/montant";
+import { libelleOrigine } from "@/lib/origine";
 import type { Offre } from "./types";
 
 /** Seuil « urgent » : sous 7 jours, la pastille passe de l'indigo au surlignage. */
@@ -49,6 +50,9 @@ export function CarteOffre({ offre }: { offre: Offre }) {
   // Montant annoncé (contrat §2.1) : même ligne que le financement pour ne pas
   // ajouter une hauteur de carte (cible ≤ 210 px prouvée par verify-carte-compacte).
   const montantTexte = formaterMontant(offre.montant);
+  // Indice d'origine (contrat §2.2) : SUFFIXE de la ligne « pays · categorie »,
+  // jamais une ligne de plus (cible ≤ 210 px). `null` = silence (cas majoritaire).
+  const origineTexte = libelleOrigine(offre.origine_eligible);
 
   return (
     <Link
@@ -92,6 +96,20 @@ export function CarteOffre({ offre }: { offre: Offre }) {
                 className="min-w-0 truncate font-medium text-signature-deep"
               >
                 {categorie}
+              </span>
+            </>
+          )}
+          {origineTexte && (
+            <>
+              <span aria-hidden="true" className="shrink-0">
+                ·
+              </span>
+              {/* Fait en TEXTE (pas de pastille) : la carte garde un seul badge. */}
+              <span
+                data-probe="offre-origine"
+                className="shrink-0 text-muted-foreground/90"
+              >
+                {origineTexte}
               </span>
             </>
           )}
