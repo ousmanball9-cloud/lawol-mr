@@ -62,3 +62,15 @@
 ## 📝 Historique
 - **2026-10-11** : création (14 risques). **Lot C/D livrés** : #4 corrigé (matching), Lot C codé mais **bloqué par #1** (canal mort).
 - **2026-10-11 (correction)** : vérifié que le **site est EN LIGNE** sur `lawol-mr.vercel.app` (HTTP 200, nouveau chrome). **`lawol.mr` n'a jamais été acheté** (l'utilisateur n'a payé aucun domaine) → ce n'était **pas** un « site mort » mais un nom non acquis. Risque déplacé de « bloqueur » à « limite optionnelle » (#11). Le vrai bloqueur restant = le **canal** (#1).
+
+## MISE A JOUR 2026-11-14 (revue du 14/11, apres bascule d'hebergeur)
+
+| # | Risque | Statut | Criticite | Reponse |
+|---|---|---|---|---|
+| 14 | Hebergeur unique sur plan **free sans SLA** (Render) : reveil 30-90 s apres 15 min d'inactivite, suspension possible | ouvert (accepte) | elevee | Fiche CC-2026-001 (`docs/strategie-entrepreneuriale/maitrise-changement-render.md`) : surveillance `/health/ready`, jamais appliquer `render.yaml` (doublon = 750 h/mois divisees), mesure du reveil en V5-B |
+| 15 | **Credentials SMTP absents depuis le 10/11** : aucune notification ne peut partir, donc aucun seuil de reponse mesurable | ouvert, **date limite lundi 23/11** | elevee | CANAL-E ne demarre pas sans eux ; apres le 23/11, M4 glisse au 14/12 et l'ouverture G1 se fait avec un canal manuel assume (`docs/calendrier-2026-11.md` section 5) |
+| 16 | **Base production sans backup verifiable** : 0 backup constate le 14/10, et depuis le 14/11 le token MCP Supabase est **invalide** (`Invalid access token`) donc plus aucun controle automatique (sante, logs, backups) | ouvert, **aggrave** | elevee | Lot BACKUP (1 h) a planifier ; fournir un nouveau token Supabase, puis re-mesurer le statut reel avant de declarer le risque ferme |
+| 17 | Token MCP Supabase invalide : perte de la capacite de controle (lecture seule) de la base en session | ouvert | moyenne | Renouveler le token cote utilisateur ; en attendant, aucune affirmation sur l'etat de la base ne doit etre presentee comme mesuree |
+
+Correction de perimetre : le risque #6 (base non sauvegardee) reste **ouvert** et n'est plus re-verifiable
+automatiquement - il est repris en #16 avec sa cause.
