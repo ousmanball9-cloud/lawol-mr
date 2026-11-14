@@ -423,3 +423,149 @@ def montant_effectif(offre: dict) -> dict | None:
     if stocke:
         return stocke
     return montant_depuis_texte(_texte_offre(offre))
+
+
+# ------------------------------------------------------------ origine eligible
+# Contrat `docs/contrat-metadata-offres.md` §2.2 (lot V4-D, option b arbitrée) :
+# on ne déclare QUE « compatible ». L'absence de critère publié = SILENCE — on
+# ne déduit JAMAIS un « incompatible » (une offre masquée à tort est un dégât
+# produit), et `pays_etudes` n'est jamais une preuve d'origine : cette colonne
+# dit OÙ l'on étudie, pas QUI peut candidater (décision produit 05/11/2026).
+_RE_OUVERTURE_EXPLICITE = re.compile(
+    r"(open\s+to\s+all\s+(?:nationals?|nationalities|students?|applicants?|candidates?)|"
+    r"all\s+nationalities|all\s+nationals\b|any\s+nationality|"
+    r"regardless\s+of\s+(?:your\s+)?(?:nationality|citizenship)|"
+    r"no\s+(?:nationality|citizenship)\s+restriction|"
+    r"whichever\s+nationality|"
+    r"ouvert[e]?s?\s+[àa]\s+toutes?\s+les\s+nationalit[eé]s|"
+    r"toutes?\s+les\s+nationalit[eé]s\s+sont\s+[eé]ligibles)",
+    re.I,
+)
+# Champ STRUCTURÉ publié par la source. Deux familles, qui n'ont pas le même
+# poids : un champ GÉOGRAPHIQUE (`Eligible Countries`, `Target group`) donne la
+# liste des pays visés — sa valeur décide seule et le silence est définitif ;
+# un champ de PROFIL (`Who can Apply`, `Eligibility`) parle du candidat (âge,
+# diplôme) et le critère d'origine peut suivre dans la prose.
+_RE_CHAMP_ORIGINE = re.compile(
+    r"(?:(?P<geo>eligible\s+countr(?:y|ies)|target\s+group)"
+    r"|(?P<profil>who\s+can\s+apply|eligibility))\s*\??\s*:",
+    re.I,
+)
+# Public explicitement visé. « for international students » est un formulaire
+# marketing présent dans des titres sans critère (relevé le 07/11/2026) : il ne
+# compte pas comme cible, seul « international students » posé comme groupe
+# cible en est une.
+_RE_INCLUSION_ORIGINE = re.compile(
+    r"(?:\bafricans?\b|\bafrique\b|union\s+africaine|african\s+union|"
+    r"sub[\s\-\u2011]?sahar(?:ian|ien)s?|"
+    r"non[\s\-\u2011]*(?:eu|ue|eea|eee|european\s+union)"
+    r"(?:[\s/]*[\-\u2011]?\s*(?:eu|ue|eea|eee))?|"
+    r"non[\s\-\u2011][a-z]{2,}\s+citizens?|"
+    r"(?<!for\s)international\s+students?|"
+    r"eligible\s+countr(?:y|ies))",
+    re.I,
+)
+# Critère FERMÉ : la source publie une restriction d'origine ou de nationalité.
+_RE_EXCLUSIF_ORIGINE = re.compile(
+    r"(restricted\s+to|open\s+only\s+to|only\s+open\s+to|available\s+only\s+to|"
+    r"exclusively\s+(?:for|to)|reserved\s+(?:for|to)|"
+    r"citizens?\s+of\s+(?:the\s+)?(?:following|eligible)|"
+    r"nationals?\s+of\s+(?:the\s+)?(?:following|eligible)|"
+    r"must\s+be\s+(?:a\s+)?(?:citizen|national)\s+of|"
+    r"r[eé]serv[eé]e?\s+aux?|uniquement\s+(?:pour|aux?))",
+    re.I,
+)
+# But / mission d'un programme : « intended to expand access … for 1,400 young
+# Africans » décrit une politique, pas une condition de candidature.
+_RE_BUT_ORIGINE = re.compile(
+    r"(intended\s+to|aims?\s+to|intends?\s+to|seeks?\s+to|designed\s+to|"
+    r"objective\s+is|the\s+goal\s+(?:is|of)|mission\s+is|in\s+order\s+to|"
+    r"so\s+as\s+to|expand\s+access|contribute\s+to|"
+    r"visant\s+[àa]|a\s+pour\s+but|pour\s+objectif|afin\s+de)",
+    re.I,
+)
+
+
+def _phrase(texte: str, position: int, taille: int = 220) -> str:
+    """Phrase qui CONTIENT `position` (fenêtre bornée puis resserrée).
+
+    Une garde (mission, critère fermé) ne vaut que dans la phrase où le critère
+    est énoncé : un mot de mission situé trois phrases plus loin ne doit pas
+    condamner une vraie mention d'origine.
+    """
+    debut = max(0, position - taille)
+    fin = min(len(texte), position + taille)
+    fenetre = texte[debut:fin]
+    centre = position - debut
+    gauche = max(fenetre.rfind(c, 0, centre) for c in ".!?")
+    gauche = 0 if gauche == -1 else gauche + 1
+    droites = [d for d in (fenetre.find(c, centre) for c in ".!?") if d != -1]
+    droite = min(droites) + 1 if droites else len(fenetre)
+    return fenetre[gauche:droite].strip()
+
+
+def _valeur_champ(texte: str, debut: int, taille: int = 200) -> str:
+    """Valeur d'un champ structuré : ce qui suit son label, jusqu'au séparateur."""
+    reste = texte[debut : debut + taille]
+    coupe = len(reste)
+    for separateur in (".", ";", ":"):
+        index = reste.find(separateur)
+        if index != -1:
+            coupe = min(coupe, index)
+    return reste[:coupe].strip()
+
+
+def origine_depuis_texte(texte: str | None) -> dict | None:
+    """Indice d'origine certain lu dans un texte, au format du contrat, ou None.
+
+    Ordre de lecture : le champ structuré de la source est AUTORITAIRE d'abord
+    (`Eligible Countries: …` ferme le sujet), la prose ensuite. Aucun repli de
+    l'un sur l'autre quand le champ est géographique : « Eligible Countries:
+    Denmark » ne doit surtout pas hériter d'un « African » voisin.
+    """
+    if not texte or len(texte.strip()) < 12:
+        return None
+
+    champ = _RE_CHAMP_ORIGINE.search(texte)
+    if champ is not None:
+        valeur = _valeur_champ(texte, champ.end())
+        if _RE_INCLUSION_ORIGINE.search(valeur) or _RE_OUVERTURE_EXPLICITE.search(
+            valeur
+        ):
+            return {"indice": "compatible", "preuve": "source"}
+        if champ.group("geo"):
+            # Liste de pays publiée sans ouverture : critère fermé → silence.
+            return None
+        # Champ de profil : la valeur décrit le candidat, la prose peut décider.
+
+    for motif in (_RE_INCLUSION_ORIGINE, _RE_OUVERTURE_EXPLICITE):
+        for match in motif.finditer(texte):
+            phrase = _phrase(texte, match.start())
+            if _RE_BUT_ORIGINE.search(phrase):  # but/mission ≠ condition
+                continue
+            if _RE_EXCLUSIF_ORIGINE.search(phrase):  # critère fermé → silence
+                continue
+            return {"indice": "compatible", "preuve": "texte"}
+    return None
+
+
+_INDICES_ORIGINE = ("compatible", "incompatible")
+_PREUVES_ORIGINE = ("texte", "source")
+
+
+def origine_stockee(meta) -> dict | None:
+    """`metadata['origine_eligible']` si sa forme respecte le contrat §2.2.
+
+    `inconnu` est un silence, comme une preuve absente ou hors contrat : la clé
+    n'est jamais « réparée » à la lecture (même règle que `montant_stocke`).
+    """
+    if not isinstance(meta, dict):
+        return None
+    stocke = meta.get("origine_eligible")
+    if not isinstance(stocke, dict):
+        return None
+    indice = stocke.get("indice")
+    preuve = stocke.get("preuve")
+    if indice in _INDICES_ORIGINE and preuve in _PREUVES_ORIGINE:
+        return {"indice": indice, "preuve": preuve}
+    return None

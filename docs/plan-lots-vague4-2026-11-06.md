@@ -180,3 +180,13 @@ lignes. Aucune mesure live tant que `main` n'est pas deploye (`main` = `6fa511c`
 - **Prochain lot** : V5-D (matching, 1 h) ou V5-B (TTFB froid). V4-E/V4-F toujours bloques (`mesrs` = 0 ligne).
 - **Piege** : un index git deja rempli par une autre mission a produit un commit mixte — verifier
   `git status` avant `git add`, ou committer par pathspec explicite.
+
+---
+
+## V4-D livre cote API (14/11/2026) - branche `vague4/v4d-origine`
+
+- **Fait** : `origine_depuis_texte` / `origine_stockee` (champ source autoritaire, prose ensuite, jamais `incompatible` par deduction) ; `metadata['origine_eligible']` pose au point d'ecriture unique `BaseScraper.save` depuis `titre + description` ; `OrigineEligible(indice, preuve)` servi depuis la valeur STOCKEE (contrat 2.2).
+- **Preuve** : `ruff check` 0 et `py_compile` 0 sur les 3 fichiers API ; `scripts/test-origine-eligible.py` **33/33** (11 cas reels du catalogue + garde de forme + point d'ecriture + non-deduction `pays_etudes` + **3 gardes neutralisees** qui font tomber le harnais).
+- **Reste** : affichage web (carte -> probe `offre-origine` sans hauteur ajoutee ; fiche -> `essentiel-origine`) ; `--mesure` (couverture reelle) **impossible ce jour** : resolution DNS indisponible, Supabase injoignable.
+- **Piege** : un script de mise en forme ruff a mange 20 guillemets de fin de ligne et l'import `datetime` du harnais ; reparation mecanique (20 lignes) puis ruff 0. Ne jamais lancer de formateur automatique sur un fichier untracked : aucune version saine pour revenir.
+- **Decision** : l'indice est ecrit a la collecte (pas par un backfill seul), et jamais deduit de `pays_etudes` (decision produit 05/11/2026).

@@ -5,7 +5,10 @@ from datetime import datetime, timezone
 from typing import Iterable
 
 from apps.api.app.core.database import supabase
-from apps.api.app.modules.matching.extraction import montant_depuis_texte
+from apps.api.app.modules.matching.extraction import (
+    montant_depuis_texte,
+    origine_depuis_texte,
+)
 from apps.api.app.modules.scraper.engine import (
     CLE_METADATA_CATEGORIE,
     categorie_bourse_pour_source,
@@ -145,6 +148,17 @@ class BaseScraper(ABC):
                 )
                 if montant:
                     metadata["montant"] = montant
+                # ORIGINE (contrat `docs/contrat-metadata-offres.md` §2.2) : même
+                # leçon que le montant — `metadata` est RECONSTRUIT à chaque
+                # upsert, donc un backfill seul serait effacé à la collecte
+                # suivante. Posé ICI, au point d'écriture unique.
+                # Texte = titre + description UNIQUEMENT : `pays_etudes` dit où
+                # l'on étudie, jamais qui peut candidater (décision 05/11/2026).
+                origine = origine_depuis_texte(
+                    f"{o.titre or ''} {o.description or ''}".strip()
+                )
+                if origine:
+                    metadata["origine_eligible"] = origine
                 data["metadata"] = metadata
 
                 # Pays d'études : seulement si non renseigné (jamais d'écrasement)

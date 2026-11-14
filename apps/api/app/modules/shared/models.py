@@ -4,7 +4,7 @@ from typing import Any, Literal, Optional
 from uuid import UUID
 
 import bleach
-from apps.api.app.modules.matching.extraction import montant_stocke
+from apps.api.app.modules.matching.extraction import montant_stocke, origine_stockee
 from apps.api.app.modules.scraper.engine import (
     CategorieBourse,
     categorie_bourse_pour_offre,
@@ -210,6 +210,18 @@ class MontantPublic(BaseModel):
     periode: Literal["mois", "an", "total"]
 
 
+class OrigineEligible(BaseModel):
+    """Indice d'éligibilité par origine — contrat §2.2 (lot V4-D).
+
+    `preuve` = d'où vient l'indice : `source` (champ publié par la source) ou
+    `texte` (phrase du descriptif). Un indice sans preuve n'est pas affichable,
+    et `inconnu` vaut silence (jamais un badge).
+    """
+
+    indice: Literal["compatible", "incompatible"]
+    preuve: Literal["texte", "source"]
+
+
 class OffreStagePublic(BaseModel):
     id: UUID
     titre: str
@@ -236,6 +248,9 @@ class OffreStagePublic(BaseModel):
     categorie_bourse: str = CategorieBourse.INCONNU.value
     # Montant annoncé (contrat metadata §2.1) — None = silence, jamais un 0.
     montant: Optional[MontantPublic] = None
+    # Indice d'origine (contrat metadata §2.2) — None = silence : l'écran
+    # n'affiche que ce que la source publie, jamais une déduction.
+    origine_eligible: Optional[OrigineEligible] = None
 
     @model_validator(mode="before")
     @classmethod
@@ -253,6 +268,22 @@ class OffreStagePublic(BaseModel):
                 # STOCKÉE est servie telle quelle (jamais recalculée ici), et
                 # seulement si sa forme est conforme — sinon `None` = silence.
                 "montant": montant_stocke(data.get("metadata")),
+            }
+        return data
+
+    @model_validator(mode="before")
+    @classmethod
+    def _origine_depuis_metadata(cls, data):
+        """Indice d'origine servi depuis `metadata['origine_eligible']` (§2.2).
+
+        Valeur STOCKÉE telle quelle si sa forme est conforme à `origine_stockee`
+        — jamais recalculée ici depuis la description : la liste ne doit pas
+        changer d'avis selon le texte servi.
+        """
+        if isinstance(data, dict) and "origine_eligible" not in data:
+            return {
+                **data,
+                "origine_eligible": origine_stockee(data.get("metadata")),
             }
         return data
 
