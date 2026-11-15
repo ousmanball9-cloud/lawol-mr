@@ -283,3 +283,78 @@ Bilan : **5 KO → 0 KO**.
 (aucun fichier du Lot A) : le défaut est indépendant, à instruire au Lot D.
 
 **Non fait (volontairement)** : aucun push, aucun déploiement, aucune modification du barème.
+
+---
+
+## 9. Lot A bis — le consentement (15/11/2026, après merge de #3)
+
+Le Lot A mergé, l'émission réelle en production a répondu :
+
+```
+POST /api/v1/notifications/run
+HTTP 200  { "matches_trouves": 10, "notifies": 0, "erreurs": 0, "ignores": 10 }
+```
+
+Le nouveau code était bien déployé (`matches_trouves=10`, l'ancien en aurait vu 5) et
+pourtant **zéro envoi**. Le Lot A était nécessaire mais pas suffisant.
+
+### Cause racine : le consentement n'est jamais lu
+
+| Source de consentement | Écrite par | Lue par | Remplie en prod |
+|---|---|---|---|
+| `profils.optin_texte` | `profils/routes.py:67` (exigée non vide) | personne | **4 / 4** |
+| `profils.metadata.optin_at` | **personne** | `notifier.py:217` | **0 / 4** |
+
+Deux sources de vérité : l'inscription écrit l'une, le notifier lit l'autre.
+Conséquence : **100 % des consentements réels ignorés**, et un run qui répond `200`
+avec `ignores=10` — silencieux.
+
+### Correctif
+
+1. **Producteur** — `profils/routes.py` : `metadata["optin_at"]` horodaté à l'inscription.
+2. **Consommateur** — `notifier.py` : garde-fou (a) accepte `optin_at` **ou** `optin_texte`
+   non vide ; `optin_texte` ajouté au `select`. Sans aucune des deux → ignoré, match conservé.
+
+### Mesure réelle (même job, trois exécutions)
+
+| Étape | `matches_trouves` | `notifies` | `erreurs` | `ignores` |
+|---|---|---|---|---|
+| Avant correctif (prod) | 10 | 0 | 0 | **10** |
+| Après correctif (local, `scripts/run-local.py`) | 10 | **5** | 5 | **0** |
+| Après correctif (prod, `scripts/emission-live.py`) | 5 | 0 | **5** | **0** |
+
+Base après : **5 matches `notifie=true`** (profil `4260b5b6`, canal email) et
+**5 `notifie=false`** (profil `566d99ba`, sans email).
+
+### Harnais
+
+| Fichier | Avant | Après |
+|---|---|---|
+| `scripts/test-emission-matches.py` | 10 checks | **20/20** |
+| `scripts/test-notifications.py` | 80 checks | **93/93** |
+
+Contre-épreuves : harnais rejoué contre `notifier.py` de HEAD → **4 KO** ; mutation du
+garde-fou → **6 KO** ; `test-notifications.py` contre HEAD → **40 KO**.
+`ruff` : 10 erreurs dans `test-notifications.py`, **identiques sur `origin/main`** (préexistantes).
+
+### Deux défauts ouverts, découverts par cette preuve
+
+| # | Défaut | Preuve | Effet |
+|---|---|---|---|
+| **P0-5** | `META_WHATSAPP_TOKEN` refusé | `401 Unauthorized` sur `graph.facebook.com/v21.0/.../messages`, 10 tentatives | tout profil **sans email** est bloqué (5 matches, profil `566d99ba`) |
+| **P0-6** | Job synchrone trop long pour le proxy | 5 emails SMTP = **40 s** en local ; endpoint distant **502 à 47 s** | le cron de 06:17 / 18:17 recevra un 502 et rendra le run **rouge** dès qu'il y aura ≥ 3-5 emails à envoyer |
+
+**P0-6 n'est pas contournable côté client** : il faut borner le lot par appel
+(`max_matches`) et boucler dans le cron, ou passer le job en tâche de fond.
+La preuve d'un envoi email **depuis Render** reste donc à faire : le seul envoi réussi
+à ce jour est local.
+
+### Outils de mesure livrés (rejouables, sans secret affiché)
+
+| Script | Rôle |
+|---|---|
+| `scripts/emission-live.py` | déclenche `/notifications/run` ou `/deadlines` (jeton lu dans `.env`, longueur + `sha256[:12]` seulement) |
+| `scripts/run-local.py` | rejoue le job en local pour voir les traces d'erreur que le 502 masque |
+| `scripts/preuve-emission.py` | combien de matches valides restent sans envoi, par profil, canal et source de consentement |
+| `scripts/diag-ignores.py` | pourquoi chaque match est ignoré (opt-in / quota / actif) |
+| `scripts/diag-optin.py` | compare les deux sources de consentement |
