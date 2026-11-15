@@ -154,6 +154,75 @@ jobs:
                 f"en {time.time() - debut:.0f} s")
           PY
 
+      # LOT A (15/11/2026) : l'émission n'était planifiée par AUCUN workflow.
+      # Le matching créait des matches que personne n'envoyait — mesuré sur la
+      # base : 13 matches encore valides, 3 reçus par l'étudiant.
+      # Ce pas est VOLONTAIREMENT séparé de la collecte : un canal mort rend le
+      # run ROUGE (visible, décision du 15/11) sans annuler la collecte déjà faite.
+      - name: Émettre les matches (notifications)
+        env:
+          JETON: ${{ secrets.SCRAPER_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          import time
+          import urllib.error
+          import urllib.request
+
+          BASE = os.environ.get("API_BASE", "https://lawol-api.onrender.com")
+          JETON = os.environ["JETON"]
+          ATTENTE = 30
+
+
+          def appel(chemin, essais=2, timeout=120):
+              """POST garde ; 401/403 = jeton faux (aucun retry), sinon 2 essais."""
+              dernier = None
+              for essai in range(1, essais + 1):
+                  requete = urllib.request.Request(
+                      BASE + chemin,
+                      method="POST",
+                      data=b"",
+                      headers={"x-admin-token": JETON,
+                               "Content-Type": "application/json"},
+                  )
+                  try:
+                      with urllib.request.urlopen(requete, timeout=timeout) as rep:
+                          return json.loads(rep.read().decode("utf-8"))
+                  except urllib.error.HTTPError as exc:
+                      corps = exc.read()[:400].decode("utf-8", "replace")
+                      if exc.code in (401, 403):
+                          print(f"::error::{exc.code} = jeton refuse par l'API — {corps}")
+                          sys.exit(1)
+                      dernier = f"HTTP {exc.code} {corps}"
+                  except Exception as exc:  # noqa: BLE001 — reseau, timeout, JSON
+                      dernier = f"{type(exc).__name__}: {exc}"
+                  if essai < essais:
+                      print(f"::warning::{chemin} -> {dernier} (essai {essai}/{essais}), "
+                            f"nouvelle tentative dans {ATTENTE} s")
+                      time.sleep(ATTENTE)
+              raise RuntimeError(f"{chemin} : echec apres {essais} tentatives ({dernier})")
+
+
+          # Les DEUX appels sont tentés même si le premier échoue : un rappel
+          # d'échéance perdu n'a pas la même urgence qu'un match non envoyé.
+          echecs = []
+          for chemin in ("/api/v1/notifications/run",
+                         "/api/v1/notifications/deadlines"):
+              try:
+                  stats = appel(chemin)
+                  print(f"{chemin} : {stats}")
+              except Exception as exc:  # noqa: BLE001 — on veut TOUTES les erreurs
+                  echecs.append(chemin)
+                  print(f"::error::{chemin} en echec — {exc}")
+
+          if echecs:
+              print(f"::error::Emission incomplete : {len(echecs)} appel(s) en echec")
+              sys.exit(1)
+          print("emission : matches et rappels traites")
+          PY
+
       # Sans ce controle, une collecte qui ne ramene RIEN (toutes les sources
       # mortes, parseurs casses) rendait le workflow VERT : panne silencieuse
       # mesuree du 20/10 au 26/10/2026 (7 jours sans collecte, zero alerte).

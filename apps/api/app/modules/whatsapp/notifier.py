@@ -159,7 +159,12 @@ def run_notification_job(
     today = aujourdhui or date.today()
 
     # 1. Matches non notifiés, avec profil + offre — LOT RÉDUIT
-    # Filtre : profil.email non nul ; actif + metadata lus pour les garde-fous P3
+    # Filtre : plus AUCUN filtre sur l'email. Le canal est choisi par
+    # `notifications/canal.py` (WhatsApp d'abord, email en repli) ; exiger un
+    # email ici excluait en silence tout étudiant inscrit par téléphone seul
+    # (mesure 15/11/2026 : profil actif 566d99ba, 5 matches valides, 0 envoyé).
+    # Un profil sans aucun canal joignable lève → compté en `erreurs`, le match
+    # reste `notifie=false` et repart au run suivant : aucune perte.
     res = (
         supabase.table("matches")
         .select(
@@ -169,7 +174,6 @@ def run_notification_job(
             "offre:offres(id, titre, entreprise, ville, date_limite, type_offre)"
         )
         .eq("notifie", False)
-        .not_.is_("profil.email", "null")
         .limit(20)
         .execute()
     )
