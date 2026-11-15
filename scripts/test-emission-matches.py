@@ -5,7 +5,11 @@ Mesure hors-ligne (faux Supabase, zéro réseau) de l'émission :
   2. un profil sans email est-il servi par WhatsApp ?
   3. un échec d'envoi laisse-t-il le match en attente (aucune perte) ?
   4. le quota hebdo de 5 envois est-il respecté ?
-  5. les workflows planifient-ils réellement l'émission, et pointent-ils l'hôte vivant ?
+  5. le consentement donné par `optin_texte` SEUL (0 profil sur 4 avait
+     `metadata.optin_at` en prod le 15/11/2026) suffit-il à déclencher l'envoi ?
+  6. un profil sans AUCUN consentement (ni `optin_at`, ni `optin_texte` non
+     vide) est-il bien ignoré, sans envoi et sans marquage ?
+  7. les workflows planifient-ils réellement l'émission, et pointent-ils l'hôte vivant ?
 
 Invariant vérifié, jamais la forme littérale d'un fichier :
 l'émission est planifiée si un workflow suivi contient l'appel au job ; l'hôte est sain
@@ -133,7 +137,21 @@ def JOUR(n: int) -> str:
     return (AUJ + timedelta(days=n)).isoformat()
 
 
-def _profil(pid: str, *, email: str | None, telephone: str | None, actif: bool = True):
+def _profil(
+    pid: str,
+    *,
+    email: str | None,
+    telephone: str | None,
+    actif: bool = True,
+    optin_at: str | None = "2026-10-01T09:00:00+00:00",
+    optin_texte: str | None = None,
+):
+    """Profil d'essai — les DEUX sources de consentement sont pilotables.
+
+    Mesure prod 15/11/2026 : 4 profils sur 4 avaient `optin_texte`, 0 sur 4
+    `metadata.optin_at` → un harnais qui ne pose que `optin_at` ne mesure pas
+    la réalité. `optin_at=None` reproduit donc le cas réel.
+    """
     return {
         "id": pid,
         "prenom": "Etudiant",
@@ -143,7 +161,8 @@ def _profil(pid: str, *, email: str | None, telephone: str | None, actif: bool =
         "filiere": "informatique",
         "niveau": "M2",
         "actif": actif,
-        "metadata": {"optin_at": "2026-10-01T09:00:00+00:00"},
+        "optin_texte": optin_texte,
+        "metadata": {"optin_at": optin_at} if optin_at else {},
     }
 
 
@@ -209,7 +228,7 @@ check("l'échec est compté en erreur", stats["erreurs"] == 1, f"erreurs={stats[
 check("le match reste en attente (aucune perte)", matches_ko[0]["notifie"] is False, str(matches_ko[0]["notifie"]))
 
 # ----------------------------------------------------------------- 3. quota hebdo
-print("\n=== 3. Le quota hebdomadaire de 5 envois est-il tenu ? ===")
+print("\n=== 4. Le quota hebdomadaire de 5 envois est-il tenu ? ===")
 profil_q = _profil("p-quota", email="q@exemple.mr", telephone="22200000003")
 matches_q = [
     _match(f"q{i}", profil_q, _offre(f"oq{i}"), notifie=True, date_match=JOUR(-2)) for i in range(5)
@@ -220,8 +239,59 @@ stats = _executer(matches_q, lambda tel, txt: envoyes.append((tel, txt)))
 check("0 envoi quand le quota est atteint", len(envoyes) == 0, f"envois={len(envoyes)}")
 check("le 6e match est ignoré, pas supprimé", stats["ignores"] >= 1, str(stats))
 
-# ----------------------------------------------------------------- 4. workflows
-print("\n=== 4. L'émission est-elle réellement planifiée ? ===")
+# ----------------------------------------------------------------- 5. optin_texte
+print("\n=== 5. Le consentement par `optin_texte` SEUL suffit-il à envoyer ? ===")
+envoyes.clear()
+profil_texte = _profil(
+    "p-texte-seul",
+    email="texte@exemple.mr",
+    telephone="22200000004",
+    optin_at=None,  # cas mesuré en prod : 0 profil sur 4 avait optin_at
+    optin_texte="J'accepte de recevoir des notifications WhatsApp.",
+)
+matches_texte = [_match("m5", profil_texte, _offre("o5"))]
+stats = _executer(matches_texte, lambda tel, txt: envoyes.append((tel, txt)))
+check(
+    "optin_texte seul → le match est envoyé",
+    len(envoyes) == 1 and envoyes[0][0] == "22200000004",
+    f"envois={envoyes}",
+)
+check("optin_texte seul → 1 notification comptée", stats["notifies"] == 1, str(stats))
+check("optin_texte seul → 0 ignoré", stats["ignores"] == 0, str(stats))
+check("optin_texte seul → match marqué notifié", matches_texte[0]["notifie"] is True, str(matches_texte[0]["notifie"]))
+
+# ----------------------------------------------------------------- 6. aucun consentement
+print("\n=== 6. Ni `optin_at` ni `optin_texte` → ignoré, aucun envoi ? ===")
+# "blanc" = consentement vide/espaces : la colonne existe mais ne dit rien
+for etiquette, texte_consentement in (("absent", None), ("blanc", "   ")):
+    envoyes.clear()
+    profil_muet = _profil(
+        f"p-muet-{etiquette}",
+        email=f"muet-{etiquette}@exemple.mr",
+        telephone="22200000005",
+        optin_at=None,
+        optin_texte=texte_consentement,
+    )
+    matches_muet = [_match(f"m6-{etiquette}", profil_muet, _offre(f"o6-{etiquette}"))]
+    stats = _executer(matches_muet, lambda tel, txt: envoyes.append((tel, txt)))
+    check(
+        f"aucun consentement ({etiquette}) → 0 envoi",
+        len(envoyes) == 0,
+        f"envois={envoyes}",
+    )
+    check(
+        f"aucun consentement ({etiquette}) → ignoré, pas notifié",
+        stats["ignores"] == 1 and stats["notifies"] == 0,
+        str(stats),
+    )
+    check(
+        f"aucun consentement ({etiquette}) → match laissé en attente",
+        matches_muet[0]["notifie"] is False,
+        str(matches_muet[0]["notifie"]),
+    )
+
+# ----------------------------------------------------------------- 7. workflows
+print("\n=== 7. L'émission est-elle réellement planifiée ? ===")
 flux = sorted((RACINE / ".github" / "workflows").glob("*.yml"))
 textes = {f.name: f.read_text(encoding="utf-8", errors="replace") for f in flux}
 print(f"  workflows suivis : {', '.join(textes) or 'AUCUN'}")
