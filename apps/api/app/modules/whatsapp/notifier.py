@@ -140,8 +140,10 @@ def run_notification_job(
     """Envoie les matches non notifiés et les marque comme notifiés.
 
     Garde-fous P3 :
-      (a) Seuls les profils avec `optin_at` présent dans profils.metadata
-          sont notifiés.
+      (a) Seuls les profils ayant donné leur consentement sont notifiés :
+          `metadata.optin_at` (écrit désormais à l'inscription) OU, pour les
+          lignes antérieures, `optin_texte` non vide (la colonne que
+          l'inscription exige depuis l'origine).
       (b) `actif=false` (STOP/désinscription) bloque tout envoi.
       (c) Quota hebdo MAX_MATCHES_PAR_SEMAINE : on compte les envois déjà
           faits cette semaine (matches notifie=true, date_match dans les
@@ -170,7 +172,7 @@ def run_notification_job(
         .select(
             "id, score, "
             "profil:profils!inner(id, prenom, nom, telephone, email, filiere, "
-            "niveau, actif, metadata), "
+            "niveau, actif, optin_texte, metadata), "
             "offre:offres(id, titre, entreprise, ville, date_limite, type_offre)"
         )
         .eq("notifie", False)
@@ -216,9 +218,16 @@ def run_notification_job(
                 ignores += 1
                 continue
 
-            # Garde-fou (a) : seul optin_at présent dans metadata autorise l'envoi
+            # Garde-fou (a) : consentement exigé. Deux sources, une seule vérité :
+            # `metadata.optin_at` (écrit à l'inscription depuis le 15/11) ou
+            # `optin_texte` (colonne historique, remplie par TOUS les profils
+            # inscrits — l'inscription la refuse vide). Lire uniquement
+            # `optin_at` bloquait 100 % des envois : mesuré le 15/11/2026,
+            # 4 profils sur 4 avaient `optin_texte`, 0 sur 4 `optin_at`, et
+            # 10 matches valides sont restés `notifie=false` (ignores=10).
             metadata = profil.get("metadata") or {}
-            if not metadata.get("optin_at"):
+            consentement = metadata.get("optin_at") or (profil.get("optin_texte") or "").strip()
+            if not consentement:
                 ignores += 1
                 continue
 
