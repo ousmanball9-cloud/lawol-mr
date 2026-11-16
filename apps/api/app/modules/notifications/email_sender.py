@@ -28,7 +28,10 @@ from email.message import EmailMessage
 from email.utils import formataddr
 
 # Limites : connexion SMTP bornée (jamais d'attente infinie en prod)
-SMTP_TIMEOUT_S = 10
+# 10 s -> 5 s le 15/11/2026 : deux tentatives (587 puis 465) faisaient 20 s
+# par email en échec ; 5 emails = 40 s et l'endpoint synchrone se faisait
+# couper par le proxy Render (502 à 47 s). 5 s suffit en réseau sain.
+SMTP_TIMEOUT_S = 5
 SMTP_PORT_DEFAUT = 587
 SMTP_PORT_SSL = 465
 NOM_EXPEDITEUR_DEFAUT = "LAWOL.mr"

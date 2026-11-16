@@ -443,14 +443,19 @@ async def trigger_matching(request: Request):
 
 # ---------- Notifications ----------
 @app.post("/api/v1/notifications/run")
-async def trigger_notifications(request: Request):
+async def trigger_notifications(request: Request, max_matches: int = 5):
     """Envoie les matches non notifiés aux étudiants via WhatsApp.
+
+    `max_matches` borne le lot de CET appel (1..20, défaut 5). Mesure du
+    15/11/2026 : 5 emails SMTP = 40 s, et le proxy Render coupe l'appel
+    synchrone (502 à 47 s). Le cron boucle donc sur de petits lots au lieu
+    d'un seul gros appel.
 
     GARDÉ : 401 sans identité, 403 si l'identité est fausse.
     """
     _admin_autorise(request)
     from apps.api.app.modules.whatsapp.notifier import run_notification_job
-    stats = run_notification_job()
+    stats = run_notification_job(limite=max(1, min(20, max_matches)))
     return stats
 
 
