@@ -19,6 +19,7 @@ Exit 0 = tout vert. Exit 1 = au moins un KO (le détail dit lequel).
 """
 from __future__ import annotations
 
+import re
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -190,9 +191,11 @@ def _match(mid: str, profil: dict, offre: dict, *, notifie=False, date_match=Non
     }
 
 
-def _executer(matches: list[dict], envoi):
+def _executer(matches: list[dict], envoi, limite: int | None = None):
     notifier.supabase = _FauxSupabase(matches)
-    return notifier.run_notification_job(envoi=envoi, aujourdhui=AUJ)
+    if limite is None:
+        return notifier.run_notification_job(envoi=envoi, aujourdhui=AUJ)
+    return notifier.run_notification_job(envoi=envoi, aujourdhui=AUJ, limite=limite)
 
 
 # ----------------------------------------------------------------- 1. sans email
@@ -290,8 +293,45 @@ for etiquette, texte_consentement in (("absent", None), ("blanc", "   ")):
         str(matches_muet[0]["notifie"]),
     )
 
-# ----------------------------------------------------------------- 7. workflows
-print("\n=== 7. L'émission est-elle réellement planifiée ? ===")
+# ----------------------------------------------------------------- 7. limite du lot
+print("\n=== 7. La limite borne-t-elle réellement le lot traité ? ===")
+# Mesure de référence (15/11/2026) : 5 emails SMTP = 40 s en local, l'endpoint
+# distant répond 502 à 47 s (proxy Render). Le lot doit donc être borné côté
+# serveur ET bouclé côté workflow — un seul gros appel ne peut pas passer.
+def _lot(n: int) -> list[dict]:
+    """n matches de profils DISTINCTS (le quota hebdo est par profil)."""
+    return [
+        _match(f"lot{i}", _profil(f"p-lot{i}", email=f"lot{i}@exemple.mr",
+                                  telephone=f"2220000010{i}"), _offre(f"olot{i}"))
+        for i in range(n)
+    ]
+
+
+envoyes.clear()
+lot_defaut = _lot(10)
+stats = _executer(lot_defaut, lambda tel, txt: envoyes.append((tel, txt)))
+check(
+    "10 matches, limite par défaut (20) → les 10 traités",
+    stats["matches_trouves"] == 10 and len(envoyes) == 10,
+    f"matches_trouves={stats['matches_trouves']}, envois={len(envoyes)} (attendu 10 et 10)",
+)
+
+envoyes.clear()
+lot_borne = _lot(10)
+stats = _executer(lot_borne, lambda tel, txt: envoyes.append((tel, txt)), limite=3)
+check(
+    "10 matches, limite=3 → 3 traités",
+    stats["matches_trouves"] == 3 and len(envoyes) == 3,
+    f"matches_trouves={stats['matches_trouves']}, envois={len(envoyes)} (attendu 3 et 3)",
+)
+check(
+    "limite=3 → les 7 autres restent en attente (aucune perte)",
+    sum(1 for m in lot_borne if m["notifie"] is False) == 7,
+    f"restants={sum(1 for m in lot_borne if m['notifie'] is False)} (attendu 7)",
+)
+
+# ----------------------------------------------------------------- 8. workflows
+print("\n=== 8. L'émission est-elle réellement planifiée ? ===")
 flux = sorted((RACINE / ".github" / "workflows").glob("*.yml"))
 textes = {f.name: f.read_text(encoding="utf-8", errors="replace") for f in flux}
 print(f"  workflows suivis : {', '.join(textes) or 'AUCUN'}")
@@ -307,6 +347,31 @@ check(
     "un workflow planifie les rappels d'échéance",
     bool(rappels),
     "aucun workflow n'appelle /api/v1/notifications/deadlines",
+)
+
+# Invariant (pas la forme littérale) : l'appel d'émission est BORNÉ (petit lot
+# max_matches) ET BOUCLÉ (un nombre de tours fini, arrêt quand plus rien à
+# envoyer). Un appel unique de 20 matches = 20 × 2 × 5 s = 200 s > proxy Render.
+_texte_emission = "\n".join(textes[n] for n in emission)
+# Invariant, pas forme littérale : la borne peut être écrite en dur
+# (`max_matches=5`) ou portée par une constante nommée (`LOT = 5`), les deux
+# sont acceptées tant que la VALEUR reste bornée.
+_bornes = re.findall(r"max_matches=(\d+)", _texte_emission)
+_bornes += re.findall(r"\bLOT\s*=\s*(\d+)", _texte_emission)
+_tours = re.findall(r"range\((\d+)\)", _texte_emission)
+_tours += re.findall(r"\bTOURS_MAX\s*=\s*(\d+)", _texte_emission)
+_boucle = "for " in _texte_emission
+_arrets = ("matches_trouves" in _texte_emission, "notifies" in _texte_emission)
+check(
+    "le workflow boucle sur un lot borné (max_matches ≤ 20, tours ≤ 8)",
+    bool(_bornes) and all(1 <= int(b) <= 20 for b in _bornes)
+    and _boucle and bool(_tours) and all(int(t) <= 8 for t in _tours),
+    f"max_matches={_bornes}, range()={_tours}, boucle={_boucle}",
+)
+check(
+    "la boucle s'arrête quand il n'y a plus rien à envoyer",
+    all(_arrets),
+    f"conditions d'arrêt trouvées : matches_trouves={_arrets[0]}, notifies={_arrets[1]}",
 )
 
 railway = [nom for nom, txt in textes.items() if "railway" in txt.lower()]

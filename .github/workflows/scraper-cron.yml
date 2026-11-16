@@ -208,14 +208,40 @@ jobs:
           # Les DEUX appels sont tentés même si le premier échoue : un rappel
           # d'échéance perdu n'a pas la même urgence qu'un match non envoyé.
           echecs = []
-          for chemin in ("/api/v1/notifications/run",
-                         "/api/v1/notifications/deadlines"):
+
+          # LOT BORNE (16/11/2026) : un seul appel avec tout le lot depassait le
+          # proxy Render (5 emails SMTP = 40 s, 502 a 47 s). On ecoule la file
+          # par petits lots de 5, bornes a 8 tours, au lieu d'un gros appel.
+          # Arret des qu'il n'y a plus rien a traiter ou qu'un tour n'envoie
+          # RIEN (les matches sans canal joignable reviendraient sinon a l'infini).
+          LOT = 5
+          TOURS_MAX = 8
+          total = {"matches_trouves": 0, "notifies": 0, "erreurs": 0, "ignores": 0}
+          for tour in range(1, TOURS_MAX + 1):
               try:
-                  stats = appel(chemin)
-                  print(f"{chemin} : {stats}")
+                  stats = appel(f"/api/v1/notifications/run?max_matches={LOT}")
               except Exception as exc:  # noqa: BLE001 — on veut TOUTES les erreurs
-                  echecs.append(chemin)
-                  print(f"::error::{chemin} en echec — {exc}")
+                  echecs.append(f"/notifications/run (tour {tour})")
+                  print(f"::error::/notifications/run tour {tour} en echec — {exc}")
+                  break
+              print(f"run tour {tour}/{TOURS_MAX} : {stats}")
+              for cle in total:
+                  total[cle] += int(stats.get(cle) or 0)
+              if not stats.get("matches_trouves"):
+                  print("file vide")
+                  break
+              if not stats.get("notifies"):
+                  print(f"aucun envoi au tour {tour} : arret "
+                        f"({stats.get('erreurs', 0)} en erreur, canal absent)")
+                  break
+          print(f"run cumul : {total}")
+
+          try:
+              stats = appel("/api/v1/notifications/deadlines")
+              print(f"/api/v1/notifications/deadlines : {stats}")
+          except Exception as exc:  # noqa: BLE001 — on veut TOUTES les erreurs
+              echecs.append("/notifications/deadlines")
+              print(f"::error::/notifications/deadlines en echec — {exc}")
 
           if echecs:
               print(f"::error::Emission incomplete : {len(echecs)} appel(s) en echec")

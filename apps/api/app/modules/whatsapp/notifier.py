@@ -136,8 +136,14 @@ def run_notification_job(
     *,
     envoi=None,
     aujourdhui: date | None = None,
+    limite: int = 20,
 ) -> dict:
     """Envoie les matches non notifiés et les marque comme notifiés.
+
+    `limite` borne le lot traité PAR APPEL (défaut 20, l'appelant HTTP borne à
+    1..20). Raison mesurée le 15/11/2026 : 5 emails SMTP = 40 s et l'endpoint
+    synchrone se faisait couper par le proxy Render (502 à 47 s). Un lot plus
+    petit tient sous le seuil ; le cron boucle pour écouler la file.
 
     Garde-fous P3 :
       (a) Seuls les profils ayant donné leur consentement sont notifiés :
@@ -176,7 +182,7 @@ def run_notification_job(
             "offre:offres(id, titre, entreprise, ville, date_limite, type_offre)"
         )
         .eq("notifie", False)
-        .limit(20)
+        .limit(max(1, limite))
         .execute()
     )
 

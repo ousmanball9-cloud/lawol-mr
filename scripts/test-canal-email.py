@@ -153,7 +153,10 @@ check(
     "aucun Cc/Bcc → pas de relais ouvert",
 )
 check(serveur is not None and serveur.tls, "STARTTLS négocié")
-check(serveur is not None and serveur.timeout == 10, "timeout SMTP = 10 s")
+# Invariant : la connexion SMTP est BORNÉE et courte (deux tentatives 587/465
+# doivent tenir sous le proxy Render). Valeur exacte non figée : 10 s le
+# 15/11/2026 (5 emails = 40 s -> 502 à 47 s), resserré à 5 s le 16/11/2026.
+check(serveur is not None and 1 <= serveur.timeout <= 10, f"timeout SMTP borné (≤ 10 s) — {getattr(serveur, 'timeout', None)} s")
 check(
     serveur is not None and serveur.identifiants == ("user-test", "bidon-non-utilise"),
     "login SMTP_USER / SMTP_PASSWORD (env, jamais en dur)",
