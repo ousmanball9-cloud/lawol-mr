@@ -196,3 +196,35 @@ lignes. Aucune mesure live tant que `main` n'est pas deploye (`main` = `6fa511c`
 - **Fait** : `lib/origine.ts` (silence si indice hors contrat ou preuve absente), suffixe compact `offre-origine` dans la ligne pays/categorie de la carte (aucune hauteur ajoutee : meme `<p>`), fait `essentiel-origine` sur la fiche rendu SEULEMENT si l'indice existe, `types.ts` etendu.
 - **Preuve** : `vitest` **253/253** (dont 15 tests dedies : 7 lib + 8 affichage) ; `tsc --noEmit` 0 ; `eslint` 0 sur les 6 fichiers.
 - **Reste** : `--mesure` de couverture (reseau indisponible le 14/11) ; merge vers `main` + deploiement attendus sur accord explicite (autoDeploy Render/Vercel).
+
+---
+
+## V4-G livre (17/11/2026) - branche `vague4/v4g-calendrier`
+
+**Livrable** : extraction stricte de `metadata.calendrier` et `metadata.dates_par_pays` au point
+d'ecriture unique `BaseScraper.save` + `scripts/backfill-calendrier.py` (dry-run par defaut,
+`--apply`, fusion sans perte, idempotent) + `scripts/test-calendrier.py` (33 checks hors ligne,
+12 controles negatifs).
+
+**Mesure (catalogue public, 296 offres le 17/11)** :
+
+| Cle | Avant | Apres | Lecture |
+|---|---|---|---|
+| `calendrier` | 0 | **8 affichables (2,7 %)** | 8 parcours reels, verifies phrase par phrase contre le texte source |
+| `dates_par_pays` | 0 | **0** | **non faisable sur ce catalogue** : aucune offre ne publie deux echeances differentes selon la destination (2 offres collent deux pays a la MEME date = aucun contenu supplementaire) |
+
+**Preuves** : `test-calendrier.py` 33/33 (date relative, mois sans jour, etape unique, meme
+etape a deux dates, ordre incoherent, fourchette, fuseau horaire, date passee -> tous rejetes) ;
+`test-montant` 39/39, `test-montant-ecriture` 11/11, `test-origine-eligible` 33/33,
+`test-categorie-bourse` 100 % (aucune regression) ; `py_compile` + `ruff` = 0.
+
+**Backfill applique** : 8 offres, cles ajoutees = `{calendrier}` uniquement, **0 cle perdue,
+0 cle modifiee**, 2e passage = 0 ecriture.
+
+**Defaut corrige en route** : une echeance ISO de **mai** disparaissait (`_mois_numero` excluait
+les graphies de 3 lettres `may`/`mai`) -> `_date_iso_numerique` valide le mois numerique.
+
+**Consequence pour V4-E / V4-F** : V4-E peut afficher un parcours sur 8 offres (>= 2 etapes
+datees, contrat tenu) ; V4-F n'a **rien** a afficher et doit livrer le verdict "non faisable,
+preuve" plutot qu'un ecran vide. Le prerequis donnee n'est donc plus bloquant par la source
+MESRS seule : il est mesure.
