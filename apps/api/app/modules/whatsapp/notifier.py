@@ -136,12 +136,20 @@ def run_notification_job(
     *,
     envoi=None,
     aujourdhui: date | None = None,
+    limite: int = 20,
 ) -> dict:
     """Envoie les matches non notifiés et les marque comme notifiés.
 
+    `limite` borne le lot traité PAR APPEL (défaut 20, l'appelant HTTP borne à
+    1..20). Raison mesurée le 15/11/2026 : 5 emails SMTP = 40 s et l'endpoint
+    synchrone se faisait couper par le proxy Render (502 à 47 s). Un lot plus
+    petit tient sous le seuil ; le cron boucle pour écouler la file.
+
     Garde-fous P3 :
-      (a) Seuls les profils avec `optin_at` présent dans profils.metadata
-          sont notifiés.
+      (a) Seuls les profils ayant donné leur consentement sont notifiés :
+          `metadata.optin_at` (écrit désormais à l'inscription) OU, pour les
+          lignes antérieures, `optin_texte` non vide (la colonne que
+          l'inscription exige depuis l'origine).
       (b) `actif=false` (STOP/désinscription) bloque tout envoi.
       (c) Quota hebdo MAX_MATCHES_PAR_SEMAINE : on compte les envois déjà
           faits cette semaine (matches notifie=true, date_match dans les
@@ -159,18 +167,22 @@ def run_notification_job(
     today = aujourdhui or date.today()
 
     # 1. Matches non notifiés, avec profil + offre — LOT RÉDUIT
-    # Filtre : profil.email non nul ; actif + metadata lus pour les garde-fous P3
+    # Filtre : plus AUCUN filtre sur l'email. Le canal est choisi par
+    # `notifications/canal.py` (WhatsApp d'abord, email en repli) ; exiger un
+    # email ici excluait en silence tout étudiant inscrit par téléphone seul
+    # (mesure 15/11/2026 : profil actif 566d99ba, 5 matches valides, 0 envoyé).
+    # Un profil sans aucun canal joignable lève → compté en `erreurs`, le match
+    # reste `notifie=false` et repart au run suivant : aucune perte.
     res = (
         supabase.table("matches")
         .select(
             "id, score, "
             "profil:profils!inner(id, prenom, nom, telephone, email, filiere, "
-            "niveau, actif, metadata), "
+            "niveau, actif, optin_texte, metadata), "
             "offre:offres(id, titre, entreprise, ville, date_limite, type_offre)"
         )
         .eq("notifie", False)
-        .not_.is_("profil.email", "null")
-        .limit(20)
+        .limit(max(1, limite))
         .execute()
     )
 
@@ -212,9 +224,16 @@ def run_notification_job(
                 ignores += 1
                 continue
 
-            # Garde-fou (a) : seul optin_at présent dans metadata autorise l'envoi
+            # Garde-fou (a) : consentement exigé. Deux sources, une seule vérité :
+            # `metadata.optin_at` (écrit à l'inscription depuis le 15/11) ou
+            # `optin_texte` (colonne historique, remplie par TOUS les profils
+            # inscrits — l'inscription la refuse vide). Lire uniquement
+            # `optin_at` bloquait 100 % des envois : mesuré le 15/11/2026,
+            # 4 profils sur 4 avaient `optin_texte`, 0 sur 4 `optin_at`, et
+            # 10 matches valides sont restés `notifie=false` (ignores=10).
             metadata = profil.get("metadata") or {}
-            if not metadata.get("optin_at"):
+            consentement = metadata.get("optin_at") or (profil.get("optin_texte") or "").strip()
+            if not consentement:
                 ignores += 1
                 continue
 

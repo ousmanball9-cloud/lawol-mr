@@ -553,7 +553,8 @@ FAUX.tables["matches"] = [
             "date_limite": j(30),
         },
     },
-    # --- Profil B : PAS d'optin_at, actif=true → NE DOIT PAS être notifié ---
+    # --- Profil B : AUCUNE source de consentement (ni optin_at, ni optin_texte),
+    #     actif=true → NE DOIT PAS être notifié (règle : bloqué si les DEUX manquent) ---
     {
         "id": "p3-match-no-optin",
         "profil_id": "p3-prof-no-optin",
@@ -564,11 +565,61 @@ FAUX.tables["matches"] = [
             "telephone": "22136000011",
             "email": "nooptin@example.mr",
             "actif": True,
+            "optin_texte": None,
             "metadata": {},
         },
         "offre": {
             "id": "p3-off-no-optin",
             "titre": "Bourse Test Pas Opt-in",
+            "entreprise": "Organisme Test",
+            "ville": "Nouakchott",
+            "type_offre": "bourse",
+            "date_limite": j(30),
+        },
+    },
+    # --- Profil B2 : consentement par `optin_texte` SEUL (aucun optin_at) →
+    #     DOIT être notifié. C'est le cas réel mesuré le 15/11/2026 : l'inscription
+    #     n'écrivait que cette colonne, le notifier ne lisait que optin_at. ---
+    {
+        "id": "p3-match-texte-optin",
+        "profil_id": "p3-prof-texte-optin",
+        "notifie": False,
+        "date_match": AUJ.isoformat(),
+        "profil": {
+            "id": "p3-prof-texte-optin",
+            "telephone": "22136000014",
+            "email": "texteoptin@example.mr",
+            "actif": True,
+            "optin_texte": "J'accepte de recevoir des notifications WhatsApp.",
+            "metadata": {},
+        },
+        "offre": {
+            "id": "p3-off-texte-optin",
+            "titre": "Bourse Test Opt-in Texte",
+            "entreprise": "Organisme Test",
+            "ville": "Nouakchott",
+            "type_offre": "bourse",
+            "date_limite": j(30),
+        },
+    },
+    # --- Profil B3 : `optin_texte` présent mais BLANC (espaces) et pas d'optin_at
+    #     → consentement vide = pas de consentement → NE DOIT PAS être notifié ---
+    {
+        "id": "p3-match-optin-blanc",
+        "profil_id": "p3-prof-optin-blanc",
+        "notifie": False,
+        "date_match": AUJ.isoformat(),
+        "profil": {
+            "id": "p3-prof-optin-blanc",
+            "telephone": "22136000015",
+            "email": "blanc@example.mr",
+            "actif": True,
+            "optin_texte": "   ",
+            "metadata": {},
+        },
+        "offre": {
+            "id": "p3-off-optin-blanc",
+            "titre": "Bourse Test Opt-in Blanc",
             "entreprise": "Organisme Test",
             "ville": "Nouakchott",
             "type_offre": "bourse",
@@ -666,17 +717,23 @@ stats = _notifier.run_notification_job(envoi=envoi_p3, aujourdhui=AUJ)
 
 telephones_notifies = {tel for tel, _ in envois_p3}
 
-# --- Contrôle positif : seul le profil opt-in éligible est notifié ---
+# --- Contrôle positif : les profils ayant UNE source de consentement sont notifiés ---
 check("P3-a : profil avec optin_at est notifié",
       "22136000010" in telephones_notifies,
       f"telephones_notifies={telephones_notifies}")
-check("P3 : exactement 1 envoi (1 seul profil éligible parmi 4)",
-      len(envois_p3) == 1,
+check("P3-a2 : profil avec optin_texte SEUL est notifié (correctif 15/11/2026)",
+      "22136000014" in telephones_notifies,
+      f"telephones_notifies={telephones_notifies}")
+check("P3 : exactement 2 envois (2 profils consentis parmi 6)",
+      len(envois_p3) == 2,
       f"n={len(envois_p3)} envois={envois_p3}")
 
 # --- Contrôles négatifs : chaque violation fait tomber le harnais ---
-check("P3-b : profil SANS optin_at NOT notifié (contrôle négatif opt-in)",
+check("P3-b : profil SANS aucune source de consentement NOT notifié (ni optin_at ni optin_texte)",
       "22136000011" not in telephones_notifies,
+      f"envois={envois_p3}")
+check("P3-b2 : profil avec optin_texte BLANC (espaces) NOT notifié (consentement vide)",
+      "22136000015" not in telephones_notifies,
       f"envois={envois_p3}")
 check("P3-b : profil actif=false (STOP) NOT notifié (contrôle négatif STOP)",
       "22136000012" not in telephones_notifies,
@@ -685,17 +742,30 @@ check("P3-c : quota hebdo atteint NOT notifié (contrôle négatif quota)",
       "22136000013" not in telephones_notifies,
       f"envois={envois_p3}")
 
-# Le match notifié est marqué notifie=True en base
-match_optin = [m for m in FAUX.tables["matches"] if m.get("id") == "p3-match-optin"]
-check("P3 : match opt-in marqué notifie=True en base",
-      bool(match_optin) and match_optin[0].get("notifie") is True,
+# Les matches notifiés sont marqués notifie=True en base, les bloqués restent False
+def _match_par_id(mid):
+    trouve = [m for m in FAUX.tables["matches"] if m.get("id") == mid]
+    return trouve[0] if trouve else None
+
+
+match_optin = _match_par_id("p3-match-optin")
+check("P3 : match opt-in_at marqué notifie=True en base",
+      bool(match_optin) and match_optin.get("notifie") is True,
       str(match_optin))
+match_texte = _match_par_id("p3-match-texte-optin")
+check("P3 : match opt-in_texte marqué notifie=True en base",
+      bool(match_texte) and match_texte.get("notifie") is True,
+      str(match_texte))
+match_muet = _match_par_id("p3-match-no-optin")
+check("P3 : match sans consentement laissé notifie=False",
+      bool(match_muet) and match_muet.get("notifie") is False,
+      str(match_muet))
 
 # Stats cohérentes
-check("P3 stats : matches_trouves=4", stats["matches_trouves"] == 4,
+check("P3 stats : matches_trouves=6", stats["matches_trouves"] == 6,
       f"stats={stats}")
-check("P3 stats : notifies=1", stats["notifies"] == 1, f"stats={stats}")
-check("P3 stats : ignores=3 (opt-in manquant + STOP + quota)", stats["ignores"] == 3,
+check("P3 stats : notifies=2", stats["notifies"] == 2, f"stats={stats}")
+check("P3 stats : ignores=4 (2 sans consentement + STOP + quota)", stats["ignores"] == 4,
       f"stats={stats}")
 
 # --------------------------------- Bilan --------------------------------------

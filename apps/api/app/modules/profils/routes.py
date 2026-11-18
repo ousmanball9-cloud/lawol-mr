@@ -13,6 +13,8 @@ Migration douce : un profil créé avant le PIN (metadata sans code_pin_hash)
 fixe son code PIN dès la première connexion — zéro migration SQL.
 """
 
+from datetime import datetime, timezone
+
 from apps.api.app.core.database import supabase
 from apps.api.app.modules.auth.garde import garde_profil
 from apps.api.app.modules.auth.pin import hasher_pin, verifier_pin
@@ -97,8 +99,13 @@ async def create_profil(profil: ProfilEtudiantCreate):
         metadata[CLE_PIN] = hasher_pin(code_pin)
     if pays_etudes:
         metadata[CLE_PAYS_ETUDES] = pays_etudes
-    if metadata:
-        data["metadata"] = metadata
+    # Consentement : l'inscription EXIGE `optin_texte` (l. 67) mais le notifier
+    # ne lisait que `metadata.optin_at` — jamais écrit nulle part. Résultat
+    # mesuré le 15/11/2026 : 0 profil sur 4 avec `optin_at`, donc 100 % des
+    # envois bloqués par le garde-fou (a). On horodate ici le consentement
+    # réellement donné, au moment où il est donné.
+    metadata["optin_at"] = datetime.now(timezone.utc).isoformat()
+    data["metadata"] = metadata
 
     res = supabase.table("profils").insert(data).execute()
     if not res.data:
