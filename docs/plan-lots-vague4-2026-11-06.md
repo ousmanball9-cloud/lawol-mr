@@ -196,3 +196,58 @@ lignes. Aucune mesure live tant que `main` n'est pas deploye (`main` = `6fa511c`
 - **Fait** : `lib/origine.ts` (silence si indice hors contrat ou preuve absente), suffixe compact `offre-origine` dans la ligne pays/categorie de la carte (aucune hauteur ajoutee : meme `<p>`), fait `essentiel-origine` sur la fiche rendu SEULEMENT si l'indice existe, `types.ts` etendu.
 - **Preuve** : `vitest` **253/253** (dont 15 tests dedies : 7 lib + 8 affichage) ; `tsc --noEmit` 0 ; `eslint` 0 sur les 6 fichiers.
 - **Reste** : `--mesure` de couverture (reseau indisponible le 14/11) ; merge vers `main` + deploiement attendus sur accord explicite (autoDeploy Render/Vercel).
+
+---
+
+## V4-G livre (17/11/2026) - branche `vague4/v4g-calendrier`
+
+**Livrable** : extraction stricte de `metadata.calendrier` et `metadata.dates_par_pays` au point
+d'ecriture unique `BaseScraper.save` + `scripts/backfill-calendrier.py` (dry-run par defaut,
+`--apply`, fusion sans perte, idempotent) + `scripts/test-calendrier.py` (33 checks hors ligne,
+12 controles negatifs).
+
+**Mesure (catalogue public, 296 offres le 17/11)** :
+
+| Cle | Avant | Apres | Lecture |
+|---|---|---|---|
+| `calendrier` | 0 | **8 affichables (2,7 %)** | 8 parcours reels, verifies phrase par phrase contre le texte source |
+| `dates_par_pays` | 0 | **0** | **non faisable sur ce catalogue** : aucune offre ne publie deux echeances differentes selon la destination (2 offres collent deux pays a la MEME date = aucun contenu supplementaire) |
+
+**Preuves** : `test-calendrier.py` 33/33 (date relative, mois sans jour, etape unique, meme
+etape a deux dates, ordre incoherent, fourchette, fuseau horaire, date passee -> tous rejetes) ;
+`test-montant` 39/39, `test-montant-ecriture` 11/11, `test-origine-eligible` 33/33,
+`test-categorie-bourse` 100 % (aucune regression) ; `py_compile` + `ruff` = 0.
+
+**Backfill applique** : 8 offres, cles ajoutees = `{calendrier}` uniquement, **0 cle perdue,
+0 cle modifiee**, 2e passage = 0 ecriture.
+
+**Defaut corrige en route** : une echeance ISO de **mai** disparaissait (`_mois_numero` excluait
+les graphies de 3 lettres `may`/`mai`) -> `_date_iso_numerique` valide le mois numerique.
+
+**Consequence pour V4-E / V4-F** : V4-E peut afficher un parcours sur 8 offres (>= 2 etapes
+datees, contrat tenu) ; V4-F n'a **rien** a afficher et doit livrer le verdict "non faisable,
+preuve" plutot qu'un ecran vide. Le prerequis donnee n'est donc plus bloquant par la source
+MESRS seule : il est mesure.
+
+---
+
+## V4-E + V4-F + V5-D livres (18/11/2026) - branche `vague4/v4e-affichage-calendrier`
+
+| Livrable | Preuve (verifiee par le regisseur) |
+|---|---|
+| **V4-E** : API `CalendrierEtape` + `calendrier` sur `OffreStagePublic` (valeur STOCKEE, `None` = silence) ; web `lib/calendrier.ts` + `components/offres/calendrier.tsx` monte apres l'echeance | `922136d` (6 fichiers, +411) ; `vitest calendrier` **15/15** (rejoue) ; `tsc` **0** ; controle negatif : garde neutralisee -> 2 tests tombent |
+| **V4-F** : verdict **non faisable, preuve** (aucun ecran vide) | `docs/verdict-v4f-dates-par-pays-2026-11-18.md` ; `dates_par_pays` **0/305** ; dry-run refuse **601/601** (aucune echeance par pays) |
+| **V5-D** : harnais lecture seule du matching prod | `63cb3e0` ; 35 matches, 20 en bareme v3 (dernier calcul 13/11), ecart max **16 pts** ; `/api/v1/matches` sans jeton = **401** |
+
+**Defaut ouvert (bloquant pour la valeur de V4-E)** : `calendrier` present sur **1 seule** des 305 offres publiques alors que 8 sont extractibles -> 7 valeurs ecrites le 17/11 ont disparu en 24 h (`montant` 45 et `origine_eligible` 59, eux, ont survecu). Cause racine en instruction (agent `debogueur`), non contournee par un backfill.
+
+**Fait dur V5-D** : la premisse du plan << bareme v3 jamais rejoue en prod >> est **fausse** ; et **4 matches eligibles ne sont pas livres depuis 5 jours** (profil actif, opt-in, canal WhatsApp) -> file d'emission a l'arret, a traiter en P4.
+
+---
+
+## Note de reprise (19/11/2026) - point d'arret propre
+
+- **Livre, non deploye** : V4-E (`922136d`, 15/15 + tsc 0), V4-F verdict preuve (`94db6c1`), V5-D harnais (`63cb3e0`), harnais persistance calendrier (`a8c718d`, 19/19, negatif 6 KO rejoue par le regisseur).
+- **Defaut de fond ouvert** : `calendrier` = **1/305** en base ; les 7 autres valeurs ont ete effacees par la collecte, parce que le code DEPLOYE (`main`) ne pose pas la cle. Correctif = **merger + deployer la branche** (porte utilisateur, autoDeploy Render/Vercel).
+- **Prochain lot** : apres deploiement -> rejouer `backfill-calendrier.py --apply` (8 offres) puis `couverture-metadata.py` (attendu 8/305) ; sinon **P4** (4 matches eligibles non livres depuis 5 jours).
+- **Piege** : un enfant peut laisser une neutralisation de controle negatif dans le code (`if False and` dans `base.py`) -> toujours `git diff` avant de croire un retour, et restaurer avant commit.

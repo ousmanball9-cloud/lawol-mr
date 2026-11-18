@@ -6,6 +6,8 @@ from typing import Iterable
 
 from apps.api.app.core.database import supabase
 from apps.api.app.modules.matching.extraction import (
+    calendrier_depuis_texte,
+    dates_par_pays_depuis_texte,
     montant_depuis_texte,
     origine_depuis_texte,
 )
@@ -116,12 +118,17 @@ class BaseScraper(ABC):
         """
         inserted = 0
         errors = 0
+        aujourd_hui = datetime.now(timezone.utc).date().isoformat()
         for o in offres:
             try:
                 data = o.model_dump(mode="json")
                 data["type_offre"] = type_offre_pour_source(
                     self.source_name, o.titre, o.description
                 )
+                # Texte de travail UNIQUE pour les 4 extracteurs de `metadata` :
+                # titre + description, jamais `pays_etudes` (qui dit où l'on
+                # étudie, pas qui peut candidater — décision 05/11/2026).
+                texte_offre = f"{o.titre or ''} {o.description or ''}".strip()
                 # CATALOGUE 100 % BOURSES (décision produit, rappelée le 27/10) :
                 # une offre non-bourse n'entre JAMAIS active. Mesure qui impose
                 # cette garde ici et pas seulement à l'écran : le 27/10, 33
@@ -143,9 +150,7 @@ class BaseScraper(ABC):
                 # upsert, donc 19 des 42 montants écrits avaient déjà disparu
                 # après une passe de collecte. Les gardes de
                 # `montant_depuis_texte` décident ; sans certitude, pas de clé.
-                montant = montant_depuis_texte(
-                    f"{o.titre or ''} {o.description or ''}".strip()
-                )
+                montant = montant_depuis_texte(texte_offre)
                 if montant:
                     metadata["montant"] = montant
                 # ORIGINE (contrat `docs/contrat-metadata-offres.md` §2.2) : même
@@ -154,11 +159,25 @@ class BaseScraper(ABC):
                 # suivante. Posé ICI, au point d'écriture unique.
                 # Texte = titre + description UNIQUEMENT : `pays_etudes` dit où
                 # l'on étudie, jamais qui peut candidater (décision 05/11/2026).
-                origine = origine_depuis_texte(
-                    f"{o.titre or ''} {o.description or ''}".strip()
-                )
+                origine = origine_depuis_texte(texte_offre)
                 if origine:
                     metadata["origine_eligible"] = origine
+                # CALENDRIER / DATES PAR PAYS (contrat §2.3 / §2.4, lot V4-G) :
+                # posés au même point d'écriture unique, pour la même raison que
+                # le montant — `metadata` est RECONSTRUIT à chaque upsert, donc
+                # un backfill seul serait effacé par la collecte suivante.
+                # CALENDRIER : ≥ 2 étapes datées et AUCUNE étape déjà passée —
+                # un parcours terminé n'aide aucun candidat et trahit souvent
+                # deux cycles mélangés dans la même page.
+                calendrier = calendrier_depuis_texte(texte_offre)
+                if calendrier and calendrier[0]["date"] >= aujourd_hui:
+                    metadata["calendrier"] = calendrier
+                # DATES PAR PAYS (contrat §2.4) : mesuré à ZÉRO sur le catalogue
+                # le 16/11/2026 (aucune échéance distincte par destination) ;
+                # la clé n'apparaît donc que si un texte en publie vraiment.
+                par_pays = dates_par_pays_depuis_texte(texte_offre)
+                if par_pays:
+                    metadata["dates_par_pays"] = par_pays
                 data["metadata"] = metadata
 
                 # Pays d'études : seulement si non renseigné (jamais d'écrasement)

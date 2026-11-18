@@ -21,6 +21,7 @@ import { CtaCandidater } from "@/components/offres/cta-candidater";
 import { BlocFinancement } from "@/components/offres/financement";
 import { FicheEssentiel } from "@/components/offres/essentiel";
 import { DossierPieces } from "@/components/offres/dossier-pieces";
+import { BlocCalendrier } from "@/components/offres/calendrier";
 import { SuiviCandidature } from "@/components/offres/suivi-candidature";
 import { CarteOffre } from "@/components/offres/carte-offre";
 import { labelPays } from "@/components/offres/types";
@@ -262,6 +263,11 @@ export default function OffreDetailPage() {
               <p className="mt-2 text-sm text-muted-foreground">{resumeJours}</p>
             )}
           </section>
+
+          {/* 5 bis · CALENDRIER DE SÉLECTION — contrat metadata §2.3. Le bloc
+              rend `null` tant que l'API ne sert pas ≥ 2 étapes datées : le cas
+              majoritaire reste un silence, pas un parcours inventé. */}
+          <BlocCalendrier calendrier={offre.calendrier} />
 
           {/* 6 · DOSSIER — pièces à préparer AVANT la prose : l'élève doit savoir
               ce qu'il aura à fournir avant de lire toute la description (~500 px

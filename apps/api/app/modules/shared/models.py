@@ -4,7 +4,11 @@ from typing import Any, Literal, Optional
 from uuid import UUID
 
 import bleach
-from apps.api.app.modules.matching.extraction import montant_stocke, origine_stockee
+from apps.api.app.modules.matching.extraction import (
+    calendrier_stocke,
+    montant_stocke,
+    origine_stockee,
+)
 from apps.api.app.modules.scraper.engine import (
     CategorieBourse,
     categorie_bourse_pour_offre,
@@ -222,6 +226,18 @@ class OrigineEligible(BaseModel):
     preuve: Literal["texte", "source"]
 
 
+class CalendrierEtape(BaseModel):
+    """Jalon daté d'un calendrier de sélection — contrat §2.3 (lot V4-E).
+
+    Une étape = une date ISO `YYYY-MM-DD`. La forme est validée en amont par
+    `calendrier_stocke` : ici on ne fait que typer ce qui est déjà conforme.
+    Pas de champ de remplacement : l'absence de calendrier reste un silence.
+    """
+
+    etape: Literal["candidature", "preselection", "entretien", "resultat"]
+    date: str
+
+
 class OffreStagePublic(BaseModel):
     id: UUID
     titre: str
@@ -251,6 +267,10 @@ class OffreStagePublic(BaseModel):
     # Indice d'origine (contrat metadata §2.2) — None = silence : l'écran
     # n'affiche que ce que la source publie, jamais une déduction.
     origine_eligible: Optional[OrigineEligible] = None
+    # Calendrier de sélection (contrat metadata §2.3) — None = silence. La
+    # valeur STOCKÉE est servie telle quelle si elle est conforme (≥ 2 étapes,
+    # dates valides, ordre croissant) ; l'écran n'en déduit aucun jalon.
+    calendrier: Optional[list[CalendrierEtape]] = None
 
     @model_validator(mode="before")
     @classmethod
@@ -284,6 +304,24 @@ class OffreStagePublic(BaseModel):
             return {
                 **data,
                 "origine_eligible": origine_stockee(data.get("metadata")),
+            }
+        return data
+
+    @model_validator(mode="before")
+    @classmethod
+    def _calendrier_depuis_metadata(cls, data):
+        """Calendrier servi depuis `metadata['calendrier']` (contrat §2.3).
+
+        Valeur STOCKÉE telle quelle si sa forme est conforme à
+        `calendrier_stocke` : ≥ 2 étapes, étapes du contrat, dates ISO valides,
+        ordre chronologique strict. Sinon `None` = silence — l'écran n'affiche
+        ni une étape seule (elle se confond avec `date_limite`) ni un parcours
+        reconstitué.
+        """
+        if isinstance(data, dict) and "calendrier" not in data:
+            return {
+                **data,
+                "calendrier": calendrier_stocke(data.get("metadata")),
             }
         return data
 
