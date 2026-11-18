@@ -1,5 +1,6 @@
 import type { Montant } from "@/lib/montant";
 import type { OrigineEligible } from "@/lib/origine";
+import type { CalendrierEtape } from "@/lib/calendrier";
 
 /** Offre publique — forme renvoyée par GET /api/v1/offres et /api/v1/offres/{id}. */
 export type Offre = {
@@ -28,8 +29,11 @@ export type Offre = {
    *  l'API ne sert que la valeur stockée et conforme, jamais une estimation. */
   montant?: Montant | null;
   /** Indice d'eligibilite par origine (contrat §2.2). `null` = silence : `pays_etudes`
-   *  dit ou l'on etudie, pas qui peut candidater — l'ecran n'en deduit rien. */
+   *  dit ou l'on etudie, pas qui peut candidater - l'ecran n'en deduit rien. */
   origine_eligible?: OrigineEligible | null;
+  /** Calendrier de selection (contrat §2.3). `null` ou absent = silence :
+   *  l'API ne sert que >= 2 etapes datees, valides et chronologiques. */
+  calendrier?: CalendrierEtape[] | null;
   active: boolean;
 };
 
