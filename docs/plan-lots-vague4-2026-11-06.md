@@ -242,3 +242,12 @@ MESRS seule : il est mesure.
 **Defaut ouvert (bloquant pour la valeur de V4-E)** : `calendrier` present sur **1 seule** des 305 offres publiques alors que 8 sont extractibles -> 7 valeurs ecrites le 17/11 ont disparu en 24 h (`montant` 45 et `origine_eligible` 59, eux, ont survecu). Cause racine en instruction (agent `debogueur`), non contournee par un backfill.
 
 **Fait dur V5-D** : la premisse du plan << bareme v3 jamais rejoue en prod >> est **fausse** ; et **4 matches eligibles ne sont pas livres depuis 5 jours** (profil actif, opt-in, canal WhatsApp) -> file d'emission a l'arret, a traiter en P4.
+
+---
+
+## Note de reprise (19/11/2026) - point d'arret propre
+
+- **Livre, non deploye** : V4-E (`922136d`, 15/15 + tsc 0), V4-F verdict preuve (`94db6c1`), V5-D harnais (`63cb3e0`), harnais persistance calendrier (`a8c718d`, 19/19, negatif 6 KO rejoue par le regisseur).
+- **Defaut de fond ouvert** : `calendrier` = **1/305** en base ; les 7 autres valeurs ont ete effacees par la collecte, parce que le code DEPLOYE (`main`) ne pose pas la cle. Correctif = **merger + deployer la branche** (porte utilisateur, autoDeploy Render/Vercel).
+- **Prochain lot** : apres deploiement -> rejouer `backfill-calendrier.py --apply` (8 offres) puis `couverture-metadata.py` (attendu 8/305) ; sinon **P4** (4 matches eligibles non livres depuis 5 jours).
+- **Piege** : un enfant peut laisser une neutralisation de controle negatif dans le code (`if False and` dans `base.py`) -> toujours `git diff` avant de croire un retour, et restaurer avant commit.
