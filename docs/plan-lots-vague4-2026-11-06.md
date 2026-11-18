@@ -228,3 +228,17 @@ les graphies de 3 lettres `may`/`mai`) -> `_date_iso_numerique` valide le mois n
 datees, contrat tenu) ; V4-F n'a **rien** a afficher et doit livrer le verdict "non faisable,
 preuve" plutot qu'un ecran vide. Le prerequis donnee n'est donc plus bloquant par la source
 MESRS seule : il est mesure.
+
+---
+
+## V4-E + V4-F + V5-D livres (18/11/2026) - branche `vague4/v4e-affichage-calendrier`
+
+| Livrable | Preuve (verifiee par le regisseur) |
+|---|---|
+| **V4-E** : API `CalendrierEtape` + `calendrier` sur `OffreStagePublic` (valeur STOCKEE, `None` = silence) ; web `lib/calendrier.ts` + `components/offres/calendrier.tsx` monte apres l'echeance | `922136d` (6 fichiers, +411) ; `vitest calendrier` **15/15** (rejoue) ; `tsc` **0** ; controle negatif : garde neutralisee -> 2 tests tombent |
+| **V4-F** : verdict **non faisable, preuve** (aucun ecran vide) | `docs/verdict-v4f-dates-par-pays-2026-11-18.md` ; `dates_par_pays` **0/305** ; dry-run refuse **601/601** (aucune echeance par pays) |
+| **V5-D** : harnais lecture seule du matching prod | `63cb3e0` ; 35 matches, 20 en bareme v3 (dernier calcul 13/11), ecart max **16 pts** ; `/api/v1/matches` sans jeton = **401** |
+
+**Defaut ouvert (bloquant pour la valeur de V4-E)** : `calendrier` present sur **1 seule** des 305 offres publiques alors que 8 sont extractibles -> 7 valeurs ecrites le 17/11 ont disparu en 24 h (`montant` 45 et `origine_eligible` 59, eux, ont survecu). Cause racine en instruction (agent `debogueur`), non contournee par un backfill.
+
+**Fait dur V5-D** : la premisse du plan << bareme v3 jamais rejoue en prod >> est **fausse** ; et **4 matches eligibles ne sont pas livres depuis 5 jours** (profil actif, opt-in, canal WhatsApp) -> file d'emission a l'arret, a traiter en P4.
