@@ -251,3 +251,25 @@ MESRS seule : il est mesure.
 - **Defaut de fond ouvert** : `calendrier` = **1/305** en base ; les 7 autres valeurs ont ete effacees par la collecte, parce que le code DEPLOYE (`main`) ne pose pas la cle. Correctif = **merger + deployer la branche** (porte utilisateur, autoDeploy Render/Vercel).
 - **Prochain lot** : apres deploiement -> rejouer `backfill-calendrier.py --apply` (8 offres) puis `couverture-metadata.py` (attendu 8/305) ; sinon **P4** (4 matches eligibles non livres depuis 5 jours).
 - **Piege** : un enfant peut laisser une neutralisation de controle negatif dans le code (`if False and` dans `base.py`) -> toujours `git diff` avant de croire un retour, et restaurer avant commit.
+
+---
+
+## V4-E DEPLOYE ET PROUVE EN LIGNE (19/11/2026) - main = 2112d7a
+
+| Preuve | Resultat |
+|---|---|
+| Merge | `d783407` (--no-ff), push `4c6ea67..d783407` puis `2112d7a` |
+| Gates sur le merge | py_compile 0 - ruff 0 - calendrier 33/33 - calendrier-ecriture 19/19 - montant 39/39 - montant-ecriture 11/11 - vitest 15+6+7 - tsc 0 - `next build` VERT |
+| API Render | sert le champ `calendrier` ; `/health/ready` 200 + database ok |
+| Vercel | READY sur `d783407` (log de build) |
+| Backfill APRES deploiement | **8 offres** -> `calendrier` **9/302 (3,0 %)** ; `dates_par_pays` 0 |
+| Harnais live neuf | `verify-calendrier.mjs` : **VERT** - DOM prod == API (2 etapes, dates fr-FR), silence sur offre sans calendrier, 0 erreur console ; controle negatif API mutee = **4 KO / exit 1**, URL non rendue = exit 2 |
+| Non-regression | `verify-live-public` **11/11** |
+
+**Le defaut de persistance est clos par le mecanisme, pas par un backfill** : la collecte
+qui tourne sur Render ecrit desormais `metadata['calendrier']` (prouve au point d'ecriture,
+harnais `test-calendrier-ecriture.py`). Prochain indicateur a suivre : la couverture doit
+tenir au-dela de la prochaine collecte (9 aujourd'hui, 8 extractibles + 1 anterieure).
+
+**Reste ouvert, hors vague 4** : **4 matches eligibles non livres depuis 5 jours** (mesure V5-D)
+-> lot P4. `dates_par_pays` reste a 0/302 : V4-F livre son verdict, pas un ecran.
