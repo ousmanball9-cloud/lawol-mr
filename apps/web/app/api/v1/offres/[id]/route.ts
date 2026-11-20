@@ -1,22 +1,17 @@
-import { NextResponse } from "next/server";
 import { API_URL } from "@/lib/api-url";
+import { relayerGetApi } from "@/lib/proxy-api";
 
 // Proxy GET /api/v1/offres/[id] → API publique (détail d'une offre active)
+//
+// RÉVEIL RENDER (20/11/2026) : même traitement que la liste — l'API free répond
+// 503 pendant son réveil, on réessaie au lieu d'afficher une fiche en erreur.
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await params;
-    const res = await fetch(`${API_URL}/api/v1/offres/${id}`);
-    const data = await res.text();
-    return new NextResponse(data, {
-      status: res.status,
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch {
-    return NextResponse.json({ error: "API inaccessible" }, { status: 502 });
-  }
+  const { id } = await params;
+  return relayerGetApi(`${API_URL}/api/v1/offres/${id}`);
 }

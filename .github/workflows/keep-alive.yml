@@ -1,0 +1,44 @@
+name: Keep-alive API (lancement)
+
+# BUT : maintenir `lawol-api` eveillee, et PROUVER qu'elle repond.
+#
+# MESURE DU 20/11/2026 (pourquoi ce fichier existe) : le service Render `lawol-api`
+# est sur le plan FREE — il s'endort apres ~15 min d'inactivite. Pendant le reveil,
+# l'edge Render repond **503** (constate : 3 appels 503 puis 200, service
+# `not_suspended`, deploy `live`). Un visiteur qui arrive pile a ce moment voit un
+# site casse. Decision utilisateur du 20/11/2026 : garder le plan free et reveiller
+# par cron, plutot que payer un plan a ~7 $/mois.
+#
+# LIMITE CONNUE ET ASSUMEE : GitHub retarde les crons planifies (mesure du repo :
+# un cron de 06:00 est parti a 11:12). Ce workflow est un FILET, pas une garantie a
+# la minute. Le vrai filet cote produit est le reessai du proxy Next
+# (`apps/web/lib/proxy-api.ts`) qui patiente pendant le reveil.
+#
+# NE PAS SUPPRIMER : sans lui, la premiere visite de la journee tombe sur un 503.
+on:
+  schedule:
+    # Toutes les 10 min. Render s'endort a ~15 min : la marge est volontairement
+    # large pour absorber un retard GitHub sans laisser le service s'endormir.
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # bouton "Run workflow" pour tester a la main
+
+jobs:
+  reveil:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Reveiller l'API (3 essais, 120 s max chacun)
+        run: |
+          set -u
+          for essai in 1 2 3; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 \
+              https://lawol-api.onrender.com/health || echo "000")
+            echo "essai ${essai} -> HTTP ${code}"
+            if [ "${code}" = "200" ]; then
+              echo "API eveillee et saine."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::API injoignable apres 3 essais (dernier statut ${code})."
+          exit 1
