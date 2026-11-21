@@ -226,9 +226,15 @@ def _filieres(texte: str) -> list[Filiere]:
     return trouvees or list(Filiere)
 
 
-def _resume(texte: str, max_car: int = 1800) -> str:
+def _resume(texte: str, max_car: int = 4000) -> str:
     """Coupe à une frontière de phrase — jamais au milieu d'un mot : une
-    description de blog tronquée à la lettre est illisible dans la modale."""
+    description de blog tronquée à la lettre est illisible dans la modale.
+
+    Plafond 4000 (mesure du 20/11/2026 : description maximale du catalogue =
+    1799 car., 201 offres sur 313 coupées à l'ancien plafond de 1800, la phrase
+    d'éligibilité tombant APRÈS la coupe → 217 offres sans indice d'origine).
+    Le plafond est la seule perte d'information réelle : il doit laisser passer
+    la description entière tant qu'elle tient dessous."""
     texte = re.sub(r"\s+", " ", texte).strip()
     if len(texte) <= max_car:
         return texte
