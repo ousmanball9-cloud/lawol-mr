@@ -18,3 +18,5 @@ Format : `YYYY-MM-DD — Décision — Rationale — Statut — Décidé par`
 | 2026-11-07 | Agent `securite` évolué en ange gardien | Revue avant validation + garde continue (checklist par release, incident) ; chargement du skill projet en priorité | Actif | Fondateur (délégation), Régisseur (implémentation) |
 | 2026-11-07 | Skill `ange-gardien-lawol` créé | Checklist release 9 points, procédure incident 5 étapes, cadences de suivi (PR/mensuel/trimestriel/G1) | Actif | Fondateur (délégation), Régisseur (implémentation) |
 | 2026-11-07 | Montant annonce : extracteur etroit + affichage carte/fiche (V4-B/V4-C) | Un montant faux coute plus cher qu'un montant absent ; la cle est ecrite au point d'ecriture unique `BaseScraper.save` (un backfill seul est efface a la collecte) | Actif | Regisseur |
+| 2026-11-20 | **URL publique du lancement = `lawol-mr.vercel.app`** (`lawol.mr` non corrige, aucune action DNS) | Cout/benefice au lancement : le domaine n'apporte aucune fonction, l'URL Vercel est deja stable et partageable (WhatsApp, QR, bio) ; on assume l'URL plutot que d'ouvrir un chantier DNS sans date | Actif | Fondateur |
+
